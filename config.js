@@ -1,0 +1,12 @@
+// Settings for this deployment — see README.md.
+// The Supabase anon key is meant to be public: every table is protected by row-level security.
+// Leave supabaseUrl / supabaseAnonKey empty to run the built-in demo (sample data, nothing saved).
+window.GYM_CONFIG = {
+  supabaseUrl: '',          // e.g. 'https://abcdefghijkl.supabase.co'
+  supabaseAnonKey: '',      // Project Settings → API → anon public key
+  usernameDomain: 'members.pmex-gym.local',   // must match USERNAME_EMAIL_DOMAIN of the admin-users function
+
+  // Where game data comes from (read at runtime, nothing is copied into this repo)
+  pomastersUrl: 'https://pomasters.github.io/SyncPairsTracker/',   // sync pairs + icons
+  dexUrl: 'https://kietto03.github.io/pmex-supez-dex/',              // data/gyms.json (Gym Battles)
+};

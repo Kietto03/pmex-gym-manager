@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Gym manager for Pokémon Masters EX: members, sync pairs, Pasio Tower and Gym Battle run logs.">
+  <title>PMEX Gym Manager</title>
+  <link rel="icon" href="https://pomasters.github.io/SyncPairsTracker/images/icon_masterex.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script>
+    try {
+      document.documentElement.dataset.theme = localStorage.getItem('gym-theme') ||
+        (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      document.documentElement.lang = localStorage.getItem('gym-lang') || 'en';
+    } catch (e) {}
+  </script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#/">
+      <img src="https://pomasters.github.io/SyncPairsTracker/images/icon_masterex.png" alt="">
+      <span>Gym Manager</span>
+      <span id="demo-flag" class="demo-flag" hidden>Demo</span>
+    </a>
+    <nav id="nav" class="nav"></nav>
+    <div class="top-right">
+      <span id="userbox"></span>
+      <select id="lang" class="lang" aria-label="Language"></select>
+      <button id="theme" class="icon-btn" aria-label="Theme">☾</button>
+      <a id="dex-link" class="icon-btn text" href="#" target="_blank" rel="noopener">Dex</a>
+    </div>
+  </header>
+
+  <main id="view" class="view"><p class="muted loading">Loading…</p></main>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <footer class="footer">
+    Sync pair data &amp; icons: <a href="https://pomasters.github.io/SyncPairsTracker/" target="_blank" rel="noopener">PoMasters Sync Pairs Tracker</a> ·
+    Gym Battle data: <a href="https://kietto03.github.io/pmex-supez-dex/" target="_blank" rel="noopener">PMEX Dex</a> ·
+    Fan project, not affiliated with DeNA or The Pokémon Company.
+  </footer>
+
+  <script src="config.js"></script>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
