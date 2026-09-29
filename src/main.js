@@ -3,6 +3,8 @@
    Pages: sign-in · overview · log · plan · members · member/<id>/<tab> · account · admin
    ═══════════════════════════════════════════════════════════════ */
 import { createApi, isDemo } from './api.js';
+import { ico } from './icons.js';
+import { STYLES, ACCENTS, MODES, getAppearance, applyAppearance } from './appearance.js';
 import { t, getLang, setLang, LANGS, locale } from './i18n.js';
 import { TOWER_TOP, circuitAt, roundShort, seasonState, pointsIn, validateRun, readiness, pairWeight, levelLabel, suggestTeam } from './rules.js';
 import { loadCatalog, loadGyms, PAIRS, pairById, pairName, pairImage, TYPES, TYPE_COLORS, typeIcon, roleIcon, roleKey,
@@ -28,20 +30,6 @@ const rankName = r => ({ admin: t('Admin'), mod: t('Mod'), member: t('Member') }
 const rankTag = (r, always = false) => r !== 'member' || always ? `<span class="badge role-${r}">${rankName(r)}</span>` : '';
 const debounce = (fn, ms = 400) => { let h; return (...a) => { clearTimeout(h); h = setTimeout(() => fn(...a), ms); }; };
 const tc = type => TYPE_COLORS[type] || '#7a86a8';
-
-// Line icons (24×24, stroke = currentColor)
-const ICONS = {
-  trophy: '<path d="M7 4h10v4a5 5 0 0 1-10 0V4Z"/><path d="M17 6h3v1a3 3 0 0 1-3 3M7 6H4v1a3 3 0 0 0 3 3M12 13v3M8 20h8l-1-4H9l-1 4Z"/>',
-  flag: '<path d="M5 21V4M5 4h12l-2.5 4L17 12H5"/>',
-  ticket: '<path d="M3 7h18v3a2 2 0 0 0 0 4v3H3v-3a2 2 0 0 0 0-4V7Z"/><path d="M14 7v10" stroke-dasharray="2 2.5"/>',
-  gym: '<path d="M3 10 12 4l9 6M5 10v9h14v-9M9 19v-5h6v5"/>',
-  calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
-  edit: '<path d="M4 20h4L19 9l-4-4L4 16v4ZM13.5 6.5l4 4"/>',
-  bolt: '<path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/>',
-  search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
-  swords: '<path d="M14.5 17.5 3 6V3h3l11.5 11.5M13 19l6-6M16 16l4 4M9.5 17.5 21 6V3h-3L6.5 14.5M11 19l-6-6M8 16l-4 4"/>',
-};
-const ico = n => `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`;
 
 function toast(msg, bad = false) {
   const el = $('#toast');
@@ -94,42 +82,37 @@ async function loadSeason() {
 const state = () => (season() ? seasonState(season(), S.runs, S.sm) : null);
 
 // ─── Chrome (header) ────────────────────────────────────────
-const NAV = [['', 'Overview'], ['log', 'Log a run'], ['plan', 'Plan'], ['members', 'Members'], ['admin', 'Admin'], ['account', 'Account']];
+const NAV = [['', 'Overview', 'home'], ['log', 'Log a run', 'swords'], ['plan', 'Plan', 'plan'], ['roster', 'Roster', 'roster'],
+  ['members', 'Members', 'users'], ['admin', 'Admin', 'shield']];
 function renderHeader(active) {
   $('#nav').innerHTML = S.me ? NAV.filter(([k]) => k !== 'admin' || isStaff())
-    .map(([k, label]) => `<a href="#/${k}" class="${k === active ? 'on' : ''}">${t(label)}</a>`).join('') : '';
-  $('#userbox').innerHTML = S.me ? `<a href="#/member/${S.me}" class="user">${av(S.me)}${esc(nameOf(meP()))} ${rankTag(meP().role)}</a>` : '';
-  $('#lang').innerHTML = LANGS.map(([k, l]) => `<option value="${k}" ${k === getLang() ? 'selected' : ''}>${l}</option>`).join('');
+    .map(([k, label, icon]) => `<a href="#/${k}" class="${k === active ? 'on' : ''}">${ico(icon)}<span>${t(label)}</span></a>`).join('') : '';
+  $('#userbox').innerHTML = S.me ? `<a href="#/member/${S.me}" class="user">${av(S.me)}<span>${esc(nameOf(meP()))}</span> ${rankTag(meP().role)}</a>` : '';
+  $('#settings-link').innerHTML = ico('gear');
+  $('#settings-link').classList.toggle('on', active === 'settings');
+  $('#settings-link').title = t('Settings');
   $('#demo-flag').hidden = !isDemo;
   $('#demo-flag').textContent = t('Demo');
   $('#dex-link').href = DEX;
-  $('#dex-link').textContent = t('Dex');
 }
+const langSelect = () => `<select id="lang" class="lang" aria-label="${t('Language')}">${LANGS.map(([k, l]) => `<option value="${k}" ${k === getLang() ? 'selected' : ''}>${l}</option>`).join('')}</select>`;
 document.addEventListener('change', e => {
   if (e.target.id !== 'lang') return;
   setLang(e.target.value);
   route();
 });
-function applyTheme(th) {
-  document.documentElement.dataset.theme = th;
-  try { localStorage.setItem('gym-theme', th); } catch { /* private mode */ }
-  $('#theme').textContent = th === 'dark' ? '☀' : '☾';
-  $('#theme').title = th === 'dark' ? t('Light mode') : t('Dark mode');
-}
-document.addEventListener('click', e => {
-  if (e.target.closest('#theme')) applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
-});
 
 // ─── Router ─────────────────────────────────────────────────
 const view = $('#view');
-const routes = { '': renderOverview, log: renderLog, plan: renderPlan, members: renderMembers, member: renderMember, account: renderAccount, admin: renderAdmin };
+const routes = { '': renderOverview, log: renderLog, plan: renderPlan, roster: renderRoster, members: renderMembers, member: renderMember,
+  settings: renderSettings, account: renderSettings, admin: renderAdmin };
 const after = {};
 
 function route() {
   if (!S.me) { renderHeader(''); renderLogin(); return; }
   const [, name = '', ...args] = location.hash.replace(/^#/, '').split('/').map(decodeURIComponent);
   const fn = routes[name] || renderOverview;
-  renderHeader(name === 'member' ? (args[0] === S.me || !args[0] ? 'account' : 'members') : name);
+  renderHeader(name === 'member' ? (args[0] === S.me || !args[0] ? '' : 'members') : name === 'account' ? 'settings' : name);
   view.innerHTML = fn(...args);
   after[name]?.(...args);
 }
@@ -156,7 +139,7 @@ function renderLogin() {
     </section>
     <div class="login card">
       <img src="${POMA}images/icon_masterex.png" class="login-logo" alt="">
-      <h2>${t('Sign in')}</h2>
+      <div class="login-top"><h2>${t('Sign in')}</h2>${langSelect()}</div>
       <p class="muted" style="margin:0">${t('Sign in with the account your gym admin gave you.')}</p>
       <form id="login-form" class="form">
         <label>${t('Username')}<input name="username" autocomplete="username" required autofocus></label>
@@ -197,7 +180,7 @@ document.addEventListener('click', e => {
 function seasonBar() {
   if (S.seasons.length < 2) return '';
   return `<div class="season-bar">${S.seasons.map(s => `
-    <button class="pill ${s.id === S.sid ? 'on' : ''}" data-season="${s.id}">${s.is_active ? '● ' : ''}${esc(s.name)}</button>`).join('')}</div>`;
+    <button class="pill ${s.id === S.sid ? 'on' : ''}" data-season="${s.id}">${s.is_active ? '<i class="dot"></i>' : ''}${esc(s.name)}</button>`).join('')}</div>`;
 }
 document.addEventListener('click', async e => {
   const b = e.target.closest('[data-season]');
@@ -251,7 +234,7 @@ function renderOverview() {
     ${lineup(s.leaders.map(l => {
       const v = cur ? pointsIn(st, st.active, l.name) : 0, done = cur && v >= cur.pts;
       return { name: l.name, type: l.type, src: leaderImage(s, l.name), href: `#/log/${encodeURIComponent(l.name)}`, done,
-        label: !cur ? '' : done ? `✓ ${t('cleared')}` : t('{n} to go', { n: fmtK(cur.pts - v) }) };
+        label: !cur ? '' : done ? `${ico('check')} ${t('cleared')}` : t('{n} to go', { n: fmtK(cur.pts - v) }) };
     }))}
   </section>
 
@@ -290,7 +273,7 @@ function renderOverview() {
             ${s.leaders.map(l => {
               const v = pointsIn(st, n, l.name), full = v >= c.pts;
               return `<td><a class="cell ${full ? 'full' : v ? 'part' : ''}" href="#/log/${encodeURIComponent(l.name)}/${n}" title="${esc(l.name)} · ${esc(c.label)}: ${fmtN(v)} / ${fmtN(c.pts)}">
-                <i style="width:${Math.min(100, v / c.pts * 100)}%"></i><span>${full ? '✓' : v ? fmtK(v) : ''}</span></a></td>`;
+                <i style="width:${Math.min(100, v / c.pts * 100)}%"></i><span>${full ? ico('check') : v ? fmtK(v) : ''}</span></a></td>`;
             }).join('')}</tr>`;
         }).join('')}</tbody>
       </table>
@@ -386,12 +369,12 @@ function runForm() {
         const v = pointsIn(st, form.round, l.name), full = v >= (c?.pts || 0);
         const planned = assignment(form.user_id, l.name);
         return `<button type="button" class="lp ${l.name === form.leader ? 'on' : ''} ${full ? 'full' : ''}" data-f-leader="${esc(l.name)}" style="--tc:${tc(l.type)}">
-          ${planned ? `<span class="plan-dot" title="${t('Assigned to this member')}">★</span>` : ''}
-          ${leaderImg(s, l.name)}<b>${esc(l.name)}</b><small>${full ? `✓ ${t('cleared')}` : t('{n} to go', { n: fmtK((c?.pts || 0) - v) })}</small></button>`;
+          ${planned ? `<span class="plan-dot" title="${t('Assigned to this member')}"></span>` : ''}
+          ${leaderImg(s, l.name)}<b>${esc(l.name)}</b><small>${full ? `${ico('check')} ${t('cleared')}` : t('{n} to go', { n: fmtK((c?.pts || 0) - v) })}</small></button>`;
       }).join('')}</div></div>
     <div class="grid3">
       <label>${t('Round')}
-        <select name="round" ${isStaff() || form.id ? '' : 'disabled'}>${rounds.map(n => `<option value="${n}" ${n === form.round ? 'selected' : ''}>${n === st.active ? '▶ ' : ''}${esc(circuitAt(s, n).label)}</option>`).join('')}</select>
+        <select name="round" ${isStaff() || form.id ? '' : 'disabled'}>${rounds.map(n => `<option value="${n}" ${n === form.round ? 'selected' : ''}>${esc(circuitAt(s, n).label)}${n === st.active ? ` · ${t('open')}` : ''}</option>`).join('')}</select>
       </label>
       <div class="field"><span>${t('Tickets')}</span><div class="seg">${[1, 2, 3].map(n => `<button type="button" data-f-tickets="${n}" class="${form.tickets === n ? 'on' : ''}" ${c?.fixed && n !== c.fixed ? 'disabled' : ''}>×${n}</button>`).join('')}</div></div>
       <label>${t('Score')}<input name="score" type="number" min="1" step="1" inputmode="numeric" value="${esc(form.score)}" placeholder="${t('e.g. {n}', { n: 35000 })}">
@@ -399,12 +382,12 @@ function runForm() {
     </div>
     <div class="field"><span>${t('Team (1–3 sync pairs)')}</span>
       <div class="slots">
-      ${form.planned ? `<div class="planned">★ ${t('Planned team for {l}', { l: esc(form.leader) })}</div>` : ''}
+      ${form.planned ? `<div class="planned">${ico('star')} ${t('Planned team for {l}', { l: esc(form.leader) })}</div>` : ''}
       ${[0, 1, 2].map(i => {
         const x = form.team[i], p = x && pairById(x.pair_id);
         return x ? `<div class="slot">${ownIcon(p, x, 'sm')}<div><b>${esc(p?.trainer || '?')}</b><small>${esc(p?.pokemon || '')}</small></div>
           <span class="badge">${levelLabel(x.level || 1)}${x.ex ? ' · EX' : ''}${x.ex_role ? ' · EXR' : ''}</span>
-          <button type="button" class="x" data-f-drop="${i}" aria-label="${t('Remove')}">✕</button></div>` : '';
+          <button type="button" class="x" data-f-drop="${i}" aria-label="${t('Remove')}">${ico('x')}</button></div>` : '';
       }).join('')}
       ${form.team.length < 3 ? `<div class="search-box"><input id="team-search" placeholder="${t('Search sync pairs — this member’s own pairs come first…')}" autocomplete="off"><div class="results" id="team-results"></div></div>` : ''}
       </div></div>
@@ -507,8 +490,8 @@ function logTable() {
     <tbody>${list.map(r => `<tr>
       <td class="muted nowrap">${fmtDT(r.created_at)}</td><td>${esc(r.member_name)}</td><td>${esc(r.leader)}</td>
       <td class="nowrap">${esc(roundShort(circuitAt(season(), r.round)?.label || r.round))}</td><td class="num">${r.tickets}</td>
-      <td class="num"><b>${fmtN(r.score)}</b></td><td class="team">${teamIcons(r.team)}${r.note ? ` <span class="muted" title="${esc(r.note)}">📝</span>` : ''}</td>
-      <td class="acts">${canEdit(r.user_id) ? `<button class="btn sm ghost" data-run-edit="${r.id}">${t('Edit')}</button><button class="btn sm ghost" data-run-del="${r.id}" aria-label="${t('Delete')}">✕</button>` : ''}</td></tr>`).join('')}
+      <td class="num"><b>${fmtN(r.score)}</b></td><td class="team">${teamIcons(r.team)}${r.note ? ` <span class="muted" title="${esc(r.note)}">${ico('note')}</span>` : ''}</td>
+      <td class="acts">${canEdit(r.user_id) ? `<button class="btn sm ghost" data-run-edit="${r.id}">${t('Edit')}</button><button class="btn sm ghost" data-run-del="${r.id}" aria-label="${t('Delete')}">${ico('x')}</button>` : ''}</td></tr>`).join('')}
     </tbody></table>`;
 }
 document.addEventListener('change', e => {
@@ -606,7 +589,7 @@ function squadRow(a, withLeader = false) {
     : `<a class="who" href="#/member/${a.user_id}/plan">${av(a.user_id, 'xs')}<span>${esc(nameOf(profile(a.user_id)))}${a.note ? `<small>${esc(a.note)}</small>` : ''}</span></a>`;
   return `<div class="sq ${open ? 'open' : ''}">${who}<span class="slots3">${slots}</span>
     ${edit ? `<button class="btn sm ${open ? 'primary' : 'ghost'}" data-asg-edit="${esc(asgKey(a))}" title="${t('Choose sync pairs')}">${ico('edit')}</button>
-      <button class="x" data-asg-del="${esc(asgKey(a))}" aria-label="${t('Remove')}">✕</button>` : ''}</div>
+      <button class="x" data-asg-del="${esc(asgKey(a))}" aria-label="${t('Remove')}">${ico('x')}</button>` : ''}</div>
     ${open ? asgEditor(a) : ''}`;
 }
 
@@ -707,19 +690,23 @@ document.addEventListener('input', e => {
 //  MEMBERS
 // ═══════════════════════════════════════════════════════════════
 let memberView = 'list';
-function renderMembers() {
+function memberRows() {
   const st = state();
-  const rows = S.profiles.map(p => {
+  return S.profiles.map(p => {
     const mine = owned(p.id);
     const floors = TYPES.map(ty => towerFloor(p.id, ty));
     const byType = TYPES.map(ty => [ty, mine.filter(x => pairById(x.pair_id)?.type === ty).length]).filter(x => x[1]).sort((a, b) => b[1] - a[1]);
     return { p, pairs: mine.length, ex: mine.filter(x => x.ex).length, sa: mine.filter(x => x.level >= 10).length, byType,
       tower: floors.reduce((a, b) => a + b, 0), top: floors.filter(f => f >= TOWER_TOP).length, season: st?.perMember[p.id], banned: st?.banned.has(p.id) };
   }).sort((a, b) => (b.season?.score || 0) - (a.season?.score || 0) || nameOf(a.p).localeCompare(nameOf(b.p)));
+}
+function renderMembers() {
+  if (memberView === 'types') memberView = 'list';
+  const rows = memberRows();
   const heat = (v, max, ty) => `<td class="heat" style="--h:${Math.min(1, v / max).toFixed(2)};--tc:${TYPE_COLORS[ty]}"><b>${v || '·'}</b></td>`;
 
   return `<div class="toolbar"><h1>${t('Members')} <small>${t('{n} people', { n: S.profiles.length })}</small></h1>
-    <div class="seg">${[['list', 'Cards'], ['types', 'Roster by type'], ['tower', 'Tower by type']].map(([k, l]) => `<button class="${memberView === k ? 'on' : ''}" data-mview="${k}">${t(l)}</button>`).join('')}</div></div>
+    <div class="seg">${[['list', 'Cards'], ['tower', 'Tower by type']].map(([k, l]) => `<button class="${memberView === k ? 'on' : ''}" data-mview="${k}">${t(l)}</button>`).join('')}</div></div>
   ${memberView === 'list' ? `<div class="mgrid">${rows.map(r => `
     <article class="card mcard ${r.banned ? 'dim' : ''}">
       <div class="mtop">${av(r.p.id)}<div><a class="mname" href="#/member/${r.p.id}">${esc(nameOf(r.p))}</a>
@@ -728,7 +715,6 @@ function renderMembers() {
       <div class="mtypes">${r.byType.slice(0, 6).map(([ty, n]) => `<span style="--tc:${TYPE_COLORS[ty]}" title="${t(ty)}">${img(typeIcon(ty), 'ti', ty)}${n}</span>`).join('')}</div>
       ${isStaff() ? `<div class="mlinks"><a class="btn sm" href="#/member/${r.p.id}/pairs">${t('Roster')}</a><a class="btn sm" href="#/member/${r.p.id}/tower">${t('Tower')}</a><a class="btn sm" href="#/member/${r.p.id}/plan">${t('Battle plan')}</a></div>` : ''}
     </article>`).join('')}</div>`
-  : memberView === 'types' ? typeRoster(rows)
   : `<div class="card scroll"><table class="table heatmap">
     <thead><tr><th>${t('Member')}</th>${TYPES.map(ty => `<th title="${t(ty)}">${img(typeIcon(ty), 'ti', ty)}</th>`).join('')}</tr></thead>
     <tbody>${rows.map(r => `<tr><td><a class="who" href="#/member/${r.p.id}">${av(r.p.id, 'xs')}${esc(nameOf(r.p))}</a></td>${TYPES.map(ty => heat(towerFloor(r.p.id, ty), TOWER_TOP, ty)).join('')}</tr>`).join('')}</tbody></table></div>`}`;
@@ -752,12 +738,15 @@ function defaultRosterType() {
   return s?.leaders.flatMap(l => l.weakness || [])[0] || 'Normal';
 }
 
+function renderRoster() {
+  return `<div class="toolbar"><h1>${t('Roster by type')}</h1><p class="muted" style="margin:0">${t('Who can carry Special or Physical, and who owns the core pairs of each type.')}</p></div>${typeRoster(memberRows())}`;
+}
 function typeRoster(rows) {
   const ty = rosterType || defaultRosterType();
   const cores = coresFor(ty), pinned = pinnedCores(ty).length > 0;
   const cell = x => x
     ? `<div class="tc" title="${esc(pairName(x.pair))} · ${esc(x.pair.role)} · ${levelLabel(x.level)}${x.ex ? ' · 6★ EX' : ''}${x.ex_role ? ' · EX Role' : ''}">${ownIcon(x.pair, x, 'sm')}<small>${levelLabel(x.level)}${x.ex_role ? ' <b>EXR</b>' : ''}</small></div>`
-    : `<span class="nope" aria-label="${t('none')}">✕</span>`;
+    : `<span class="nope" aria-label="${t('none')}">${ico('x')}</span>`;
   const data = rows.map(r => {
     const mine = owned(r.p.id).map(x => ({ ...x, pair: pairById(x.pair_id) })).filter(x => x.pair?.type === ty)
       .sort((a, b) => pairWeight(b) - pairWeight(a));
@@ -936,7 +925,7 @@ function pairPop(x, edit) {
   const starBtns = [1, 2, 3, 4, 5].map(n => {
     const base = n <= p.rarity;
     return `<button type="button" class="${n <= stars ? 'on' : ''} ${base ? 'base' : 'up'}" ${edit && !base ? `data-own-star="${n}"` : 'disabled'}
-      title="${base ? t('Base rarity {n}★', { n: p.rarity }) : t('Raise to {n}★', { n })}">★</button>`;
+      title="${base ? t('Base rarity {n}★', { n: p.rarity }) : t('Raise to {n}★', { n })}">${ico('star')}</button>`;
   }).join('');
   return `<div class="pop" role="dialog">
     <div class="pop-h"><b>${esc(p.trainer)}</b><small>${esc(p.pokemon)}</small>
@@ -947,7 +936,7 @@ function pairPop(x, edit) {
       ${p.exRole ? `<button class="tog ${x.ex_role ? 'on' : ''}" data-own="${p.id}" data-k="ex_role" ${edit && x.ex ? '' : 'disabled'} title="EX Role: ${esc(p.exRole)}${x.ex ? '' : ` — ${t('needs 6★ EX')}`}">${img(roleIcon(p.exRole, true), 'ri')}</button>` : ''}
       <select data-own="${p.id}" data-k="level" ${edit ? '' : 'disabled'} title="${t('Move level')}${max === 10 ? ' · ' + t('6/5–10/5 = Superawakened') : ''}">
         ${Array.from({ length: max }, (_, i) => i + 1).map(l => `<option value="${l}" ${l === x.level ? 'selected' : ''}>${levelLabel(l)}</option>`).join('')}</select>
-      ${edit ? `<button class="x" data-own-del="${p.id}" aria-label="${t('Remove')}" title="${t('Remove')}">✕</button>` : ''}
+      ${edit ? `<button class="x" data-own-del="${p.id}" aria-label="${t('Remove')}" title="${t('Remove')}">${ico('x')}</button>` : ''}
     </div></div>`;
 }
 // Keep the editor inside the window
@@ -1073,17 +1062,39 @@ document.addEventListener('submit', async e => {
 // ═══════════════════════════════════════════════════════════════
 //  ACCOUNT
 // ═══════════════════════════════════════════════════════════════
-function renderAccount() {
-  return `<div class="cols">
+function renderSettings() {
+  const a = getAppearance();
+  return `<div class="toolbar"><h1>${t('Settings')}</h1></div>
+  <section class="card pad settings">
+    <h2 class="title">${t('Style')}</h2>
+    <div class="style-grid">${STYLES.map(x => `
+      <button class="style-card ${a.style === x.id ? 'on' : ''}" data-set-style="${x.id}">
+        <span class="preview" data-style="${x.id}" data-theme="${document.documentElement.dataset.theme}" data-accent="${a.accent}">
+          <i class="pv-bar"></i><i class="pv-card"><b></b><b></b></i><i class="pv-btn"></i></span>
+        <b>${x.name}</b><small>${t(x.note)}</small></button>`).join('')}</div>
+    <div class="set-row"><span>${t('Mode')}</span>
+      <div class="seg">${MODES.map(([k, l]) => `<button class="${a.mode === k ? 'on' : ''}" data-set-mode="${k}">${k === 'light' ? ico('sun') : k === 'dark' ? ico('moon') : ''}${t(l)}</button>`).join('')}</div></div>
+    <div class="set-row"><span>${t('Accent')}</span>
+      <div class="swatches">${ACCENTS.map(x => `<button class="swatch ${a.accent === x.id ? 'on' : ''}" data-set-accent="${x.id}" style="--sw:${x.color}" title="${t(x.name)}" aria-label="${t(x.name)}"></button>`).join('')}</div></div>
+    <div class="set-row"><span>${t('Language')}</span>${langSelect()}</div>
+  </section>
+  <div class="cols section">
     <form class="card pad form" id="pw-form"><h2 class="title">${t('Change password')}</h2>
       <label>${t('New password')}<input name="pw" type="password" minlength="8" autocomplete="new-password" required></label>
       <label>${t('Repeat it')}<input name="pw2" type="password" minlength="8" autocomplete="new-password" required></label>
       <div><button class="btn primary">${t('Change password')}</button></div><p class="form-err" id="pw-err"></p></form>
     <div class="card pad"><h2 class="title">${t('Signed in')}</h2>
       <p class="row">${av(S.me)} <b>${esc(nameOf(meP()))}</b> (@${esc(meP().username)}) ${rankTag(meP().role, true)}</p>
-      <div class="row"><a class="btn" href="#/member/${S.me}">${t('My profile, pairs & tower')}</a><button class="btn ghost" data-signout>${t('Sign out')}</button></div></div>
+      <div class="row"><a class="btn" href="#/member/${S.me}">${ico('users')} ${t('My profile, pairs & tower')}</a><button class="btn ghost" data-signout>${ico('out')} ${t('Sign out')}</button></div></div>
   </div>`;
 }
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-set-style],[data-set-mode],[data-set-accent]');
+  if (!el) return;
+  const d = el.dataset;
+  applyAppearance(d.setStyle ? { style: d.setStyle } : d.setMode ? { mode: d.setMode } : { accent: d.setAccent });
+  route();
+});
 document.addEventListener('submit', async e => {
   if (e.target.id !== 'pw-form') return;
   e.preventDefault();
@@ -1159,14 +1170,14 @@ function adminSeasons() {
   </form>
   <div class="card pad"><h2 class="title">${t('Seasons')}</h2>
     <div class="scroll"><table class="table"><tbody>${S.seasons.map(x => `<tr>
-      <td>${x.is_active ? '● ' : ''}<b>${esc(x.name)}</b><br><small class="muted">${esc(x.gym_key || t('entered by hand'))} · ${t('{n} leaders', { n: x.leaders.length })}</small></td>
+      <td>${x.is_active ? '<i class="dot"></i>' : ''}<b>${esc(x.name)}</b><br><small class="muted">${esc(x.gym_key || t('entered by hand'))} · ${t('{n} leaders', { n: x.leaders.length })}</small></td>
       <td class="muted nowrap">${fmtDT(x.battle_start)}<br>${fmtDT(x.battle_end)}</td>
       <td class="acts">${x.is_active ? '' : `<button class="btn sm" data-season-activate="${x.id}">${t('Set running')}</button>`}
         ${isAdmin() ? `<button class="btn sm ghost" data-season-del="${x.id}">${t('Delete')}</button>` : ''}</td></tr>`).join('') || `<tr><td class="muted">${t('No seasons yet.')}</td></tr>`}</tbody></table></div>
     ${s ? `<h3 style="margin-top:18px">${t('Lock members in {s}', { s: esc(s.name) })}</h3><p class="muted">${t('Locked members cannot log new runs and do not count toward the combined score.')}</p>
       <div class="chips">${S.profiles.map(p => {
         const banned = S.sm.some(m => m.user_id === p.id && m.banned);
-        return `<button class="pill ${banned ? 'bad' : ''}" data-ban="${p.id}">${banned ? '🔒' : '🔓'} ${esc(nameOf(p))}</button>`;
+        return `<button class="pill ${banned ? 'bad' : ''}" data-ban="${p.id}">${ico(banned ? 'lock' : 'unlock')} ${esc(nameOf(p))}</button>`;
       }).join('')}</div>` : ''}
   </div></div>`;
 }
@@ -1190,7 +1201,7 @@ function adminAccounts() {
       <label>${t('Role')}<select name="role"><option value="member">${t('Member')}</option><option value="mod">${t('Mod')}</option><option value="admin">${t('Admin')}</option></select></label></div>
     <label>${t('Temporary password')}<div class="row"><input name="password" required minlength="8" value="${genPassword()}"><button type="button" class="btn sm ghost" data-genpw>${t('New one')}</button></div></label>
     <div><button class="btn primary">${t('Create account')}</button></div>
-    ${newAccount ? `<div class="handoff">✅ ${t('Send this to {n}:', { n: `<b>${esc(newAccount.display_name || newAccount.username)}</b>` })}
+    ${newAccount ? `<div class="handoff">${ico('check')} ${t('Send this to {n}:', { n: `<b>${esc(newAccount.display_name || newAccount.username)}</b>` })}
       <code>${t('Link')}: ${esc(location.href.split('#')[0].split('?')[0])}\n${t('Username')}: ${esc(newAccount.username)}\n${t('Password')}: ${esc(newAccount.password)}</code></div>` : ''}
     <p class="form-err" id="account-err"></p>
   </form>
@@ -1276,9 +1287,7 @@ document.addEventListener('submit', async e => {
 
 // ─── Boot ───────────────────────────────────────────────────
 (async () => {
-  let th = 'light';
-  try { th = localStorage.getItem('gym-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); } catch { /* private mode */ }
-  applyTheme(th);
+  applyAppearance();
   renderHeader('');
   try {
     await Promise.all([loadCatalog(), loadGyms()]);

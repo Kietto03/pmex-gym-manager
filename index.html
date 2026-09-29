@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en" data-style="switch" data-theme="light" data-accent="red">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,29 +8,34 @@
   <link rel="icon" href="https://pomasters.github.io/SyncPairsTracker/images/icon_masterex.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Geist:wght@400..700&family=Geist+Mono:wght@400..600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
   <script>
-    try {
-      document.documentElement.dataset.theme = localStorage.getItem('gym-theme') ||
-        (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-      document.documentElement.lang = localStorage.getItem('gym-lang') || 'en';
-    } catch (e) {}
+    // Same logic as src/appearance.js, run before the first paint
+    (function () {
+      var g = function (k, d) { try { return localStorage.getItem(k) || d; } catch (e) { return d; } };
+      var r = document.documentElement, style = g('gym-style', 'switch'), mode = g('gym-theme', 'auto');
+      r.dataset.style = style;
+      r.dataset.accent = g('gym-accent', 'red');
+      r.dataset.theme = mode === 'dark' || (mode !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+      r.lang = g('gym-lang', 'en');
+      var fonts = { switch: 'family=Nunito:wght@500;600;700;800;900', ds: 'family=VT323&family=Nunito:wght@500;600;700;800;900',
+        gameboy: 'family=VT323&family=Nunito:wght@500;600;700;800;900',
+        studio: 'family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Geist:wght@400..700&family=Geist+Mono:wght@400..600' };
+      document.write('<link id="style-fonts" rel="stylesheet" href="https://fonts.googleapis.com/css2?' + (fonts[style] || fonts.switch) + '&display=swap">');
+    })();
   </script>
+  <link rel="stylesheet" href="styles.css?v=6">
 </head>
 <body>
   <header class="topbar">
     <a class="brand" href="#/">
-      <img src="https://pomasters.github.io/SyncPairsTracker/images/icon_masterex.png" alt="">
+      <span class="joy" aria-hidden="true"><i></i><i></i></span>
       <span>Gym Manager</span>
       <span id="demo-flag" class="demo-flag" hidden>Demo</span>
     </a>
     <nav id="nav" class="nav"></nav>
     <div class="top-right">
       <span id="userbox"></span>
-      <select id="lang" class="lang" aria-label="Language"></select>
-      <button id="theme" class="icon-btn" aria-label="Theme">☾</button>
-      <a id="dex-link" class="icon-btn text" href="#" target="_blank" rel="noopener">Dex</a>
+      <a id="settings-link" class="icon-btn" href="#/settings" aria-label="Settings"></a>
     </div>
   </header>
 
@@ -39,11 +44,11 @@
 
   <footer class="footer">
     Sync pair data &amp; icons: <a href="https://pomasters.github.io/SyncPairsTracker/" target="_blank" rel="noopener">PoMasters Sync Pairs Tracker</a> ·
-    Gym Battle data: <a href="https://kietto03.github.io/pmex-supez-dex/" target="_blank" rel="noopener">PMEX Dex</a> ·
-    Fan project, not affiliated with DeNA or The Pokémon Company.
+    Gym Battle data &amp; sprites: <a id="dex-link" href="https://kietto03.github.io/pmex-supez-dex/" target="_blank" rel="noopener">PMEX Dex</a> ·
+    Fan project, not affiliated with Nintendo, DeNA or The Pokémon Company.
   </footer>
 
   <script src="config.js"></script>
-  <script type="module" src="src/main.js"></script>
+  <script type="module" src="src/main.js?v=6"></script>
 </body>
 </html>

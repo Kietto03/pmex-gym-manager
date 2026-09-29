@@ -1,9 +1,9 @@
 // Tiếng Việt. Key = English text used in the code (see ../i18n.js).
 export default {
   // ─── Chrome ───
-  'Admin': 'Admin', 'Mod': 'Mod', 'Member': 'Thành viên', 'Demo': 'Demo', 'Dex': 'Dex',
-  'Light mode': 'Giao diện sáng', 'Dark mode': 'Giao diện tối',
-  'Overview': 'Tổng quan', 'Log a run': 'Ghi lượt', 'Plan': 'Kế hoạch', 'Members': 'Thành viên', 'Account': 'Tài khoản',
+  'Admin': 'Admin', 'Mod': 'Mod', 'Member': 'Thành viên', 'Demo': 'Demo', 
+ 
+  'Overview': 'Tổng quan', 'Log a run': 'Ghi lượt', 'Plan': 'Kế hoạch', 'Members': 'Thành viên', 
 'Loading…': 'Đang tải…', 'Could not load': 'Không tải được',
 
   // ─── Sign in ───
@@ -251,4 +251,25 @@ export default {
   'Pick at most 6 core pairs.': 'Chỉ chọn tối đa 6 pair core.',
   'Roster by type': 'Roster theo type',
   'Best fit first': 'Hợp nhất trước',
+
+  // Settings, themes
+  'Settings': 'Cài đặt',
+  'Language': 'Ngôn ngữ',
+  'open': 'đang mở',
+  'Who can carry Special or Physical, and who owns the core pairs of each type.': 'Ai gánh được Special hay Physical, và ai có các pair core của từng type.',
+  'Style': 'Phong cách',
+  'Mode': 'Chế độ',
+  'Accent': 'Màu nhấn',
+  'Auto': 'Tự động',
+  'Light mode': 'Sáng', 'Dark mode': 'Tối',
+  'Rounded, bright, Joy-Con colours': 'Bo tròn, tươi sáng, màu Joy-Con',
+  'Pixel titles, hard edges, handheld feel': 'Chữ pixel, góc vuông, chất máy cầm tay',
+  'Four shades of green, pure retro': 'Bốn tông xanh lá, retro chính hiệu',
+  'Quiet paper and ink': 'Giấy và mực, tối giản',
+  'Neon red': 'Đỏ neon',
+  'Neon blue': 'Xanh neon',
+  'Neon yellow': 'Vàng neon',
+  'Neon green': 'Xanh lá neon',
+  'Purple': 'Tím',
+  'Neon pink': 'Hồng neon',
 };

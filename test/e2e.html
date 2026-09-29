@@ -43,6 +43,7 @@ f.onload = async () => {
     const open = $$('.lp:not(.full)')[0];
     open.click(); await sleep(80);
     const leader = $('.lp.on b').textContent;
+    log(getComputedStyle($('#run-form')).position !== 'sticky', 'log form scrolls with the page (not pinned)');
     const hint = $('input[name=score]').parentElement.querySelector('small').textContent;
     const missing = +hint.replace(/.*· /, '').replace(/[^\d]/g, '');
     setVal($('input[name=score]'), String(missing + 1));
@@ -129,11 +130,19 @@ f.onload = async () => {
     await until(() => $('.kpis'));
     log(!!$('#nav a[href="#/admin"]'), 'admin sees the admin menu');
 
-    // Language switch
+    // Settings: language, style, mode
+    await go('#/settings');
     setVal(W().document.getElementById('lang'), 'vi'); await sleep(200);
     log(/Tổng quan/.test(W().document.getElementById('nav').innerText), 'switching to Vietnamese translates the menu');
     setVal(W().document.getElementById('lang'), 'en'); await sleep(200);
     log(/Overview/.test(W().document.getElementById('nav').innerText), 'and back to English');
+    const root = W().document.documentElement;
+    $('[data-set-style=ds]').click(); await sleep(150);
+    log(root.dataset.style === 'ds' && $('[data-set-style=ds]').classList.contains('on'), 'settings: switch the style to DS');
+    $('[data-set-mode=dark]').click(); await sleep(100);
+    $('[data-set-accent=blue]').click(); await sleep(100);
+    log(root.dataset.theme === 'dark' && root.dataset.accent === 'blue', 'settings: dark mode and a blue accent');
+    $('[data-set-style=switch]').click(); $('[data-set-mode=light]').click(); $('[data-set-accent=red]').click(); await sleep(100);
 
     // 6. Plan page renders every leader with suggestions
     await go('#/plan');
@@ -168,8 +177,9 @@ f.onload = async () => {
     log(!!$('.manage') && !!$('#own-search') && !$('.owned select[disabled]'), 'admin can edit another member\'s roster');
 
     // 6c. Members → roster by type
-    await go('#/members');
-    $('[data-mview=types]').click(); await sleep(200);
+    await go('#/roster');
+    await until(() => $('.troster'));
+    log(!!$('#nav a[href="#/roster"]'), 'Roster has its own menu entry');
     $('[data-rtype=Poison]').click(); await sleep(200);
     const rowsN = $$('.troster tbody tr').length;
     log(rowsN >= 19 && $$('.troster .tc').length > 0 && $('.tchip.on').title === 'Poison', 'roster by type: one row per member with Special / Physical / core cells', `${rowsN} rows, ${$$('.troster th.core').length} core columns`);

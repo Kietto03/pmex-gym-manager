@@ -4,7 +4,7 @@ A small web app for running a **Pokémon Masters EX** gym: member accounts, the 
 
 **Live demo:** <https://kietto03.github.io/pmex-gym-manager/?demo> (sample data kept in your browser, nothing is saved)
 
-- **English by default**, Vietnamese included (language menu in the top bar). Light and dark themes.
+- **English by default**, Vietnamese included. **Settings** lets each person pick a style — *Switch* (rounded, Joy-Con colours), *DS* (pixel titles, hard edges), *Game Boy* (four greens) or *Studio* (paper and ink) — plus light/dark/auto and an accent colour. Pixel icons, no emoji.
 - **Static site + Supabase**: no server to run. Free tier is plenty for a gym (~20 members, 1 admin, 2 mods).
 - **Game data is read live**, nothing is copied into this repo:
   - Sync pairs and icons: [PoMasters Sync Pairs Tracker](https://pomasters.github.io/SyncPairsTracker/)
@@ -17,7 +17,8 @@ A small web app for running a **Pokémon Masters EX** gym: member accounts, the 
 | **Overview** | Running season: score per round, which Gym Leaders are cleared, member scores, tickets left, recent runs |
 | **Log run** | Pick leader, round, tickets and score, add the team (1–3 sync pairs). Rules are checked as you type |
 | **Plan** | Per Gym Leader: weakness, the rule of every circuit, notes, the squad (who fights them and with which 1–3 pairs **from their own roster**) and who fits best |
-| **Members** | **Roster by type**: pick a type and see, per member, their best Special and Physical striker, the type's core pairs (pinned by staff or picked automatically), best Support, the rest and their tower floor — each as icon + move level + EXR. Plus everyone's sync pairs (owned, stars for 3★/4★ pairs, 6★ EX, EX Role, move level up to 5/5 or 10/5 with Superawakening) with search, type/role/status filters and stable sorting, Pasio Tower floors per type (18 towers × 40 floors) and battle plan. Mods and the admin can update any member's roster and tower |
+| **Roster** | Pick a type and see, per member, their best Special and Physical striker, the type's core pairs (pinned by staff or picked automatically), best Support, the rest and their tower floor — each as icon + move level + EXR |
+| **Members** | Everyone's sync pairs (owned, stars for 3★/4★ pairs, 6★ EX, EX Role, move level up to 5/5 or 10/5 with Superawakening) with search, type/role/status filters and stable sorting, Pasio Tower floors per type (18 towers × 40 floors) and battle plan. Mods and the admin can update any member's roster and tower |
 | **Admin** | Seasons, lock members, accounts, sync the pair catalog, activity log |
 
 ### Roles
@@ -101,6 +102,8 @@ src/api.js                data layer: Supabase or the in-memory demo, same funct
 src/demo.js               demo backend + sample gym
 src/rules.js              Gym Battle rules (no DOM)
 src/catalog.js            sync pairs (tracker) and Gym Battles (Dex)
+src/appearance.js         styles, colour modes, accents (Settings)
+src/icons.js              12×12 pixel icon set
 src/i18n.js, src/lang/    translations (English text is the key; add a file per language)
 supabase/migrations/      tables, row-level security, rule triggers, activity log
 supabase/functions/       admin-users: create / delete accounts, reset passwords, roles
