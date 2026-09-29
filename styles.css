@@ -728,15 +728,16 @@ td .muted .ico { width: 14px; height: 14px; vertical-align: -2px; }
 /* ═══════════════════════════════════════════════════════════════
    Companion mascot (page-mascot sheets) + speech card
    ═══════════════════════════════════════════════════════════════ */
-.m-head { display: inline-block; flex: none; width: 36px; height: 36px; background-size: 300% 300%; background-repeat: no-repeat; image-rendering: pixelated; }
+.m-head { display: inline-block; flex: none; width: 36px; height: 36px; background-size: 300% 300%; background-repeat: no-repeat; }
+.m-head.pixel, .companion.pixel .m-layer { image-rendering: pixelated; }
 #brand-mascot { display: inline-flex; }
-.m-head.brand { width: 40px; height: 40px; margin: -4px 0 -6px; }
+.m-head.brand { width: 42px; height: 42px; margin: -6px 0 -6px; }
 .companion { position: fixed; right: 20px; bottom: 16px; z-index: 40; display: flex; align-items: flex-end; gap: 6px; pointer-events: none; }
 .companion[hidden] { display: none; }
-.m-btn { pointer-events: auto; position: relative; display: block; flex: none; width: 112px; height: 112px; padding: 0; border: 0; background: transparent; cursor: pointer; user-select: none;
+.m-btn { pointer-events: auto; position: relative; display: block; flex: none; width: 128px; height: 128px; padding: 0; border: 0; background: transparent; cursor: pointer; user-select: none;
   filter: drop-shadow(0 6px 10px rgba(0, 0, 0, .18)); }
 .m-squash { position: relative; display: block; width: 100%; height: 100%; transform-origin: 50% 78%; }
-.m-layer { position: absolute; inset: 0; background-size: 300% 300%; background-repeat: no-repeat; image-rendering: pixelated; transition: opacity .05s; }
+.m-layer { position: absolute; inset: 0; background-size: 300% 300%; background-repeat: no-repeat; transition: opacity .05s; }
 .m-say { pointer-events: auto; position: relative; max-width: 270px; margin-bottom: 64px; padding: 11px 30px 12px 14px; border-radius: var(--r-lg); background: var(--surface); color: var(--text);
   border: var(--bw) solid var(--line-2); box-shadow: var(--shadow-lg); opacity: 0; visibility: hidden; transform: translateY(8px) scale(.96); transform-origin: right bottom;
   transition: opacity .18s, transform .25s cubic-bezier(.2, 1.4, .4, 1), visibility .18s; }
@@ -748,14 +749,14 @@ td .muted .ico { width: 14px; height: 14px; vertical-align: -2px; }
 .m-close:hover { background: var(--surface-2); color: var(--text); }
 :is([data-style="ds"], [data-style="gameboy"]) .m-say { box-shadow: 4px 4px 0 var(--line-2); }
 :is([data-style="ds"], [data-style="gameboy"]) .m-say::after { border-radius: 0; }
-[data-style="gameboy"] .m-layer, [data-style="gameboy"] .m-head { filter: sepia(.25) saturate(.8) hue-rotate(20deg); }
+.mascot-set { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
 .mascot-pick { display: flex; gap: 8px; flex-wrap: wrap; }
 .mascot-pick button { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 92px; padding: 8px 6px; border-radius: var(--r-md); border: var(--bw) solid var(--line); background: var(--surface); font-weight: 700; font-size: 12.5px; color: var(--text); }
 .mascot-pick button .m-head { width: 56px; height: 56px; }
 .mascot-pick button.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
 .m-off { display: grid; place-items: center; width: 56px; height: 56px; color: var(--muted); }
 .m-off .ico { width: 18px; height: 18px; }
-@media (max-width: 640px) { .m-btn { width: 84px; height: 84px; } .m-say { max-width: 210px; margin-bottom: 48px; } .companion { right: 10px; bottom: 10px; } }
+@media (max-width: 640px) { .m-btn { width: 92px; height: 92px; } .m-say { max-width: 210px; margin-bottom: 48px; } .companion { right: 10px; bottom: 10px; } }
 @media print { .companion { display: none; } }
 
 /* Roster sheet: every cell is a button that opens a pair picker */

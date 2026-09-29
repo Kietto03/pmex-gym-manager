@@ -307,4 +307,20 @@ export default {
   'Hi {n}!': 'Chào {n}!',
   'Mascot': 'Mascot',
   'Off': 'Tắt',
+
+  // Trainer mascots
+  'Modern': 'Hiện đại',
+  'Pixel': 'Pixel',
+  'Let’s go!': 'Đi thôi!',
+  'Ready to battle!': 'Sẵn sàng chiến đấu!',
+  'Heh, nice one!': 'Hehe, hay lắm!',
+  'Hehe~': 'Hihi~',
+  'Adventure time!': 'Phiêu lưu nào!',
+  'Found you!': 'Thấy bạn rồi!',
+  'Hmm, interesting.': 'Hừm, thú vị đấy.',
+  'Let me check the data…': 'Để mình xem dữ liệu…',
+  'Noted!': 'Ghi nhận!',
+  'Stay sharp.': 'Tập trung nhé.',
+  'Victory awaits.': 'Chiến thắng đang chờ.',
+  'Good form.': 'Phong độ tốt.',
 };

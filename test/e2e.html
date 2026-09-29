@@ -32,7 +32,7 @@ f.onload = async () => {
     log(!!$('.progress tbody tr.active'), 'progress matrix highlights the open round');
     log(!$('#nav a[href="#/admin"]'), 'member does not see the admin menu');
     const hash0 = W().location.hash;
-    log(!$('#companion').hidden && /pikachu-directions/.test($('.m-dir').style.backgroundImage) && !!$('#brand-mascot .m-head'), 'Pikachu companion + logo from the page-mascot sheets');
+    log(!$('#companion').hidden && /ace-directions/.test($('.m-dir').style.backgroundImage) && !!$('#brand-mascot .m-head'), 'trainer companion (Kai) + logo from the page-mascot sheets');
     $('#companion .m-btn').click(); await sleep(250);
     log($('.m-say').classList.contains('show') && $('.m-say p').textContent.length > 0 && $('.m-react').style.opacity === '1' && W().location.hash === hash0,
       'poking the mascot shows a reaction and a speech card', $('.m-say p').textContent);
@@ -151,11 +151,14 @@ f.onload = async () => {
     $('[data-set-mode=dark]').click(); await sleep(100);
     $('[data-set-accent=blue]').click(); await sleep(100);
     log(root.dataset.theme === 'dark' && root.dataset.accent === 'blue', 'settings: dark mode and a blue accent');
-    $('[data-set-mascot=eevee]').click(); await sleep(150);
-    log(/eevee-directions/.test($('.m-dir').style.backgroundImage) && /eevee/.test($('#brand-mascot .m-head').style.backgroundImage), 'settings: switch the mascot to Eevee');
+    $('[data-set-mascot=momo]').click(); await sleep(150);
+    log(/ranger(-pixel)?-directions/.test($('.m-dir').style.backgroundImage) && /ranger/.test($('#brand-mascot .m-head').style.backgroundImage), 'settings: switch the mascot to Momo');
+    $('[data-set-mstyle=pixel]').click(); await sleep(150);
+    log(/ranger-pixel-directions/.test($('.m-dir').style.backgroundImage) && $('#companion').classList.contains('pixel'), 'settings: pixel style of the mascot');
+    $('[data-set-mstyle=auto]').click(); await sleep(100);
     $('[data-set-mascot=off]').click(); await sleep(150);
     log($('#companion').hidden, 'settings: turn the mascot off');
-    $('[data-set-mascot=pikachu]').click(); await sleep(150);
+    $('[data-set-mascot=kai]').click(); await sleep(150);
     $('[data-set-style=switch]').click(); $('[data-set-mode=light]').click(); $('[data-set-accent=red]').click(); await sleep(100);
 
     // 6. Plan page renders every leader with suggestions

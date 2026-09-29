@@ -29,11 +29,11 @@ const FONTS = {
 const read = (k, d) => { try { return localStorage.getItem(k) || d; } catch { return d; } };
 const write = (k, v) => { try { localStorage.setItem(k, v); } catch { /* private mode */ } };
 
-export const getAppearance = () => ({ style: read('gym-style', 'switch'), mode: read('gym-theme', 'auto'), accent: read('gym-accent', 'red'), mascot: read('gym-mascot', 'pikachu') });
+export const getAppearance = () => ({ style: read('gym-style', 'switch'), mode: read('gym-theme', 'auto'), accent: read('gym-accent', 'red'), mascot: read('gym-mascot', 'kai'), mascotStyle: read('gym-mascot-style', 'auto') });
 
 export function applyAppearance(patch = {}) {
   const a = { ...getAppearance(), ...patch };
-  write('gym-style', a.style); write('gym-theme', a.mode); write('gym-accent', a.accent); write('gym-mascot', a.mascot);
+  write('gym-style', a.style); write('gym-theme', a.mode); write('gym-accent', a.accent); write('gym-mascot', a.mascot); write('gym-mascot-style', a.mascotStyle);
   const root = document.documentElement;
   const dark = a.mode === 'dark' || (a.mode === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
   root.dataset.style = a.style;

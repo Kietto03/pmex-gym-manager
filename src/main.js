@@ -5,7 +5,7 @@
 import { createApi, isDemo } from './api.js';
 import { ico } from './icons.js';
 import { STYLES, ACCENTS, MODES, getAppearance, applyAppearance } from './appearance.js';
-import { MASCOTS, mascotHead, mountCompanion } from './mascot.js';
+import { MASCOTS, MASCOT_STYLES, mascotHead, mountCompanion } from './mascot.js';
 import { t, getLang, setLang, LANGS, locale } from './i18n.js';
 import { TOWER_TOP, circuitAt, roundShort, seasonState, pointsIn, validateRun, readiness, pairWeight, levelLabel, suggestTeam } from './rules.js';
 import { loadCatalog, loadGyms, PAIRS, pairById, pairName, pairImage, TYPES, TYPE_COLORS, typeIcon, roleIcon, roleKey,
@@ -96,13 +96,13 @@ function renderHeader(active) {
   $('#demo-flag').hidden = !isDemo;
   $('#demo-flag').textContent = t('Demo');
   $('#dex-link').href = DEX;
-  const m = getAppearance().mascot;
-  $('#brand-mascot').innerHTML = mascotHead(m === 'off' ? 'pikachu' : m, 'brand');
+  const { mascot, mascotStyle } = getAppearance();
+  $('#brand-mascot').innerHTML = mascotHead(MASCOTS.some(m => m.id === mascot) ? mascot : 'kai', mascotStyle, 'brand');
 }
 
 // ─── Companion mascot: what it says when poked ───
 let companion = null;
-const showMascot = () => { const m = getAppearance().mascot; companion?.set(m === 'off' ? null : m); };
+const showMascot = () => { const a = getAppearance(); companion?.set(a.mascot === 'off' ? null : MASCOTS.some(m => m.id === a.mascot) ? a.mascot : 'kai', a.mascotStyle); };
 function mascotTips() {
   if (!S.me) return [t('Sign in with the account your gym admin gave you.')];
   const tips = [];
@@ -1143,7 +1143,10 @@ function renderSettings() {
     <div class="set-row"><span>${t('Accent')}</span>
       <div class="swatches">${ACCENTS.map(x => `<button class="swatch ${a.accent === x.id ? 'on' : ''}" data-set-accent="${x.id}" style="--sw:${x.color}" title="${t(x.name)}" aria-label="${t(x.name)}"></button>`).join('')}</div></div>
     <div class="set-row"><span>${t('Mascot')}</span>
-      <div class="mascot-pick">${[...MASCOTS.map(m => [m.id, m.name]), ['off', t('Off')]].map(([k, l]) => `<button class="${a.mascot === k ? 'on' : ''}" data-set-mascot="${k}">${k === 'off' ? `<span class="m-off">${ico('x')}</span>` : mascotHead(k)}<span>${esc(l)}</span></button>`).join('')}</div></div>
+      <div class="mascot-set">
+        <div class="mascot-pick">${[...MASCOTS.map(m => [m.id, m.name]), ['off', t('Off')]].map(([k, l]) => `<button class="${a.mascot === k || (k === 'kai' && !MASCOTS.some(m => m.id === a.mascot) && a.mascot !== 'off') ? 'on' : ''}" data-set-mascot="${k}">${k === 'off' ? `<span class="m-off">${ico('x')}</span>` : mascotHead(k, a.mascotStyle)}<span>${esc(l)}</span></button>`).join('')}</div>
+        <div class="seg sm">${MASCOT_STYLES.map(([k, l]) => `<button class="${a.mascotStyle === k ? 'on' : ''}" data-set-mstyle="${k}">${t(l)}</button>`).join('')}</div>
+      </div></div>
     <div class="set-row"><span>${t('Language')}</span>${langSelect()}</div>
   </section>
   <div class="cols section">
@@ -1157,11 +1160,12 @@ function renderSettings() {
   </div>`;
 }
 document.addEventListener('click', e => {
-  const el = e.target.closest('[data-set-style],[data-set-mode],[data-set-accent],[data-set-mascot]');
+  const el = e.target.closest('[data-set-style],[data-set-mode],[data-set-accent],[data-set-mascot],[data-set-mstyle]');
   if (!el) return;
   const d = el.dataset;
-  applyAppearance(d.setStyle ? { style: d.setStyle } : d.setMode ? { mode: d.setMode } : d.setMascot ? { mascot: d.setMascot } : { accent: d.setAccent });
-  if (d.setMascot) { showMascot(); if (d.setMascot !== 'off') companion.greet(MASCOTS.find(m => m.id === d.setMascot).cry[1]); }
+  applyAppearance(d.setStyle ? { style: d.setStyle } : d.setMode ? { mode: d.setMode } : d.setMascot ? { mascot: d.setMascot } : d.setMstyle ? { mascotStyle: d.setMstyle } : { accent: d.setAccent });
+  showMascot();
+  if (d.setMascot && d.setMascot !== 'off') companion.greet(t(MASCOTS.find(m => m.id === d.setMascot).cry[1]));
   route();
 });
 document.addEventListener('submit', async e => {

@@ -2,21 +2,26 @@
    Companion mascot — a vanilla port of page-mascot's <Mascot />
    (github.com/nilbuild/page-mascot, MIT). Two 3×3 sheets per character:
    nine head directions and nine reactions, swapped with background-position.
-   · the head turns toward the pointer (8 sectors, dead zone, hysteresis)
+   · it looks around on its own and blinks now and then (it does not chase the pointer)
    · a click blinks, then shows a heart / sparkles / a grin; four quick clicks → dizzy
    · it dozes off when the page sits still, and says something useful in a speech card
-   Sheets: assets/mascots/<id>-{directions,reactions}.png (tools/draw_mascots.py)
+   Sheets: assets/mascots/<file>[-pixel]-{directions,reactions}.webp, drawn with the
+   page-mascot skill (original trainer designs, modern and pixel styles).
    ═══════════════════════════════════════════════════════════════ */
 export const MASCOTS = [
-  { id: 'pikachu', name: 'Pikachu', cry: ['Pika!', 'Pika pika!', 'Pikachu!'] },
-  { id: 'bulbasaur', name: 'Bulbasaur', cry: ['Bulba!', 'Bulbasaur!', 'Saur~'] },
-  { id: 'eevee', name: 'Eevee', cry: ['Vee!', 'Eevee!', 'Vui~'] },
+  { id: 'kai', file: 'ace', name: 'Kai', cry: ['Let’s go!', 'Ready to battle!', 'Heh, nice one!'] },
+  { id: 'momo', file: 'ranger', name: 'Momo', cry: ['Hehe~', 'Adventure time!', 'Found you!'] },
+  { id: 'sage', file: 'scholar', name: 'Sage', cry: ['Hmm, interesting.', 'Let me check the data…', 'Noted!'] },
+  { id: 'aria', file: 'champion', name: 'Aria', cry: ['Stay sharp.', 'Victory awaits.', 'Good form.'] },
 ];
+export const MASCOT_STYLES = [['auto', 'Auto'], ['modern', 'Modern'], ['pixel', 'Pixel']];
+// Auto: pixel art in the DS and Game Boy themes, the modern drawing everywhere else
+export const resolveStyle = s => (s === 'auto' ? (['ds', 'gameboy'].includes(document.documentElement.dataset.style) ? 'pixel' : 'modern') : s);
+const fileOf = id => (MASCOTS.find(m => m.id === id) || MASCOTS[0]).file;
 const DIRECTIONS = ['up-left', 'up', 'up-right', 'left', 'center', 'right', 'down-left', 'down', 'down-right'];
 const REACTIONS = ['blink', 'heart', 'sparkle', 'surprised', 'starstruck', 'bashful', 'sleepy', 'dizzy', 'delighted'];
-const CLOCKWISE = ['right', 'down-right', 'down', 'down-left', 'left', 'up-left', 'up', 'up-right'];
-const SECTOR = (Math.PI * 2) / CLOCKWISE.length;
-const HYSTERESIS = 0.12, DEAD_ZONE = 70;
+// Idle glances: mostly straight ahead, sometimes a look to the side
+const GLANCES = ['center', 'center', 'center', 'left', 'right', 'up-left', 'up-right', 'down-left', 'down-right', 'up', 'down'];
 const PAYOFFS = ['heart', 'sparkle', 'delighted', 'starstruck', 'bashful'];
 const BOOP_PAYOFF = 120, BOOP_END = 700, DIZZY_AFTER = 4, DIZZY_WINDOW = 1600, DIZZY_END = 1300;
 const DOZE_AFTER = 45000;
@@ -28,17 +33,16 @@ const SQUASH = [
   { transform: 'scale(1, 1)' },
 ];
 const pos = i => `${(i % 3) * 50}% ${Math.floor(i / 3) * 50}%`;
-const wrap = a => Math.atan2(Math.sin(a), Math.cos(a));
-const sheet = (id, kind) => `assets/mascots/${id}-${kind}.png`;
+const sheet = (id, style, kind) => `assets/mascots/${fileOf(id)}${resolveStyle(style) === 'pixel' ? '-pixel' : ''}-${kind}.webp`;
 const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // Static head (the "center" cell) — used as the brand logo and in Settings
-export const mascotHead = (id, cls = '') =>
-  `<span class="m-head ${cls}" style="background-image:url(${sheet(id, 'directions')});background-position:${pos(4)}" aria-hidden="true"></span>`;
+export const mascotHead = (id, style = 'auto', cls = '') =>
+  `<span class="m-head ${cls} ${resolveStyle(style)}" style="background-image:url(${sheet(id, style, 'directions')});background-position:${pos(4)}" aria-hidden="true"></span>`;
 
 export function mountCompanion(root, { getTips, t = s => s }) {
   let id = null, direction = 'center', reaction = null, timers = [], boops = { count: 0, at: 0 };
-  let sector = -1, pointer = null, lastMove = Date.now(), tipIndex = 0, sayTimer, typeTimer;
+  let lastMove = Date.now(), tipIndex = 0, sayTimer, typeTimer;
 
   root.innerHTML = `
     <div class="m-say" role="status" aria-live="polite"><b class="m-name"></b><p></p><button type="button" class="m-close" aria-label="${t('Hide')}">×</button></div>
@@ -57,27 +61,28 @@ export function mountCompanion(root, { getTips, t = s => s }) {
   const later = (ms, next) => timers.push(setTimeout(() => setReaction(next), ms));
   const clearTimers = () => { timers.forEach(clearTimeout); timers = []; };
 
-  // ─── Head follows the pointer ───
-  const aim = () => {
-    if (!pointer || reaction === 'sleepy') return;
-    const box = btn.getBoundingClientRect();
-    const dx = pointer.x - (box.left + box.width / 2), dy = pointer.y - (box.top + box.height / 2);
-    if (Math.hypot(dx, dy) < DEAD_ZONE) { sector = -1; direction = 'center'; return paint(); }
-    const angle = Math.atan2(dy, dx);
-    if (sector !== -1 && Math.abs(wrap(angle - sector * SECTOR)) < SECTOR / 2 + HYSTERESIS) return;
-    sector = (Math.round(angle / SECTOR) + CLOCKWISE.length) % CLOCKWISE.length;
-    direction = CLOCKWISE[sector];
-    paint();
+  // ─── Idle life: glance around, blink, wake up when the user comes back ───
+  const idle = () => {
+    if (id && !reaction) {
+      const next = direction === 'center' ? GLANCES[Math.floor(Math.random() * GLANCES.length)] : 'center';
+      direction = next;
+      paint();
+    }
+    timers.idle = setTimeout(idle, direction === 'center' ? 2500 + Math.random() * 4500 : 900 + Math.random() * 900);
   };
-  if (matchMedia('(hover: hover) and (pointer: fine)').matches) {
-    addEventListener('pointermove', e => {
-      pointer = { x: e.clientX, y: e.clientY };
-      lastMove = Date.now();
-      if (reaction === 'sleepy') { clearTimers(); setReaction('surprised'); later(600, null); }
-      aim();
-    }, { passive: true });
-    addEventListener('scroll', aim, { passive: true });
-  }
+  const blink = () => {
+    if (id && !reaction && !reduced()) { reaction = 'blink'; paint(); setTimeout(() => { if (reaction === 'blink') { reaction = null; paint(); } }, 140); }
+    setTimeout(blink, 2800 + Math.random() * 3800);
+  };
+  setTimeout(idle, 2000);
+  setTimeout(blink, 1500);
+  const wake = () => {
+    lastMove = Date.now();
+    if (reaction === 'sleepy') { clearTimers(); setReaction('surprised'); later(600, null); }
+  };
+  addEventListener('pointerdown', wake, { passive: true });
+  addEventListener('keydown', wake);
+  addEventListener('pointermove', () => { if (Date.now() - lastMove > 1000) wake(); }, { passive: true });
   // Doze off when nothing happens for a while
   setInterval(() => { if (id && !reaction && Date.now() - lastMove > DOZE_AFTER) setReaction('sleepy'); }, 5000);
 
@@ -109,26 +114,27 @@ export function mountCompanion(root, { getTips, t = s => s }) {
       boops.count = 0;
       setReaction('dizzy');
       later(DIZZY_END, null);
-      say(`${m.cry[0]} @_@`, 2200);
+      say(`${t(m.cry[0])} @_@`, 2200);
     } else {
       setReaction('blink');
       later(BOOP_PAYOFF, PAYOFFS[(boops.count - 1 + tipIndex) % PAYOFFS.length]);
       later(BOOP_END, null);
       const tips = getTips() || [];
-      if (boops.count === 1) say(tips.length ? tips[tipIndex++ % tips.length] : m.cry[Math.floor(Math.random() * m.cry.length)]);
+      if (boops.count === 1) say(tips.length && tipIndex % 4 !== 3 ? tips[tipIndex++ % tips.length] : (tipIndex++, t(m.cry[Math.floor(Math.random() * m.cry.length)])));
     }
     if (!reduced()) squash.animate(SQUASH, { duration: 420, easing: 'linear' });
   });
 
   return {
-    set(next) {
-      id = next;
+    set(next, style = 'auto') {
+      id = MASCOTS.some(m => m.id === next) ? next : null;
       root.hidden = !id;
       if (!id) return;
       const m = MASCOTS.find(x => x.id === id);
       btn.setAttribute('aria-label', t('Boop {n}', { n: m.name }));
-      dir.style.backgroundImage = `url(${sheet(id, 'directions')})`;
-      react.style.backgroundImage = `url(${sheet(id, 'reactions')})`;   // loaded up front, never on the first click
+      root.classList.toggle('pixel', resolveStyle(style) === 'pixel');
+      dir.style.backgroundImage = `url(${sheet(id, style, 'directions')})`;
+      react.style.backgroundImage = `url(${sheet(id, style, 'reactions')})`;   // loaded up front, never on the first click
       paint();
     },
     greet(msg) { if (id) { setReaction('blink'); later(BOOP_PAYOFF, 'delighted'); later(BOOP_END + 300, null); say(msg, 6500); } },
