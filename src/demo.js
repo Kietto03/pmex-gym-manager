@@ -4,8 +4,8 @@
    pairs and towers, a finished season and a live one filled with runs
    that follow the real rules. Reloading the page resets everything.
    ═══════════════════════════════════════════════════════════════ */
-import { GYMS, catalogRows, seasonFromGym, TYPES } from './catalog.js';
-import { circuitAt, seasonState, validateRun } from './rules.js';
+import { GYMS, catalogRows, seasonFromGym, TYPES, pairById } from './catalog.js';
+import { circuitAt, seasonState, validateRun, suggestTeam } from './rules.js';
 import { t } from './i18n.js';
 
 // Deterministic randomness so every visit shows the same sample gym
@@ -19,7 +19,7 @@ const NICKS = ['Lumina', 'Kaiser', 'Mochi', 'Rook', 'Astra', 'Pip', 'Nova', 'Bra
 
 function seedData() {
   const profiles = NICKS.map((nick, i) => ({
-    id: uid(i + 1), username: nick.toLowerCase(), display_name: nick, facebook: '', note: '',
+    id: uid(i + 1), username: nick.toLowerCase(), display_name: nick, facebook: '', note: '', avatar: '',
     role: i === 0 ? 'admin' : i < 3 ? 'mod' : 'member', joined_at: '2026-01-01',
     created_at: new Date(Date.now() - (40 - i) * 864e5).toISOString(),
   }));
@@ -59,8 +59,10 @@ function seedData() {
   const live2 = seasons.find(s => s.is_active);
   if (live2) {
     live2.leaders.forEach((l, i) => {
-      assignments.push({ season_id: live2.id, leader: l.name, user_id: profiles[3 + (i * 2) % 17].id, note: '' });
-      assignments.push({ season_id: live2.id, leader: l.name, user_id: profiles[4 + (i * 2) % 16].id, note: '' });
+      for (const p of [profiles[3 + (i * 2) % 17], profiles[4 + (i * 2) % 16]]) {
+        const team = suggestTeam(memberPairs.filter(m => m.user_id === p.id), l.weakness || [], pairById).map(x => x.pair_id);
+        assignments.push({ season_id: live2.id, leader: l.name, user_id: p.id, team, note: '', updated_by: uid(2), updated_at: live2.battle_start });
+      }
     });
     notes.push({ season_id: live2.id, leader: live2.leaders[0].name, note: 'Open with the Field pair to set the zone, then bring in the DPS.', updated_by: uid(2) });
   }
@@ -142,7 +144,7 @@ export function createDemoApi() {
         if (db.profiles.some(p => p.username === body.username)) deny(t('Username already taken.'));
         if (String(body.password || '').length < 8) deny(t('Password must be at least 8 characters.'));
         const id = uid(1000 + db.profiles.length);
-        db.profiles.push({ id, username: body.username, display_name: body.display_name || '', facebook: '', note: '',
+        db.profiles.push({ id, username: body.username, display_name: body.display_name || '', facebook: '', note: '', avatar: '',
           role: body.role || 'member', joined_at: new Date().toISOString().slice(0, 10), created_at: new Date().toISOString() });
         return { id };
       }
@@ -188,6 +190,7 @@ export function createDemoApi() {
     async deleteMemberPair(user_id, pair_id) {
       selfOrStaff(user_id);
       db.memberPairs = db.memberPairs.filter(x => !(x.user_id === user_id && x.pair_id === pair_id));
+      for (const a of db.assignments) if (a.user_id === user_id) a.team = a.team.filter(x => x !== pair_id);
     },
 
     tower: async () => clone(db.tower),
@@ -245,9 +248,16 @@ export function createDemoApi() {
     },
 
     assignments: async sid => clone(db.assignments.filter(a => a.season_id === sid)),
-    async addAssignment(row) {
+    async saveAssignment(row) {
       staff() || deny();
-      if (!db.assignments.some(a => a.season_id === row.season_id && a.leader === row.leader && a.user_id === row.user_id)) db.assignments.push({ note: '', ...row });
+      const team = row.team || [];
+      if (team.length > 3) deny(t('A team has at most 3 sync pairs.'));
+      if (new Set(team).size !== team.length) deny(t('The same sync pair is in the team twice.'));
+      const missing = team.filter(id => !db.memberPairs.some(m => m.user_id === row.user_id && m.pair_id === id));
+      if (missing.length) deny(t('{pairs} is not in this member’s roster.', { pairs: missing.map(id => { const c = db.catalog.find(x => x.id === id); return c ? `${c.trainer} & ${c.pokemon}` : id; }).join(', ') }));
+      const a = db.assignments.find(x => x.season_id === row.season_id && x.leader === row.leader && x.user_id === row.user_id);
+      const next = { team: [], note: '', ...(a || {}), ...row, updated_by: me, updated_at: new Date().toISOString() };
+      if (a) Object.assign(a, next); else db.assignments.push(next);
     },
     async removeAssignment(season_id, leader, user_id) {
       staff() || deny();

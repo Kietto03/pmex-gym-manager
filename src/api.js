@@ -88,7 +88,7 @@ function supabaseApi(sb) {
     deleteRun: async id => ok(await sb.from('runs').delete().eq('id', id)),
 
     assignments: async sid => ok(await sb.from('assignments').select('*').eq('season_id', sid)),
-    addAssignment: async row => ok(await sb.from('assignments').upsert(row)),
+    saveAssignment: async row => ok(await sb.from('assignments').upsert(row)),   // merges: only the given columns change
     removeAssignment: async (season_id, leader, user_id) => ok(await sb.from('assignments').delete().match({ season_id, leader, user_id })),
 
     notes: async sid => ok(await sb.from('leader_notes').select('*').eq('season_id', sid)),

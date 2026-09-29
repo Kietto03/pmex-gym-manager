@@ -16,6 +16,7 @@ create table public.profiles (
   facebook     text not null default '',
   role         public.gym_role not null default 'member',
   note         text not null default '',
+  avatar       text not null default '',          -- pair id shown as the member's picture ('' = their strongest pair)
   joined_at    date not null default current_date,
   created_at   timestamptz not null default now(),
   updated_at   timestamptz not null default now()
@@ -162,14 +163,53 @@ create table public.season_members (
   primary key (season_id, user_id)
 );
 
--- Who is assigned to which Gym Leader this season
+-- Who fights which Gym Leader this season, and with which sync pairs from their own roster
 create table public.assignments (
-  season_id bigint not null references public.seasons (id) on delete cascade,
-  leader    text   not null,
-  user_id   uuid   not null references public.profiles (id) on delete cascade,
-  note      text   not null default '',
+  season_id  bigint not null references public.seasons (id) on delete cascade,
+  leader     text   not null,
+  user_id    uuid   not null references public.profiles (id) on delete cascade,
+  team       text[] not null default '{}' check (cardinality(team) <= 3),   -- pair ids, all owned by user_id
+  note       text   not null default '',
+  updated_by uuid references public.profiles (id) on delete set null,
+  updated_at timestamptz not null default now(),
   primary key (season_id, leader, user_id)
 );
+
+create function public.check_assignment() returns trigger
+  language plpgsql set search_path = public
+as $$
+declare missing text;
+begin
+  if (select count(distinct x) from unnest(new.team) x) <> cardinality(new.team) then
+    raise exception 'The same sync pair is in the team twice.';
+  end if;
+  select string_agg(coalesce(c.trainer || ' & ' || c.pokemon, x), ', ') into missing
+    from unnest(new.team) x
+    left join public.member_pairs m on m.user_id = new.user_id and m.pair_id = x
+    left join public.pair_catalog c on c.id = x
+   where m.pair_id is null;
+  if missing is not null then
+    raise exception '% is not in this member''s roster.', missing;
+  end if;
+  new.updated_at := now();
+  return new;
+end $$;
+
+create trigger assignments_check before insert or update on public.assignments
+  for each row execute function public.check_assignment();
+
+-- A pair that leaves the roster leaves every planned team too (runs keep their own copy)
+create function public.drop_pair_from_teams() returns trigger
+  language plpgsql security definer set search_path = public
+as $$
+begin
+  update public.assignments set team = array_remove(team, old.pair_id)
+   where user_id = old.user_id and old.pair_id = any (team);
+  return old;
+end $$;
+
+create trigger member_pairs_drop after delete on public.member_pairs
+  for each row execute function public.drop_pair_from_teams();
 
 -- Strategy note per Gym Leader
 create table public.leader_notes (

@@ -1,6 +1,7 @@
 {
   "name": "pmex-gym-manager",
   "private": true,
+  "type": "module",
   "description": "Gym manager for Pokémon Masters EX: members, sync pairs, Pasio Tower and Gym Battle logs (static site + Supabase)",
   "scripts": {
     "serve": "python3 -m http.server 8767",

@@ -107,4 +107,20 @@ export function readiness(ownedPairs, towerFloor, type, pairById) {
   return { pairs: mine, count: mine.length, top, floor: towerFloor || 0, score: top + (towerFloor || 0) / 4 };
 }
 
+// A starting team for a Gym Leader from one member's roster: the strongest attacker of a
+// weakness type, the strongest support, then the next best pair of a weakness type.
+// Only a suggestion — staff adjust it on the Plan page.
+const ATTACK = /Strike|Tech|Sprint|Multi/, HELP = /Support|Field/;
+export function suggestTeam(ownedPairs, weakTypes, pairById) {
+  const all = ownedPairs.map(mp => ({ ...mp, pair: pairById(mp.pair_id) })).filter(x => x.pair)
+    .sort((a, b) => pairWeight(b) - pairWeight(a));
+  const weak = x => weakTypes.includes(x.pair.type);
+  const team = [];
+  const take = x => { if (x && team.length < 3 && !team.includes(x)) team.push(x); };
+  take(all.find(x => weak(x) && ATTACK.test(x.pair.role)));
+  take(all.find(x => HELP.test(x.pair.role) && weak(x)) || all.find(x => HELP.test(x.pair.role)));
+  take(all.find(x => weak(x) && !team.includes(x)));
+  return team;
+}
+
 export const levelLabel = lv => `${lv}/5`;

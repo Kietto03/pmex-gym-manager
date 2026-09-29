@@ -31,10 +31,15 @@ f.onload = async () => {
     log(!!await until(() => $('.kpis')), 'member lands on the dashboard');
     log(!!$('.progress tbody tr.active'), 'progress matrix highlights the open round');
     log(!$('#nav a[href="#/admin"]'), 'member does not see the admin menu');
+    log($$('.mb').length > 0 && $$('.mb .pi').length > 0, 'member sees their planned battles with the team', `${$$('.mb').length} leaders`);
+    log($$('.hero .stand .spr').length > 0 && $$('.hero .stand .spr').every(i => /assets\/trainers\//.test(i.src)), 'Gym Leaders use their own trainer sprites');
 
     // 2. Member logs a run with a team
     await go('#/log');
     await until(() => $('#run-editor'));
+    const plannedLp = $('.lp .plan-dot')?.closest('.lp');
+    plannedLp.click(); await sleep(80);
+    log(!!$('.planned') && $$('.slot').length > 0, 'picking an assigned leader fills in the planned team', `${$$('.slot').length} pairs`);
     const open = $$('.lp:not(.full)')[0];
     open.click(); await sleep(80);
     const leader = $('.lp.on b').textContent;
@@ -84,7 +89,7 @@ f.onload = async () => {
 
     // 4. Member cannot edit someone else
     await go('#/members');
-    const other = [...$$('.table a')].find(a => a.getAttribute('href') !== meLink);
+    const other = [...$$('.mname')].find(a => a.getAttribute('href') !== meLink);
     await go(other.getAttribute('href'));
     log(!$('#own-search') && /View only/.test(text()), 'another member\'s profile is read-only');
 
@@ -107,6 +112,32 @@ f.onload = async () => {
     await until(() => $$('.plan').length);
     log($$('.plan').length >= 1 && $$('.plan .fit').length > 0, 'plan: leader cards with best-fit members', `${$$('.plan').length} cards`);
     log($$('.heatmap .heat').length > 0, 'plan: weakness coverage matrix');
+
+    // 6b. Admin assigns a member to a leader and picks the team from that member's roster
+    const card = $$('.plan')[1];
+    const addSel = card.querySelector('[data-asg-add]');
+    const adminId = $('#userbox .user').getAttribute('href').split('/').pop();
+    const who = [...addSel.options].find(o => o.value && o.value !== adminId).value;
+    const rows0 = card.querySelectorAll('.sq').length;
+    setVal(addSel, who);
+    await until(() => $('.sq-edit'));
+    const openCard = $$('.plan')[1];
+    log(openCard.querySelectorAll('.sq').length === rows0 + 1 && !!$('.sq-edit'), 'admin assigns a member; the roster picker opens');
+    const inTeam = () => $$('.sq.open .slots3 .pi').length;
+    const n0 = inTeam();
+    const onBtn = $('.rp.on');
+    if (onBtn) { onBtn.click(); await until(() => inTeam() === n0 - 1); }
+    const n1 = inTeam();
+    const pick = $('.rp:not(.on)');
+    pick.click(); await until(() => inTeam() === n1 + 1);
+    log(inTeam() === n1 + 1 && $$('.rp.on').length === inTeam(), 'admin picks sync pairs from that member\'s own roster', `${n0} → ${inTeam()}`);
+    $('[data-asg-done]').click(); await sleep(150);
+    await go(`#/member/${who}/plan`);
+    await until(() => $('.sq'));
+    log($$('.sq').length >= 1 && /Battle plan/.test(text()), 'member profile shows their battle plan');
+    await go(`#/member/${who}/pairs`);
+    await until(() => $('#own-search'));
+    log(!!$('.manage') && !!$('#own-search') && !$('.owned select[disabled]'), 'admin can edit another member\'s roster');
 
     // 7. Admin creates and deletes an account
     await go('#/admin');

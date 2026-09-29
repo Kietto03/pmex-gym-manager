@@ -89,6 +89,8 @@ select pg_temp.check('member cannot add pairs for someone else',    '00000000-00
   $$ insert into public.member_pairs (user_id, pair_id) values ('00000000-0000-0000-0000-00000000000d', 'p-5') $$, 'row-level security');
 select pg_temp.check('mod fills in pairs for a member',             '00000000-0000-0000-0000-00000000000b',
   $$ insert into public.member_pairs (user_id, pair_id, level) values ('00000000-0000-0000-0000-00000000000d', 'p-5', 5) $$);
+select pg_temp.check('mod updates a member''s pair level',          '00000000-0000-0000-0000-00000000000b',
+  $$ do $d$ declare n int; begin update public.member_pairs set level = 4, ex = true where user_id = '00000000-0000-0000-0000-00000000000d' and pair_id = 'p-5'; get diagnostics n = row_count; assert n = 1; end $d$ $$);
 select pg_temp.check('tower floor saved',                           '00000000-0000-0000-0000-00000000000c',
   $$ insert into public.tower_progress (user_id, type, floor) values ('00000000-0000-0000-0000-00000000000c', 'Dragon', 40) $$);
 select pg_temp.check('tower floor above 40 is rejected',            '00000000-0000-0000-0000-00000000000c',
@@ -101,6 +103,20 @@ select pg_temp.check('member cannot create a season',               '00000000-00
   $$ insert into public.seasons (name, battle_start, battle_end, leaders, circuits) values ('x', now(), now() + interval '1 day', '[]', '[]') $$, 'row-level security');
 select pg_temp.check('mod bans a member for the season',            '00000000-0000-0000-0000-00000000000b',
   $$ insert into public.season_members (season_id, user_id, banned) select id, '00000000-0000-0000-0000-00000000000d', true from public.seasons $$);
+
+-- ─── Assignments: staff pick the team from the member's own roster ───
+select pg_temp.check('mod assigns a team from the roster',          '00000000-0000-0000-0000-00000000000b',
+  $$ insert into public.assignments (season_id, leader, user_id, team) select id, 'Roark', '00000000-0000-0000-0000-00000000000c', '{p-sa}' from public.seasons $$);
+select pg_temp.check('team with a pair they don''t own is rejected', '00000000-0000-0000-0000-00000000000b',
+  $$ update public.assignments set team = '{p-sa,p-5}' where user_id = '00000000-0000-0000-0000-00000000000c' $$, 'Brock & Onix is not in this member''s roster');
+select pg_temp.check('same pair twice is rejected',                 '00000000-0000-0000-0000-00000000000b',
+  $$ update public.assignments set team = '{p-sa,p-sa}' where user_id = '00000000-0000-0000-0000-00000000000c' $$, 'twice');
+select pg_temp.check('member cannot change assignments',            '00000000-0000-0000-0000-00000000000c',
+  $$ do $d$ declare n int; begin update public.assignments set team = '{}' where user_id = '00000000-0000-0000-0000-00000000000c'; get diagnostics n = row_count; assert n = 0, 'updated'; end $d$ $$);
+select pg_temp.check('pair removed from roster leaves the team',    '00000000-0000-0000-0000-00000000000c',
+  $$ delete from public.member_pairs where user_id = '00000000-0000-0000-0000-00000000000c' and pair_id = 'p-sa';
+     insert into public.member_pairs (user_id, pair_id, level, ex, ex_role) values ('00000000-0000-0000-0000-00000000000c', 'p-sa', 10, true, true);
+     do $d$ begin assert (select team from public.assignments where user_id = '00000000-0000-0000-0000-00000000000c') = '{}'::text[]; end $d$ $$);
 
 -- ─── Runs: the Gym Battle rules ───
 select pg_temp.check('member logs a run in the open round',         '00000000-0000-0000-0000-00000000000c',

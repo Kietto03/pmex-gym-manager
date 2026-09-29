@@ -1,27 +1,45 @@
 /* ═══════════════════════════════════════════════════════════════
    PMEX Gym Manager — UI (vanilla JS, hash router)
-   Pages: sign-in · overview · log · plan · members · member/<id> · account · admin
+   Pages: sign-in · overview · log · plan · members · member/<id>/<tab> · account · admin
    ═══════════════════════════════════════════════════════════════ */
 import { createApi, isDemo } from './api.js';
 import { t, getLang, setLang, LANGS, locale } from './i18n.js';
-import { TOWER_TOP, circuitAt, roundShort, seasonState, pointsIn, validateRun, readiness, pairWeight, levelLabel } from './rules.js';
+import { TOWER_TOP, circuitAt, roundShort, seasonState, pointsIn, validateRun, readiness, pairWeight, levelLabel, suggestTeam } from './rules.js';
 import { loadCatalog, loadGyms, PAIRS, pairById, pairName, pairImage, TYPES, TYPE_COLORS, typeIcon, roleIcon, roleKey,
   PLACEHOLDER, catalogRows, catalogVersion, GYMS, seasonFromGym, leaderRule, leaderFocus, leaderImage, POMA, DEX } from './catalog.js';
 
 // ─── Helpers ────────────────────────────────────────────────
 const $ = (s, el = document) => el.querySelector(s);
-const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmtN = n => (n ?? 0).toLocaleString('en-US');
 const fmtK = n => n >= 1e6 ? `${(n / 1e6).toFixed(n >= 1e7 ? 1 : 2)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}K` : String(n);
 const fmtDT = iso => iso ? new Date(iso).toLocaleString(locale(), { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
 const fmtD = iso => iso ? new Date(iso).toLocaleDateString(locale(), { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+const fmtLeft = ms => {
+  const m = Math.max(0, Math.round(ms / 6e4)), d = Math.floor(m / 1440), h = Math.floor(m % 1440 / 60);
+  return d ? `${d}d ${h}h` : h ? `${h}h ${m % 60}m` : `${m % 60}m`;
+};
 const img = (src, cls = '', alt = '') => `<img src="${esc(src || PLACEHOLDER)}" class="${cls}" alt="${esc(alt)}" loading="lazy" onerror="this.onerror=null;this.src='${PLACEHOLDER}'">`;
 const pairIcon = (p, size = 'md', ex = false) => img(pairImage(p, ex), `pi ${size}`, pairName(p));
 const typeTag = t0 => t0 ? `<span class="type" style="--tc:${TYPE_COLORS[t0] || '#888'}">${img(typeIcon(t0))}${esc(t(t0))}</span>` : '';
 const roleTag = (r, ex = false) => r ? `<span class="role ${ex ? 'ex' : ''}">${img(roleIcon(r, ex), 'ri')}${ex ? 'EX ' : ''}${esc(roleKey(r).replace(/^./, c => c.toUpperCase()))}</span>` : '';
-const rankTag = r => `<span class="badge role-${r}">${{ admin: t('Admin'), mod: t('Mod'), member: t('Member') }[r] || r}</span>`;
+const rankName = r => ({ admin: t('Admin'), mod: t('Mod'), member: t('Member') }[r] || r);
+const rankTag = (r, always = false) => r !== 'member' || always ? `<span class="badge role-${r}">${rankName(r)}</span>` : '';
 const debounce = (fn, ms = 400) => { let h; return (...a) => { clearTimeout(h); h = setTimeout(() => fn(...a), ms); }; };
+const tc = type => TYPE_COLORS[type] || '#7a86a8';
+
+// Line icons (24×24, stroke = currentColor)
+const ICONS = {
+  trophy: '<path d="M7 4h10v4a5 5 0 0 1-10 0V4Z"/><path d="M17 6h3v1a3 3 0 0 1-3 3M7 6H4v1a3 3 0 0 0 3 3M12 13v3M8 20h8l-1-4H9l-1 4Z"/>',
+  flag: '<path d="M5 21V4M5 4h12l-2.5 4L17 12H5"/>',
+  ticket: '<path d="M3 7h18v3a2 2 0 0 0 0 4v3H3v-3a2 2 0 0 0 0-4V7Z"/><path d="M14 7v10" stroke-dasharray="2 2.5"/>',
+  gym: '<path d="M3 10 12 4l9 6M5 10v9h14v-9M9 19v-5h6v5"/>',
+  calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+  edit: '<path d="M4 20h4L19 9l-4-4L4 16v4ZM13.5 6.5l4 4"/>',
+  bolt: '<path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/>',
+  swords: '<path d="M14.5 17.5 3 6V3h3l11.5 11.5M13 19l6-6M16 16l4 4M9.5 17.5 21 6V3h-3L6.5 14.5M11 19l-6-6M8 16l-4 4"/>',
+};
+const ico = n => `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`;
 
 function toast(msg, bad = false) {
   const el = $('#toast');
@@ -44,9 +62,21 @@ const profile = id => S.profiles.find(p => p.id === id);
 const nameOf = p => (p ? p.display_name || p.username : '');
 const season = () => S.seasons.find(s => s.id === S.sid);
 const owned = uid => S.mp.filter(x => x.user_id === uid);
+const ownedPair = (uid, pid) => S.mp.find(x => x.user_id === uid && x.pair_id === pid);
 const towerFloor = (uid, type) => S.tower.find(x => x.user_id === uid && x.type === type)?.floor || 0;
 const canEdit = uid => uid === S.me || isStaff();
-const leaderImg = (s, name, cls = 'pi md') => img(leaderImage(s, name), cls, name);
+const leaderImg = (s, name, cls = '') => img(leaderImage(s, name), `spr ${cls}`, name);
+const leaderOf = (s, name) => s?.leaders.find(l => l.name === name) || { name, weakness: [] };
+
+// A member's picture: the pair they chose, else their strongest pair
+function avatarPair(uid) {
+  const p = profile(uid), mine = owned(uid);
+  return (p?.avatar && mine.find(x => x.pair_id === p.avatar)) || [...mine].sort((a, b) => pairWeight(b) - pairWeight(a))[0];
+}
+function av(uid, size = '') {
+  const x = avatarPair(uid), pair = x && pairById(x.pair_id);
+  return `<span class="av ${size}">${pair ? img(pairImage(pair, x.ex), '', '') : esc((nameOf(profile(uid)) || '?')[0].toUpperCase())}</span>`;
+}
 
 async function loadAll() {
   [S.profiles, S.mp, S.tower, S.seasons] = await Promise.all([api.profiles(), api.memberPairs(), api.tower(), api.seasons()]);
@@ -66,7 +96,7 @@ const NAV = [['', 'Overview'], ['log', 'Log a run'], ['plan', 'Plan'], ['members
 function renderHeader(active) {
   $('#nav').innerHTML = S.me ? NAV.filter(([k]) => k !== 'admin' || isStaff())
     .map(([k, label]) => `<a href="#/${k}" class="${k === active ? 'on' : ''}">${t(label)}</a>`).join('') : '';
-  $('#userbox').innerHTML = S.me ? `<a href="#/member/${S.me}" class="user">${esc(nameOf(meP()))} ${rankTag(meP().role)}</a>` : '';
+  $('#userbox').innerHTML = S.me ? `<a href="#/member/${S.me}" class="user">${av(S.me)}${esc(nameOf(meP()))} ${rankTag(meP().role)}</a>` : '';
   $('#lang').innerHTML = LANGS.map(([k, l]) => `<option value="${k}" ${k === getLang() ? 'selected' : ''}>${l}</option>`).join('');
   $('#demo-flag').hidden = !isDemo;
   $('#demo-flag').textContent = t('Demo');
@@ -103,25 +133,40 @@ function route() {
 }
 addEventListener('hashchange', route);
 
+// A row of pixel Gym Leaders standing on platforms
+const lineup = (items) => `<div class="lineup">${items.map(x => `
+  <${x.href ? `a href="${x.href}"` : 'span'} class="stand ${x.done ? 'done' : ''}" style="--tc:${tc(x.type)}" title="${esc(x.name)}">
+    ${img(x.src, 'spr', x.name)}${x.label != null ? `<b>${esc(x.name)}</b><small>${x.label}</small>` : ''}</${x.href ? 'a' : 'span'}>`).join('')}</div>`;
+
 // ═══════════════════════════════════════════════════════════════
 //  SIGN IN
 // ═══════════════════════════════════════════════════════════════
 function renderLogin() {
+  const g = GYMS().at(-1);
+  const leaders = g ? (g.stages[0]?.leaders || []).map(l => ({ name: l.name, type: l.type, src: leaderImage(null, l.name) })) : [];
   view.innerHTML = `
-  <div class="login card">
-    <img src="${POMA}images/icon_masterex.png" class="login-logo" alt="">
-    <h1>${t('Gym Manager')}</h1>
-    <p class="muted">${t('Sign in with the account your gym admin gave you.')}</p>
-    <form id="login-form" class="form">
-      <label>${t('Username')}<input name="username" autocomplete="username" required autofocus></label>
-      <label>${t('Password')}<input name="password" type="password" autocomplete="current-password" ${isDemo ? '' : 'required'}></label>
-      <button class="btn primary">${t('Sign in')}</button>
-      <p class="form-err" id="login-err"></p>
-    </form>
-    ${isDemo ? `<div class="demo-box">
-      <b>${t('Demo mode')}</b> — ${t('sample data in your browser; nothing is saved. Try it as:')}
-      <div class="row">${api.demoUsers().map(p => `<button class="btn" data-demo="${p.username}">${rankTag(p.role)} ${esc(p.display_name)}</button>`).join('')}</div>
-    </div>` : ''}
+  <div class="login-wrap">
+    <section class="banner login-art" style="--tc:#ff9d2e">
+      <span class="kicker">Pokémon Masters EX</span>
+      <h1>${t('Run your gym like a champion.')}</h1>
+      <p>${t('Members, sync pairs, Pasio Tower and every Gym Battle run — one place for the whole gym.')}</p>
+      ${lineup(leaders)}
+    </section>
+    <div class="login card">
+      <img src="${POMA}images/icon_masterex.png" class="login-logo" alt="">
+      <h2>${t('Sign in')}</h2>
+      <p class="muted" style="margin:0">${t('Sign in with the account your gym admin gave you.')}</p>
+      <form id="login-form" class="form">
+        <label>${t('Username')}<input name="username" autocomplete="username" required autofocus></label>
+        <label>${t('Password')}<input name="password" type="password" autocomplete="current-password" ${isDemo ? '' : 'required'}></label>
+        <button class="btn primary">${t('Sign in')}</button>
+        <p class="form-err" id="login-err"></p>
+      </form>
+      ${isDemo ? `<div class="demo-box">
+        <b>${t('Demo mode')}</b> — ${t('sample data in your browser; nothing is saved. Try it as:')}
+        <div class="row">${api.demoUsers().map(p => `<button class="btn" data-demo="${p.username}">${esc(p.display_name)} ${rankTag(p.role, true)}</button>`).join('')}</div>
+      </div>` : ''}
+    </div>
   </div>`;
 }
 async function signIn(username, password) {
@@ -148,7 +193,7 @@ document.addEventListener('click', e => {
 //  OVERVIEW
 // ═══════════════════════════════════════════════════════════════
 function seasonBar() {
-  if (!S.seasons.length) return '';
+  if (S.seasons.length < 2) return '';
   return `<div class="season-bar">${S.seasons.map(s => `
     <button class="pill ${s.id === S.sid ? 'on' : ''}" data-season="${s.id}">${s.is_active ? '● ' : ''}${esc(s.name)}</button>`).join('')}</div>`;
 }
@@ -161,9 +206,16 @@ document.addEventListener('click', async e => {
   route();
 });
 function noSeason() {
-  return `<div class="empty card"><h2>${t('No Gym Battle season yet')}</h2>
+  return `<div class="empty card">${img(`${POMA}images/icon_masterex.png`, 'pi lg')}<h2>${t('No Gym Battle season yet')}</h2>
     ${isStaff() ? `<a class="btn primary" href="#/admin">${t('Create one in Admin')}</a>` : `<p class="muted">${t('Your admin will create the season.')}</p>`}</div>`;
 }
+
+// Planned team of one assignment, with the member's current level / EX for each pair
+const planTeam = a => (a?.team || []).map(id => {
+  const mp = ownedPair(a.user_id, id);
+  return { pair_id: id, level: mp?.level || 1, ex: !!mp?.ex, ex_role: !!mp?.ex_role };
+});
+const assignment = (uid, leader) => S.asg.find(a => a.user_id === uid && a.leader === leader);
 
 let showAllRounds = false;
 function renderOverview() {
@@ -179,29 +231,53 @@ function renderOverview() {
     .filter(x => x.left > 0).sort((a, b) => b.left - a.left);
   const phase = { upcoming: t('Starts soon'), battle: t('In progress'), ended: t('Finished') }[st.phase];
   const pct = s.target_score ? Math.min(100, st.combined / s.target_score * 100) : null;
+  const now = Date.now();
+  const side = st.phase === 'battle' ? [t('Ends in'), fmtLeft(Date.parse(s.battle_end) - now)]
+    : st.phase === 'upcoming' ? [t('Starts in'), fmtLeft(Date.parse(s.battle_start) - now)] : [t('Final score'), fmtK(st.combined)];
+  const mine = S.asg.filter(a => a.user_id === S.me);
 
   return `${seasonBar()}
-  <section class="card head">
+  <section class="banner hero" style="--tc:${tc(s.leaders[0]?.type)}">
     <div>
-      <h1>${esc(s.name)} <span class="phase ${st.phase}">${phase}</span></h1>
-      <p class="muted">${t('Battle')}: ${fmtDT(s.battle_start)} → ${fmtDT(s.battle_end)}</p>
+      <span class="kicker">${t('Gym Battle')}</span>
+      <h1>${esc(s.name)}</h1>
+      <div class="hero-meta"><span class="phase ${st.phase}">${phase}</span>
+        <span>${ico('calendar')}${fmtDT(s.battle_start)} → ${fmtDT(s.battle_end)}</span>
+        ${cur ? `<span>${ico('flag')}${t('Open round')}: <b>${esc(cur.label)}</b></span>` : ''}</div>
     </div>
-    <div class="leader-strip">${s.leaders.map(l => `<span title="${esc(l.name)}">${leaderImg(s, l.name, 'pi sm')}</span>`).join('')}</div>
+    <div class="hero-side"><small>${side[0]}</small><span class="big">${side[1]}</span></div>
+    ${lineup(s.leaders.map(l => {
+      const v = cur ? pointsIn(st, st.active, l.name) : 0, done = cur && v >= cur.pts;
+      return { name: l.name, type: l.type, src: leaderImage(s, l.name), href: `#/log/${encodeURIComponent(l.name)}`, done,
+        label: !cur ? '' : done ? `✓ ${t('cleared')}` : t('{n} to go', { n: fmtK(cur.pts - v) }) };
+    }))}
   </section>
 
   <div class="kpis">
-    <div class="card kpi wide"><small>${t('Combined score')}</small><b>${fmtN(st.combined)}</b>
+    <div class="card kpi" style="--kc:var(--gold)"><span class="k-ico">${ico('trophy')}</span><small>${t('Combined score')}</small><b>${fmtN(st.combined)}</b>
       ${pct != null ? `<div class="meter"><i style="width:${pct}%"></i></div><span>${t('{p}% of the {goal} target', { p: pct.toFixed(1), goal: fmtK(s.target_score) })}</span>` : `<span>${t('No target set')}</span>`}</div>
-    <div class="card kpi"><small>${t('Open round')}</small><b>${cur ? esc(cur.label) : st.finished ? t('All cleared') : '—'}</b><span>${cur ? t('{n} points per leader', { n: fmtK(cur.pts) }) : ''}</span></div>
-    <div class="card kpi"><small>${t('Tickets per member')}</small><b>${st.granted}<em> / ${s.ticket_cap}</em></b><span>${t('{a} on day 1, +{b} a day', { a: s.tickets_day1, b: s.tickets_daily })}</span></div>
-    <div class="card kpi"><small>${t('Gym tickets used')}</small><b>${st.gymUsed}<em> / ${s.gym_ticket_cap}</em></b><span>${t('{n} runs', { n: S.runs.length })}</span></div>
+    <div class="card kpi" style="--kc:#e0457b"><span class="k-ico">${ico('flag')}</span><small>${t('Open round')}</small><b>${cur ? esc(roundShort(cur.label)) : st.finished ? t('All cleared') : '—'}</b><span>${cur ? t('{n} points per leader', { n: fmtK(cur.pts) }) : ''}</span></div>
+    <div class="card kpi" style="--kc:var(--accent)"><span class="k-ico">${ico('ticket')}</span><small>${t('Tickets per member')}</small><b>${st.granted}<em> / ${s.ticket_cap}</em></b><span>${t('{a} on day 1, +{b} a day', { a: s.tickets_day1, b: s.tickets_daily })}</span></div>
+    <div class="card kpi" style="--kc:#16a37a"><span class="k-ico">${ico('gym')}</span><small>${t('Gym tickets used')}</small><b>${st.gymUsed}<em> / ${s.gym_ticket_cap}</em></b><span>${t('{n} runs', { n: S.runs.length })}</span></div>
   </div>
+
+  ${mine.length ? `<section class="section">
+    <h2>${t('Your battles')} <small>${t('planned by your admin and mods')}</small></h2>
+    <div class="mine">${mine.map(a => {
+      const l = leaderOf(s, a.leader);
+      return `<a class="card mb" href="#/log/${encodeURIComponent(a.leader)}" style="--tc:${tc(l.type)}">${leaderImg(s, a.leader)}
+        <div><b>${esc(a.leader)}</b> ${(l.weakness || []).map(w => img(typeIcon(w), 'ti', w)).join('')}
+          <div class="team">${teamIcons(planTeam(a)) || `<small class="muted">${t('Team not chosen yet')}</small>`}</div>
+          ${a.note ? `<small class="muted">${esc(a.note)}</small>` : ''}</div>
+        <span class="btn sm">${ico('swords')} ${t('Log')}</span></a>`;
+    }).join('')}</div>
+  </section>` : ''}
 
   <section class="section">
     <h2>${t('Progress by Gym Leader')} <small>${t('click a cell to log a run')}</small></h2>
     <div class="card scroll">
       <table class="progress">
-        <thead><tr><th>${t('Round')}</th>${s.leaders.map(l => `<th class="lh">${leaderImg(s, l.name)}<b>${esc(l.name)}</b>
+        <thead><tr><th>${t('Round')}</th>${s.leaders.map(l => `<th class="lh" style="--tc:${tc(l.type)}"><div class="head">${leaderImg(s, l.name)}</div><b>${esc(l.name)}</b>
           <span class="weak">${(l.weakness || []).map(w => img(typeIcon(w), 'ti', w)).join('')}</span></th>`).join('')}</tr></thead>
         <tbody>
         ${firstShown > 1 ? `<tr class="folded"><td colspan="${s.leaders.length + 1}"><button class="btn sm ghost" data-all-rounds>${t('{a}–{b} cleared — show all', { a: roundShort(circuitAt(s, 1).label), b: roundShort(circuitAt(s, firstShown - 1).label) })}</button></td></tr>` : ''}
@@ -212,7 +288,7 @@ function renderOverview() {
             ${s.leaders.map(l => {
               const v = pointsIn(st, n, l.name), full = v >= c.pts;
               return `<td><a class="cell ${full ? 'full' : v ? 'part' : ''}" href="#/log/${encodeURIComponent(l.name)}/${n}" title="${esc(l.name)} · ${esc(c.label)}: ${fmtN(v)} / ${fmtN(c.pts)}">
-                <i style="width:${Math.min(100, v / c.pts * 100)}%"></i><span>${full ? '✓' : v ? fmtK(v) : ''}</span></a></td>`;
+                <i style="width:${Math.min(100, v / c.pts * 100)}%"></i><span>${full ? '★' : v ? fmtK(v) : ''}</span></a></td>`;
             }).join('')}</tr>`;
         }).join('')}</tbody>
       </table>
@@ -226,8 +302,8 @@ function renderOverview() {
         <thead><tr><th>#</th><th>${t('Member')}</th><th class="num">${t('Score')}</th><th class="num">${t('Tickets')}</th><th class="num">${t('Left')}</th><th class="num">${t('Avg / ticket')}</th><th class="num">${t('Runs')}</th></tr></thead>
         <tbody>${board.map((m, i) => {
           const banned = st.banned.has(m.user_id), gone = !m.user_id || !profile(m.user_id);
-          return `<tr class="${banned ? 'dim' : ''}"><td>${i + 1}</td>
-            <td>${gone ? `<span class="muted">${esc(m.name)} (${t('left the gym')})</span>` : `<a href="#/member/${m.user_id}">${esc(m.name)}</a>`}${banned ? ` <span class="badge bad">${t('locked')}</span>` : ''}</td>
+          return `<tr class="${banned ? 'dim' : ''}"><td class="rank r${i + 1}">${i + 1}</td>
+            <td>${gone ? `<span class="muted">${esc(m.name)} (${t('left the gym')})</span>` : `<a class="who" href="#/member/${m.user_id}">${av(m.user_id, 'xs')}${esc(m.name)}</a>`}${banned ? ` <span class="badge bad">${t('locked')}</span>` : ''}</td>
             <td class="num"><b>${fmtN(m.score)}</b></td><td class="num">${m.tickets}</td>
             <td class="num">${gone || banned ? '—' : Math.max(0, st.granted - m.tickets)}</td>
             <td class="num">${m.tickets ? fmtN(Math.round(m.score / m.tickets)) : '—'}</td><td class="num">${m.runs}</td></tr>`;
@@ -249,7 +325,7 @@ const teamIcons = team => (team || []).map(x => {
 }).join('');
 function runLine(r) {
   const c = circuitAt(season(), r.round);
-  return `<div class="run"><div><b>${esc(r.member_name)}</b><small class="muted">${esc(r.leader)} · ${esc(c?.label || r.round)} · ${fmtDT(r.created_at)}</small></div>
+  return `<div class="run">${r.user_id && profile(r.user_id) ? av(r.user_id, 'xs') : ''}<div><b>${esc(r.member_name)}</b><small class="muted">${esc(r.leader)} · ${esc(c?.label || r.round)} · ${fmtDT(r.created_at)}</small></div>
     <span class="team">${teamIcons(r.team)}</span><b class="num">${fmtN(r.score)}</b></div>`;
 }
 
@@ -259,12 +335,19 @@ function runLine(r) {
 let form = null;
 const logFilter = { member: '', leader: '', round: '' };
 
+// Until the team is touched by hand it follows the plan: the assigned team for this
+// leader if there is one, else the member's latest team.
+function autoTeam(uid, leader) {
+  const plan = leader && planTeam(assignment(uid, leader));
+  if (plan?.length) return { team: plan, planned: true };
+  const last = S.runs.find(r => r.user_id === uid);
+  return { team: last ? last.team.map(x => ({ ...x })) : [], planned: false };
+}
 function blankForm(leader = '', round = null, member = null) {
   const st = state();
   const c = circuitAt(season(), round || st.active || 1);
-  const last = S.runs.find(r => r.user_id === (member || S.me));   // reuse the member's latest team
-  return { id: null, user_id: member || S.me, leader, round: round || st.active || 1, tickets: c?.fixed || 3, score: '',
-    team: last ? last.team.map(x => ({ ...x })) : [], note: '' };
+  const uid = member || S.me;
+  return { id: null, user_id: uid, leader, round: round || st.active || 1, tickets: c?.fixed || 3, score: '', note: '', auto: true, ...autoTeam(uid, leader) };
 }
 
 function renderLog(leader = '', round = '', member = '') {
@@ -275,7 +358,7 @@ function renderLog(leader = '', round = '', member = '') {
   <div class="log-layout">
     <section class="card pad" id="run-form">${runForm()}</section>
     <section>
-      <h2>${t('Run history')} <small>${t('{n} runs', { n: S.runs.length })}</small></h2>
+      <h2 class="title">${t('Run history')} <small>${t('{n} runs', { n: S.runs.length })}</small></h2>
       <div class="card filters" id="log-filters">${logFilters()}</div>
       <div class="card scroll" id="log-table">${logTable()}</div>
     </section>
@@ -290,7 +373,7 @@ function runForm() {
   const used = (st.perMember[form.user_id]?.tickets || 0) - (same && form.orig.user_id === form.user_id ? form.orig.tickets : 0);
   const rounds = Array.from({ length: Math.max(st.active || 0, st.maxRound) + (isStaff() ? 1 : 0) }, (_, i) => i + 1).filter(n => circuitAt(s, n));
   return `
-  <h2>${form.id ? t('Edit run') : t('Log a run')}</h2>
+  <h2 class="title">${form.id ? t('Edit run') : t('Log a run')}</h2>
   <form id="run-editor" class="form">
     <label>${t('Member')}
       <select name="user_id" ${isStaff() ? '' : 'disabled'}>${S.profiles.map(p => `<option value="${p.id}" ${p.id === form.user_id ? 'selected' : ''}>${esc(nameOf(p))}${st.banned.has(p.id) ? ` (${t('locked')})` : ''}</option>`).join('')}</select>
@@ -299,8 +382,10 @@ function runForm() {
     <div class="field"><span>${t('Gym Leader')}</span>
       <div class="leader-pick">${s.leaders.map(l => {
         const v = pointsIn(st, form.round, l.name), full = v >= (c?.pts || 0);
-        return `<button type="button" class="lp ${l.name === form.leader ? 'on' : ''} ${full ? 'full' : ''}" data-f-leader="${esc(l.name)}">
-          ${leaderImg(s, l.name, 'pi sm')}<b>${esc(l.name)}</b><small>${full ? t('cleared') : t('{n} to go', { n: fmtK((c?.pts || 0) - v) })}</small></button>`;
+        const planned = assignment(form.user_id, l.name);
+        return `<button type="button" class="lp ${l.name === form.leader ? 'on' : ''} ${full ? 'full' : ''}" data-f-leader="${esc(l.name)}" style="--tc:${tc(l.type)}">
+          ${planned ? `<span class="plan-dot" title="${t('Assigned to this member')}">★</span>` : ''}
+          ${leaderImg(s, l.name)}<b>${esc(l.name)}</b><small>${full ? `✓ ${t('cleared')}` : t('{n} to go', { n: fmtK((c?.pts || 0) - v) })}</small></button>`;
       }).join('')}</div></div>
     <div class="grid3">
       <label>${t('Round')}
@@ -311,7 +396,9 @@ function runForm() {
         <small class="muted">${form.leader ? t('Cap {cap} · {n} to go', { cap: fmtN(c?.pts), n: fmtN(Math.max(0, (c?.pts || 0) - have)) }) : t('Pick a Gym Leader')}</small></label>
     </div>
     <div class="field"><span>${t('Team (1–3 sync pairs)')}</span>
-      <div class="slots">${[0, 1, 2].map(i => {
+      <div class="slots">
+      ${form.planned ? `<div class="planned">★ ${t('Planned team for {l}', { l: esc(form.leader) })}</div>` : ''}
+      ${[0, 1, 2].map(i => {
         const x = form.team[i], p = x && pairById(x.pair_id);
         return x ? `<div class="slot">${pairIcon(p, 'sm', x.ex)}<div><b>${esc(p?.trainer || '?')}</b><small>${esc(p?.pokemon || '')}</small></div>
           <span class="badge">${levelLabel(x.level || 1)}${x.ex ? ' · EX' : ''}${x.ex_role ? ' · EXR' : ''}</span>
@@ -321,13 +408,14 @@ function runForm() {
       </div></div>
     <label>${t('Note')}<input name="note" value="${esc(form.note)}" placeholder="${t('e.g. used 2 sync moves, buff failed…')}"></label>
     <div class="row">
-      <button class="btn primary">${form.id ? t('Save changes') : t('Log run')}</button>
+      <button class="btn primary">${ico('swords')} ${form.id ? t('Save changes') : t('Log run')}</button>
       ${form.id ? `<button type="button" class="btn ghost" data-f-cancel>${t('Cancel')}</button>` : ''}
       <p class="form-err" id="run-err"></p>
     </div>
   </form>`;
 }
 const redrawForm = () => { $('#run-form').innerHTML = runForm(); };
+const refillTeam = () => { if (form.auto) Object.assign(form, autoTeam(form.user_id, form.leader)); };
 
 function searchPairs(q, uid) {
   const mine = new Map(owned(uid).map(x => [x.pair_id, x]));
@@ -349,7 +437,7 @@ document.addEventListener('input', e => {
 document.addEventListener('focusin', e => { if (e.target.id === 'team-search') e.target.dispatchEvent(new Event('input', { bubbles: true })); });
 document.addEventListener('change', e => {
   if (e.target.form?.id !== 'run-editor') return;
-  if (e.target.name === 'user_id') { form.user_id = e.target.value; redrawForm(); }
+  if (e.target.name === 'user_id') { form.user_id = e.target.value; refillTeam(); redrawForm(); }
   if (e.target.name === 'round') {
     form.round = +e.target.value;
     const c = circuitAt(season(), form.round);
@@ -360,19 +448,20 @@ document.addEventListener('change', e => {
 document.addEventListener('click', async e => {
   const el = e.target.closest('[data-f-leader],[data-f-tickets],[data-f-add],[data-f-drop],[data-f-cancel],[data-run-edit],[data-run-del]');
   if (!el) return;
-  if (el.dataset.fLeader) { form.leader = el.dataset.fLeader; redrawForm(); }
+  if (el.dataset.fLeader) { form.leader = el.dataset.fLeader; refillTeam(); redrawForm(); }
   if (el.dataset.fTickets) { form.tickets = +el.dataset.fTickets; redrawForm(); }
   if (el.dataset.fAdd) {
-    const mp = owned(form.user_id).find(x => x.pair_id === el.dataset.fAdd);
+    const mp = ownedPair(form.user_id, el.dataset.fAdd);
     form.team.push({ pair_id: el.dataset.fAdd, level: mp?.level || 1, ex: !!mp?.ex, ex_role: !!mp?.ex_role });
+    form.auto = form.planned = false;
     redrawForm();
     $('#team-search')?.focus();
   }
-  if (el.dataset.fDrop) { form.team.splice(+el.dataset.fDrop, 1); redrawForm(); }
+  if (el.dataset.fDrop) { form.team.splice(+el.dataset.fDrop, 1); form.auto = form.planned = false; redrawForm(); }
   if ('fCancel' in el.dataset) { form = blankForm(); redrawForm(); }
   if (el.dataset.runEdit) {
     const r = S.runs.find(x => x.id === +el.dataset.runEdit);
-    form = { ...r, team: r.team.map(x => ({ ...x })), score: String(r.score), orig: r };
+    form = { ...r, team: r.team.map(x => ({ ...x })), score: String(r.score), orig: r, auto: false, planned: false };
     redrawForm();
     $('#run-form').scrollIntoView({ behavior: 'smooth' });
   }
@@ -449,16 +538,18 @@ function renderPlan() {
   const scoreMax = Math.max(1, ...members.flatMap(p => types.map(ty => readiness(owned(p.id), towerFloor(p.id, ty), ty, pairById).score)));
 
   return `${seasonBar()}
-  <p class="lead">${t('For each Gym Leader: weakness, the rule in every circuit (from the datamine), strategy notes, who is assigned, and who fits best. Fit = the three strongest owned pairs of that type (level + EX + EX Role) + a quarter of that type’s tower floors.')}</p>
+  <p class="lead">${t('Each Gym Leader: weakness, the rule in every circuit, strategy notes, and the squad — who fights them and with which sync pairs from their own roster. Best fit ranks members by their three strongest pairs of a weakness type (level + EX + EX Role) plus a quarter of that type’s tower floors.')}</p>
   <div class="plan-grid">${s.leaders.map(l => {
     const w = l.weakness || [];
     const asg = S.asg.filter(a => a.leader === l.name);
     const note = S.notes.find(n => n.leader === l.name)?.note || '';
     const sugg = members.map(p => ({ p, fit: fitFor(p.id, w) })).sort((a, b) => b.fit.score - a.fit.score).slice(0, 5);
     const focus = leaderFocus(s, l.name, stages);
-    return `<article class="card plan" style="--tc:${TYPE_COLORS[l.type] || '#888'}">
-      <header>${leaderImg(s, l.name, 'pi lg')}<div><h3>${esc(l.name)}</h3>${typeTag(l.type)}
-        <div class="weak-line">${t('Weak to')} ${w.map(typeTag).join(' ') || '—'}</div></div></header>
+    return `<article class="card plan" style="--tc:${tc(l.type)}">
+      <div class="plan-head">${leaderImg(s, l.name)}<div><h3>${esc(l.name)}</h3>${typeTag(l.type)}
+        <div class="weak-line">${t('Weak to')} ${w.map(typeTag).join(' ') || '—'}</div></div>
+        <span class="count">${t('{n} assigned', { n: asg.length })}</span></div>
+      <div class="body">
       ${s.gym_data?.stages?.length ? `<div class="rules">${Array.from({ length: stages + 3 }, (_, i) => i + 1).map(n => {
         const c = circuitAt(s, n);
         if (!c) return '';
@@ -466,12 +557,15 @@ function renderPlan() {
         return `<span class="rule ${cls}" title="${esc(c.label)}: ${esc(tip)}"><small>${esc(roundShort(c.label))}</small>${txt}</span>`;
       }).join('')}</div>` : ''}
       ${focus.length ? `<div class="chips">${focus.map(f => `<span class="badge">${esc(f)}</span>`).join('')}</div>` : ''}
-      <label class="note">${t('Notes')}
-        ${isStaff() ? `<textarea data-note="${esc(l.name)}" rows="2" placeholder="${t('Strategy, suggested teams…')}">${esc(note)}</textarea>` : `<p>${esc(note) || '<span class="muted">—</span>'}</p>`}</label>
-      <div class="line"><span>${t('Assigned')}</span>${asg.map(a => `<span class="pill">${esc(nameOf(profile(a.user_id)))}${isStaff() ? ` <button class="x" data-asg-del="${esc(l.name)}|${a.user_id}" aria-label="${t('Remove')}">✕</button>` : ''}</span>`).join('') || `<span class="muted">${t('nobody yet')}</span>`}
-        ${isStaff() ? `<select data-asg-add="${esc(l.name)}"><option value="">+ ${t('add')}…</option>${members.filter(p => !asg.some(a => a.user_id === p.id)).map(p => `<option value="${p.id}">${esc(nameOf(p))}</option>`).join('')}</select>` : ''}</div>
-      <div class="line"><span>${t('Best fit')}</span>${sugg.map(({ p, fit }) => `
-        <a class="fit" href="#/member/${p.id}" title="${t('{n} pairs · tower {f}/40', { n: fit.count, f: fit.floor })}"><b>${esc(nameOf(p))}</b>${fit.pairs.slice(0, 3).map(x => pairIcon(x.pair, 'xs', x.ex)).join('')}<small>${fit.floor}F</small></a>`).join('')}</div>
+      <div class="note"><div class="sub">${t('Notes')}</div>
+        ${isStaff() ? `<textarea data-note="${esc(l.name)}" rows="2" placeholder="${t('Strategy, suggested teams…')}">${esc(note)}</textarea>` : `<p>${esc(note) || '<span class="muted">—</span>'}</p>`}</div>
+      <div><div class="sub">${t('Squad')}</div>
+        <div class="squad">${asg.map(a => squadRow(a)).join('') || `<p class="muted" style="margin:0">${t('nobody yet')}</p>`}</div>
+        ${isStaff() ? `<div class="assign-new" style="margin-top:8px"><select data-asg-add="${esc(l.name)}"><option value="">+ ${t('Assign a member…')}</option>${members.filter(p => !asg.some(a => a.user_id === p.id)).map(p => `<option value="${p.id}">${esc(nameOf(p))}</option>`).join('')}</select></div>` : ''}</div>
+      <div><div class="sub">${t('Best fit')}</div><div class="line">${sugg.map(({ p, fit }) => `
+        <span class="fit" title="${t('{n} pairs · tower {f}/40', { n: fit.count, f: fit.floor })}"><a href="#/member/${p.id}"><b>${esc(nameOf(p))}</b></a>${fit.pairs.slice(0, 3).map(x => pairIcon(x.pair, 'xs', x.ex)).join('')}<small>${fit.floor}F</small>
+          ${isStaff() && !asg.some(a => a.user_id === p.id) ? `<button class="add" data-asg-quick="${esc(l.name)}|${p.id}" title="${t('Assign with a suggested team')}">+</button>` : ''}</span>`).join('')}</div></div>
+      </div>
     </article>`;
   }).join('')}</div>
 
@@ -479,7 +573,7 @@ function renderPlan() {
     <h2>${t('Weakness coverage')} <small>${t('owned pairs · tower floor')}</small></h2>
     <div class="card scroll"><table class="table heatmap">
       <thead><tr><th>${t('Member')}</th>${types.map(ty => `<th>${typeTag(ty)}</th>`).join('')}</tr></thead>
-      <tbody>${members.map(p => `<tr><td><a href="#/member/${p.id}">${esc(nameOf(p))}</a></td>${types.map(ty => {
+      <tbody>${members.map(p => `<tr><td><a class="who" href="#/member/${p.id}">${av(p.id, 'xs')}${esc(nameOf(p))}</a></td>${types.map(ty => {
         const r = readiness(owned(p.id), towerFloor(p.id, ty), ty, pairById);
         return `<td class="heat" style="--h:${(r.score / scoreMax).toFixed(2)};--tc:${TYPE_COLORS[ty]}" title="${esc(r.pairs.slice(0, 3).map(x => `${pairName(x.pair)} ${levelLabel(x.level)}`).join('\n'))}"><b>${r.count || '·'}</b><small>${r.floor}F</small></td>`;
       }).join('')}</tr>`).join('')}</tbody></table></div>
@@ -490,16 +584,121 @@ const saveNote = debounce(async (leader, note) => {
   S.notes = await api.notes(S.sid);
 }, 800);
 document.addEventListener('input', e => { if (e.target.dataset.note) saveNote(e.target.dataset.note, e.target.value); });
-document.addEventListener('change', async e => {
-  const leader = e.target.dataset.asgAdd;
-  if (!leader || !e.target.value) return;
-  if (await act(() => api.addAssignment({ season_id: S.sid, leader, user_id: e.target.value }))) { S.asg = await api.assignments(S.sid); route(); }
+
+// ─── Squads: staff pick who fights a leader and which of their own pairs they bring ───
+let asgEdit = null;   // { leader, user_id, q, all } — the one squad row being edited
+const asgKey = a => `${a.leader}|${a.user_id}`;
+const isOpen = a => asgEdit && asgEdit.leader === a.leader && asgEdit.user_id === a.user_id;
+
+// One squad row. `withLeader` shows the leader instead of the member (member profile).
+function squadRow(a, withLeader = false) {
+  const s = season(), edit = isStaff(), open = isOpen(a);
+  const slots = [0, 1, 2].map(i => {
+    const id = a.team?.[i];
+    if (!id) return `<span class="slot0">${edit ? '+' : ''}</span>`;
+    const mp = ownedPair(a.user_id, id), p = pairById(id);
+    return `<span title="${esc(pairName(p))} · ${levelLabel(mp?.level || 1)}${mp?.ex ? ' EX' : ''}">${pairIcon(p, 'xs', mp?.ex)}</span>`;
+  }).join('');
+  const who = withLeader
+    ? `<span class="who">${leaderImg(s, a.leader)}<span>${esc(a.leader)}${a.note ? `<small>${esc(a.note)}</small>` : ''}</span></span>`
+    : `<a class="who" href="#/member/${a.user_id}/plan">${av(a.user_id, 'xs')}<span>${esc(nameOf(profile(a.user_id)))}${a.note ? `<small>${esc(a.note)}</small>` : ''}</span></a>`;
+  return `<div class="sq ${open ? 'open' : ''}">${who}<span class="slots3">${slots}</span>
+    ${edit ? `<button class="btn sm ${open ? 'primary' : 'ghost'}" data-asg-edit="${esc(asgKey(a))}" title="${t('Choose sync pairs')}">${ico('edit')}</button>
+      <button class="x" data-asg-del="${esc(asgKey(a))}" aria-label="${t('Remove')}">✕</button>` : ''}</div>
+    ${open ? asgEditor(a) : ''}`;
+}
+
+function asgEditor(a) {
+  const s = season(), st = state(), l = leaderOf(s, a.leader), w = l.weakness || [];
+  const q = asgEdit.q.trim().toLowerCase();
+  const list = owned(a.user_id).map(mp => ({ ...mp, pair: pairById(mp.pair_id) })).filter(x => x.pair)
+    .filter(x => a.team.includes(x.pair_id) || (q ? pairName(x.pair).toLowerCase().includes(q) : asgEdit.all || w.includes(x.pair.type)))
+    .sort((x, y) => (w.includes(y.pair.type) - w.includes(x.pair.type)) || pairWeight(y) - pairWeight(x));
+  const c = st.active && circuitAt(s, st.active);
+  const rule = c && s.gym_data?.stages?.length ? ruleShort(leaderRule(s, a.leader, st.active)) : null;
+  const who = nameOf(profile(a.user_id));
+  return `<div class="sq-edit">
+    <div class="row"><input data-asg-q placeholder="${t('Search {n}’s roster…', { n: esc(who) })}" value="${esc(asgEdit.q)}" autocomplete="off">
+      <button class="btn sm ${asgEdit.all ? '' : 'ghost'}" data-asg-all>${asgEdit.all ? t('All types') : t('Weakness types')}</button>
+      <button class="btn sm" data-asg-suggest>${ico('bolt')} ${t('Suggest')}</button>
+      <button class="btn sm primary" data-asg-done>${t('Done')}</button></div>
+    <p class="hint">${t('Pick up to 3 of {n}’s own sync pairs for {l}.', { n: esc(who), l: esc(a.leader) })}${rule ? ` ${esc(roundShort(c.label))}: ${esc(rule[2])}.` : ''}</p>
+    <div class="roster">${list.map(x => {
+      const i = a.team.indexOf(x.pair_id);
+      return `<button type="button" class="rp ${i >= 0 ? 'on' : a.team.length >= 3 ? 'off' : ''}" data-asg-pair="${x.pair_id}" ${i >= 0 ? `data-n="${i + 1}"` : ''}
+        title="${esc(pairName(x.pair))} · ${esc(x.pair.role)} · ${levelLabel(x.level)}${x.ex ? ' EX' : ''}">${img(typeIcon(x.pair.type), 'ti')}${pairIcon(x.pair, 'sm', x.ex)}<small>${levelLabel(x.level)}${x.ex ? ' EX' : ''}</small></button>`;
+    }).join('') || `<p class="hint">${q ? t('Nothing found.') : t('No pairs of the weakness types in this roster — try All types.')}</p>`}</div>
+    <input data-asg-note placeholder="${t('Note for {n} (optional)', { n: esc(who) })}" value="${esc(a.note)}">
+  </div>`;
+}
+
+async function saveAsg(a, patch, msg) {
+  const row = { season_id: S.sid, leader: a.leader, user_id: a.user_id, team: a.team || [], note: a.note || '', ...patch, updated_by: S.me };
+  const ok = await act(() => api.saveAssignment(row), msg);
+  if (ok) S.asg = await api.assignments(S.sid);
+  return ok;
+}
+// Re-render, keeping the roster search focused while typing
+function rerender() {
+  const q = document.activeElement?.matches?.('[data-asg-q]') ? document.activeElement.selectionStart : null;
+  route();
+  if (q != null) { const el = $('[data-asg-q]'); if (el) { el.focus(); el.setSelectionRange(q, q); } }
+}
+async function assign(leader, uid) {
+  const existing = assignment(uid, leader);
+  if (!existing) {
+    const team = suggestTeam(owned(uid), leaderOf(season(), leader).weakness || [], pairById).map(x => x.pair_id);
+    if (!await saveAsg({ leader, user_id: uid }, { team }, t('{n} assigned to {l}.', { n: nameOf(profile(uid)), l: leader }))) return;
+  }
+  asgEdit = { leader, user_id: uid, q: '', all: false };
+  rerender();
+}
+const asgFromKey = k => { const [leader, uid] = k.split('|'); return assignment(uid, leader); };
+const saveAsgNote = debounce((a, note) => saveAsg(a, { note }, t('Note saved.')), 700);
+
+document.addEventListener('change', e => {
+  const d = e.target.dataset;
+  if (d.asgAdd && e.target.value) assign(d.asgAdd, e.target.value);
+  if (d.asgAddLeader && e.target.value) assign(e.target.value, d.asgAddLeader);
 });
 document.addEventListener('click', async e => {
-  const b = e.target.closest('[data-asg-del]');
-  if (!b) return;
-  const [leader, uid] = b.dataset.asgDel.split('|');
-  if (await act(() => api.removeAssignment(S.sid, leader, uid))) { S.asg = await api.assignments(S.sid); route(); }
+  const el = e.target.closest('[data-asg-quick],[data-asg-edit],[data-asg-del],[data-asg-pair],[data-asg-suggest],[data-asg-all],[data-asg-done]');
+  if (!el) return;
+  e.preventDefault();
+  const d = el.dataset;
+  if (d.asgQuick) { const [leader, uid] = d.asgQuick.split('|'); return assign(leader, uid); }
+  if (d.asgEdit) {
+    const a = asgFromKey(d.asgEdit);
+    asgEdit = isOpen(a) ? null : { leader: a.leader, user_id: a.user_id, q: '', all: false };
+    return rerender();
+  }
+  if (d.asgDel) {
+    const a = asgFromKey(d.asgDel);
+    if (await act(() => api.removeAssignment(S.sid, a.leader, a.user_id))) { S.asg = await api.assignments(S.sid); if (isOpen(a)) asgEdit = null; rerender(); }
+    return;
+  }
+  const a = asgEdit && assignment(asgEdit.user_id, asgEdit.leader);
+  if (!a) return;
+  if ('asgDone' in d) { asgEdit = null; return rerender(); }
+  if ('asgAll' in d) { asgEdit.all = !asgEdit.all; return rerender(); }
+  if ('asgSuggest' in d) {
+    const team = suggestTeam(owned(a.user_id), leaderOf(season(), a.leader).weakness || [], pairById).map(x => x.pair_id);
+    if (await saveAsg(a, { team })) rerender();
+    return;
+  }
+  if (d.asgPair) {
+    const has = a.team.includes(d.asgPair);
+    if (!has && a.team.length >= 3) return toast(t('A team has at most 3 sync pairs.'), true);
+    const team = has ? a.team.filter(x => x !== d.asgPair) : [...a.team, d.asgPair];
+    if (await saveAsg(a, { team })) rerender();
+  }
+});
+document.addEventListener('input', e => {
+  if ('asgQ' in e.target.dataset && asgEdit) { asgEdit.q = e.target.value; rerender(); }
+  if ('asgNote' in e.target.dataset && asgEdit) {
+    const a = assignment(asgEdit.user_id, asgEdit.leader);
+    if (a) { a.note = e.target.value; saveAsgNote(a, e.target.value); }
+  }
 });
 
 // ═══════════════════════════════════════════════════════════════
@@ -511,26 +710,27 @@ function renderMembers() {
   const rows = S.profiles.map(p => {
     const mine = owned(p.id);
     const floors = TYPES.map(ty => towerFloor(p.id, ty));
-    return { p, pairs: mine.length, ex: mine.filter(x => x.ex).length, sa: mine.filter(x => x.level >= 10).length,
-      tower: floors.reduce((a, b) => a + b, 0), top: floors.filter(f => f >= TOWER_TOP).length, season: st?.perMember[p.id] };
+    const byType = TYPES.map(ty => [ty, mine.filter(x => pairById(x.pair_id)?.type === ty).length]).filter(x => x[1]).sort((a, b) => b[1] - a[1]);
+    return { p, pairs: mine.length, ex: mine.filter(x => x.ex).length, sa: mine.filter(x => x.level >= 10).length, byType,
+      tower: floors.reduce((a, b) => a + b, 0), top: floors.filter(f => f >= TOWER_TOP).length, season: st?.perMember[p.id], banned: st?.banned.has(p.id) };
   }).sort((a, b) => (b.season?.score || 0) - (a.season?.score || 0) || nameOf(a.p).localeCompare(nameOf(b.p)));
   const heat = (v, max, ty) => `<td class="heat" style="--h:${Math.min(1, v / max).toFixed(2)};--tc:${TYPE_COLORS[ty]}"><b>${v || '·'}</b></td>`;
 
   return `<div class="toolbar"><h1>${t('Members')} <small>${t('{n} people', { n: S.profiles.length })}</small></h1>
-    <div class="seg">${[['list', 'List'], ['types', 'Pairs by type'], ['tower', 'Tower by type']].map(([k, l]) => `<button class="${memberView === k ? 'on' : ''}" data-mview="${k}">${t(l)}</button>`).join('')}</div></div>
-  <div class="card scroll">${memberView === 'list' ? `<table class="table">
-    <thead><tr><th>${t('Member')}</th><th>${t('Role')}</th><th class="num">${t('Pairs')}</th><th class="num">EX</th><th class="num">10/5</th><th class="num">${t('Tower floors')}</th><th class="num">${t('Towers at 40')}</th><th class="num">${t('Season score')}</th><th class="num">${t('Tickets')}</th></tr></thead>
-    <tbody>${rows.map(r => `<tr>
-      <td><a href="#/member/${r.p.id}"><b>${esc(nameOf(r.p))}</b></a> <small class="muted">@${esc(r.p.username)}</small></td><td>${rankTag(r.p.role)}</td>
-      <td class="num">${r.pairs}</td><td class="num">${r.ex}</td><td class="num">${r.sa}</td>
-      <td class="num">${r.tower}<small class="muted"> / ${TYPES.length * TOWER_TOP}</small></td><td class="num">${r.top}</td>
-      <td class="num">${fmtN(r.season?.score || 0)}</td><td class="num">${r.season?.tickets || 0}</td></tr>`).join('')}</tbody></table>`
-  : `<table class="table heatmap">
+    <div class="seg">${[['list', 'Cards'], ['types', 'Pairs by type'], ['tower', 'Tower by type']].map(([k, l]) => `<button class="${memberView === k ? 'on' : ''}" data-mview="${k}">${t(l)}</button>`).join('')}</div></div>
+  ${memberView === 'list' ? `<div class="mgrid">${rows.map(r => `
+    <article class="card mcard ${r.banned ? 'dim' : ''}">
+      <div class="mtop">${av(r.p.id)}<div><a class="mname" href="#/member/${r.p.id}">${esc(nameOf(r.p))}</a>
+        <small class="muted">@${esc(r.p.username)}</small> ${rankTag(r.p.role)}${r.banned ? ` <span class="badge bad">${t('locked')}</span>` : ''}</div></div>
+      <div class="mstats"><div><b>${r.pairs}</b>${t('pairs')}</div><div><b>${r.ex}</b>EX</div><div><b>${r.tower}</b>${t('floors')}</div><div><b>${fmtK(r.season?.score || 0)}</b>${t('score')}</div></div>
+      <div class="mtypes">${r.byType.slice(0, 6).map(([ty, n]) => `<span style="--tc:${TYPE_COLORS[ty]}" title="${t(ty)}">${img(typeIcon(ty), 'ti', ty)}${n}</span>`).join('')}</div>
+      ${isStaff() ? `<div class="mlinks"><a class="btn sm" href="#/member/${r.p.id}/pairs">${t('Roster')}</a><a class="btn sm" href="#/member/${r.p.id}/tower">${t('Tower')}</a><a class="btn sm" href="#/member/${r.p.id}/plan">${t('Battle plan')}</a></div>` : ''}
+    </article>`).join('')}</div>`
+  : `<div class="card scroll"><table class="table heatmap">
     <thead><tr><th>${t('Member')}</th>${TYPES.map(ty => `<th title="${t(ty)}">${img(typeIcon(ty), 'ti', ty)}</th>`).join('')}</tr></thead>
-    <tbody>${rows.map(r => `<tr><td><a href="#/member/${r.p.id}">${esc(nameOf(r.p))}</a></td>${TYPES.map(ty => memberView === 'tower'
+    <tbody>${rows.map(r => `<tr><td><a class="who" href="#/member/${r.p.id}">${av(r.p.id, 'xs')}${esc(nameOf(r.p))}</a></td>${TYPES.map(ty => memberView === 'tower'
       ? heat(towerFloor(r.p.id, ty), TOWER_TOP, ty)
-      : heat(owned(r.p.id).filter(x => pairById(x.pair_id)?.type === ty).length, 8, ty)).join('')}</tr>`).join('')}</tbody></table>`}
-  </div>`;
+      : heat(owned(r.p.id).filter(x => pairById(x.pair_id)?.type === ty).length, 8, ty)).join('')}</tr>`).join('')}</tbody></table></div>`}`;
 }
 document.addEventListener('click', e => { const b = e.target.closest('[data-mview]'); if (b) { memberView = b.dataset.mview; route(); } });
 
@@ -539,40 +739,49 @@ document.addEventListener('click', e => { const b = e.target.closest('[data-mvie
 // ═══════════════════════════════════════════════════════════════
 let memberTab = 'pairs', editingInfo = false;
 const pairFilter = { q: '', type: '' };
+const MTABS = ['pairs', 'tower', 'plan', 'runs'];
 
-function renderMember(id = S.me) {
+function renderMember(id = S.me, tab = '') {
+  if (MTABS.includes(tab)) memberTab = tab;
   const p = profile(id);
   if (!p) return `<div class="empty card"><h2>${t('Member not found')}</h2><p class="muted">${t('The account may have been deleted.')}</p></div>`;
   const edit = canEdit(id), mine = owned(id);
   const floors = TYPES.reduce((a, ty) => a + towerFloor(id, ty), 0);
+  const fav = pairById(avatarPair(id)?.pair_id);
+  const nAsg = S.asg.filter(a => a.user_id === id).length;
   return `
-  <section class="card head">
+  <section class="banner profile-head" style="--tc:${tc(fav?.type)}">
+    ${av(id, 'lg')}
     <div>
-      <h1>${esc(nameOf(p))} ${rankTag(p.role)}</h1>
+      <span class="kicker">${rankName(p.role)}</span>
+      <h1>${esc(nameOf(p))}</h1>
       <p class="muted">@${esc(p.username)}${p.facebook ? ` · Facebook: ${esc(p.facebook)}` : ''} · ${t('joined {d}', { d: fmtD(p.joined_at) })}</p>
       ${p.note ? `<p>${esc(p.note)}</p>` : ''}
     </div>
     <div class="stats"><div><b>${mine.length}</b>${t('pairs')}</div><div><b>${mine.filter(x => x.ex).length}</b>EX</div>
       <div><b>${mine.filter(x => x.level >= 10).length}</b>10/5</div><div><b>${floors}</b>${t('tower floors')}</div></div>
-    ${edit ? `<button class="btn ghost" data-edit-info>${editingInfo ? t('Close') : t('Edit profile')}</button>` : ''}
+    ${edit ? `<button class="btn" data-edit-info>${ico('edit')} ${editingInfo ? t('Close') : t('Edit profile')}</button>` : ''}
   </section>
-  ${editingInfo && edit ? `<form class="card pad form" id="info-form">
+  ${isStaff() && id !== S.me ? `<div class="manage">${ico('edit')} ${t('You are managing {n}: changes to their roster, tower and battle plan are saved for them.', { n: esc(nameOf(p)) })}</div>` : ''}
+  ${editingInfo && edit ? `<form class="card pad form" id="info-form" style="margin-top:14px">
     <div class="grid3"><label>${t('In-game name')}<input name="display_name" value="${esc(p.display_name)}"></label>
     <label>Facebook<input name="facebook" value="${esc(p.facebook)}"></label>
     <label>${t('Joined')}<input name="joined_at" type="date" value="${esc(p.joined_at)}"></label></div>
+    <label>${t('Profile picture')}<select name="avatar"><option value="">${t('Strongest sync pair (automatic)')}</option>${[...mine].sort((a, b) => pairWeight(b) - pairWeight(a)).map(x => `<option value="${x.pair_id}" ${x.pair_id === p.avatar ? 'selected' : ''}>${esc(pairName(pairById(x.pair_id)))}</option>`).join('')}</select></label>
     <label>${t('Note')}<textarea name="note" rows="2">${esc(p.note)}</textarea></label>
     <div><button class="btn primary">${t('Save')}</button></div></form>` : ''}
-  <div class="toolbar">
+  <div class="toolbar tabs">
     <div class="seg">
       <button class="${memberTab === 'pairs' ? 'on' : ''}" data-mtab="pairs">${t('Sync pairs')} (${mine.length})</button>
       <button class="${memberTab === 'tower' ? 'on' : ''}" data-mtab="tower">${t('Pasio Tower')}</button>
+      <button class="${memberTab === 'plan' ? 'on' : ''}" data-mtab="plan">${t('Battle plan')}${nAsg ? ` (${nAsg})` : ''}</button>
       <button class="${memberTab === 'runs' ? 'on' : ''}" data-mtab="runs">${t('Runs this season')}</button>
     </div>
     ${!edit ? `<span class="muted">${t('View only — the member, mods and the admin can edit.')}</span>` : ''}
   </div>
   <div id="member-tab">${tabBody(id, edit)}</div>`;
 }
-const tabBody = (id, edit) => memberTab === 'pairs' ? pairsTab(id, edit) : memberTab === 'tower' ? towerTab(id, edit) : runsTab(id);
+const tabBody = (id, edit) => ({ pairs: pairsTab, tower: towerTab, plan: planTab, runs: runsTab }[memberTab] || pairsTab)(id, edit);
 
 function pairsTab(id, edit) {
   const f = pairFilter;
@@ -581,7 +790,7 @@ function pairsTab(id, edit) {
   const shown = mine.filter(x => (!f.type || x.pair.type === f.type) && (!f.q || pairName(x.pair).toLowerCase().includes(f.q.toLowerCase())))
     .sort((a, b) => TYPES.indexOf(a.pair.type) - TYPES.indexOf(b.pair.type) || pairWeight(b) - pairWeight(a));
   return `
-  ${edit ? `<div class="card pad add-pair"><b>${t('Add a sync pair you own')}</b>
+  ${edit ? `<div class="card pad add-pair"><b>${id === S.me ? t('Add a sync pair you own') : t('Add a sync pair {n} owns', { n: esc(nameOf(profile(id))) })}</b>
     <div class="search-box"><input id="own-search" placeholder="${t('Type a trainer or Pokémon name…')}" autocomplete="off"><div class="results" id="own-results"></div></div></div>` : ''}
   <div class="toolbar wrap">
     <input class="input" data-pq placeholder="${t('Filter {n} pairs…', { n: mine.length })}" value="${esc(f.q)}">
@@ -590,7 +799,7 @@ function pairsTab(id, edit) {
   </div>
   <div class="owned-grid">${shown.map(x => {
     const p = x.pair, max = p.maxBonus;
-    return `<div class="owned card ${x.level >= 10 ? 'sa' : ''}">
+    return `<div class="owned card ${x.level >= 10 ? 'sa' : ''}" style="--tc:${tc(p.type)}">
       ${pairIcon(p, 'md', x.ex)}
       <div class="o-body"><b>${esc(p.trainer)}</b><small>${esc(p.pokemon)}</small>
         <div class="o-tags">${typeTag(p.type)}${roleTag(p.role)}</div></div>
@@ -617,6 +826,16 @@ function towerTab(id, edit) {
   }).join('')}</div>`;
 }
 
+function planTab(id) {
+  const s = season();
+  if (!s) return `<p class="muted pad">${t('No Gym Battle season yet')}</p>`;
+  const mine = S.asg.filter(a => a.user_id === id);
+  const free = s.leaders.filter(l => !mine.some(a => a.leader === l.name));
+  return `<p class="lead">${t('Which Gym Leaders {n} fights in {s}, and with which sync pairs from their own roster.', { n: esc(nameOf(profile(id))), s: esc(s.name) })}</p>
+  <div class="squad" style="max-width:760px">${mine.map(a => squadRow(a, true)).join('') || `<p class="muted">${t('Not assigned to any Gym Leader yet.')}</p>`}</div>
+  ${isStaff() && free.length ? `<div class="assign-new" style="margin-top:10px"><select data-asg-add-leader="${id}"><option value="">+ ${t('Assign to a Gym Leader…')}</option>${free.map(l => `<option value="${esc(l.name)}">${esc(l.name)}</option>`).join('')}</select></div>` : ''}`;
+}
+
 function runsTab(id) {
   const list = S.runs.filter(r => r.user_id === id), st = state();
   return list.length ? `<div class="card list">${list.map(runLine).join('')}</div>
@@ -631,7 +850,7 @@ document.addEventListener('click', async e => {
   const el = e.target.closest('[data-mtab],[data-ptype],[data-edit-info],[data-own-add],[data-own-del],.tog[data-own]');
   if (!el) return;
   const uid = memberId();
-  if (el.dataset.mtab) { memberTab = el.dataset.mtab; route(); }
+  if (el.dataset.mtab) { memberTab = el.dataset.mtab; asgEdit = null; route(); }
   if ('ptype' in el.dataset) { pairFilter.type = el.dataset.ptype; redrawTab(); }
   if ('editInfo' in el.dataset) { editingInfo = !editingInfo; route(); }
   if (el.dataset.ownAdd) {
@@ -641,10 +860,10 @@ document.addEventListener('click', async e => {
   }
   if (el.dataset.ownDel) {
     if (!confirm(t('Remove {p} from the owned list?', { p: pairName(pairById(el.dataset.ownDel)) }))) return;
-    if (await act(() => api.deleteMemberPair(uid, el.dataset.ownDel))) { S.mp = await api.memberPairs(); redrawTab(); }
+    if (await act(() => api.deleteMemberPair(uid, el.dataset.ownDel))) { [S.mp, S.asg] = await Promise.all([api.memberPairs(), S.sid ? api.assignments(S.sid) : []]); redrawTab(); }
   }
   if (el.classList.contains('tog')) {
-    const cur = owned(uid).find(x => x.pair_id === el.dataset.own);
+    const cur = ownedPair(uid, el.dataset.own);
     if (await act(() => api.upsertMemberPair({ user_id: uid, pair_id: el.dataset.own, [el.dataset.k]: !cur[el.dataset.k] }))) { S.mp = await api.memberPairs(); redrawTab(); }
   }
 });
@@ -692,12 +911,12 @@ document.addEventListener('submit', async e => {
 // ═══════════════════════════════════════════════════════════════
 function renderAccount() {
   return `<div class="cols">
-    <form class="card pad form" id="pw-form"><h2>${t('Change password')}</h2>
+    <form class="card pad form" id="pw-form"><h2 class="title">${t('Change password')}</h2>
       <label>${t('New password')}<input name="pw" type="password" minlength="8" autocomplete="new-password" required></label>
       <label>${t('Repeat it')}<input name="pw2" type="password" minlength="8" autocomplete="new-password" required></label>
       <div><button class="btn primary">${t('Change password')}</button></div><p class="form-err" id="pw-err"></p></form>
-    <div class="card pad"><h2>${t('Signed in')}</h2>
-      <p><b>${esc(nameOf(meP()))}</b> (@${esc(meP().username)}) ${rankTag(meP().role)}</p>
+    <div class="card pad"><h2 class="title">${t('Signed in')}</h2>
+      <p class="row">${av(S.me)} <b>${esc(nameOf(meP()))}</b> (@${esc(meP().username)}) ${rankTag(meP().role, true)}</p>
       <div class="row"><a class="btn" href="#/member/${S.me}">${t('My profile, pairs & tower')}</a><button class="btn ghost" data-signout>${t('Sign out')}</button></div></div>
   </div>`;
 }
@@ -724,7 +943,7 @@ const genPassword = () => Array.from(crypto.getRandomValues(new Uint8Array(10)),
 
 function renderAdmin() {
   if (!isStaff()) return `<div class="empty card">${t('Only the admin and mods can open this page.')}</div>`;
-  return `<div class="toolbar"><div class="seg">
+  return `<div class="toolbar"><h1>${t('Admin')}</h1><div class="seg">
     <button class="${adminTab === 'seasons' ? 'on' : ''}" data-atab="seasons">${t('Gym Battle seasons')}</button>
     ${isAdmin() ? `<button class="${adminTab === 'accounts' ? 'on' : ''}" data-atab="accounts">${t('Accounts')}</button>` : ''}
     <button class="${adminTab === 'catalog' ? 'on' : ''}" data-atab="catalog">${t('Pair catalog')}</button>
@@ -736,7 +955,7 @@ after.admin = async () => {
   const body = $('#admin-body');
   if (adminTab === 'seasons') { body.innerHTML = adminSeasons(); prefillSeason(); }
   if (adminTab === 'accounts' && isAdmin()) body.innerHTML = adminAccounts();
-  if (adminTab === 'catalog') body.innerHTML = `<div class="card pad"><h2>${t('Pair catalog')}</h2>
+  if (adminTab === 'catalog') body.innerHTML = `<div class="card pad"><h2 class="title">${t('Pair catalog')}</h2>
     <p>${t('The database has {a} sync pairs; the tracker ({v}) lists {b}.', { a: `<b>${await api.catalogCount()}</b>`, b: `<b>${PAIRS().length}</b>`, v: esc(catalogVersion()) })}</p>
     <p class="muted">${t('Sync again after a game update so members can add the new pairs.')}</p>
     <button class="btn primary" data-sync-catalog>${t('Sync {n} pairs', { n: PAIRS().length })}</button></div>`;
@@ -759,7 +978,7 @@ function activityText(a) {
 function adminSeasons() {
   const s = season(), gyms = GYMS();
   return `<div class="cols">
-  <form class="card pad form" id="season-form"><h2>${t('New season')}</h2>
+  <form class="card pad form" id="season-form"><h2 class="title">${t('New season')}</h2>
     <label>${t('Take Gym Leaders & circuits from the datamine')}
       <select name="gym"><option value="">— ${t('enter them by hand')} —</option>${gyms.map((g, i) => `<option value="${i}" ${i === gyms.length - 1 ? 'selected' : ''}>${esc(g.name)} · ${esc((g.stages[0]?.leaders || []).map(l => l.name).join(', '))}</option>`).join('')}</select></label>
     <label>${t('Season name')}<input name="name" required placeholder="SS4 Sinnoh"></label>
@@ -774,13 +993,13 @@ function adminSeasons() {
     <label>${t('Gym Leaders when entering by hand — one per line: "Name, Type, Weakness1 Weakness2"')}<textarea name="leaders" rows="3" placeholder="Roark, Rock, Grass&#10;Gardenia, Grass, Flying"></textarea></label>
     <div><button class="btn primary">${t('Create season')}</button></div><p class="form-err" id="season-err"></p>
   </form>
-  <div class="card pad"><h2>${t('Seasons')}</h2>
-    <table class="table"><tbody>${S.seasons.map(x => `<tr>
+  <div class="card pad"><h2 class="title">${t('Seasons')}</h2>
+    <div class="scroll"><table class="table"><tbody>${S.seasons.map(x => `<tr>
       <td>${x.is_active ? '● ' : ''}<b>${esc(x.name)}</b><br><small class="muted">${esc(x.gym_key || t('entered by hand'))} · ${t('{n} leaders', { n: x.leaders.length })}</small></td>
       <td class="muted nowrap">${fmtDT(x.battle_start)}<br>${fmtDT(x.battle_end)}</td>
       <td class="acts">${x.is_active ? '' : `<button class="btn sm" data-season-activate="${x.id}">${t('Set running')}</button>`}
-        ${isAdmin() ? `<button class="btn sm ghost" data-season-del="${x.id}">${t('Delete')}</button>` : ''}</td></tr>`).join('') || `<tr><td class="muted">${t('No seasons yet.')}</td></tr>`}</tbody></table>
-    ${s ? `<h3>${t('Lock members in {s}', { s: esc(s.name) })}</h3><p class="muted">${t('Locked members cannot log new runs and do not count toward the combined score.')}</p>
+        ${isAdmin() ? `<button class="btn sm ghost" data-season-del="${x.id}">${t('Delete')}</button>` : ''}</td></tr>`).join('') || `<tr><td class="muted">${t('No seasons yet.')}</td></tr>`}</tbody></table></div>
+    ${s ? `<h3 style="margin-top:18px">${t('Lock members in {s}', { s: esc(s.name) })}</h3><p class="muted">${t('Locked members cannot log new runs and do not count toward the combined score.')}</p>
       <div class="chips">${S.profiles.map(p => {
         const banned = S.sm.some(m => m.user_id === p.id && m.banned);
         return `<button class="pill ${banned ? 'bad' : ''}" data-ban="${p.id}">${banned ? '🔒' : '🔓'} ${esc(nameOf(p))}</button>`;
@@ -800,8 +1019,8 @@ function prefillSeason() {
 
 function adminAccounts() {
   return `<div class="cols">
-  <form class="card pad form" id="account-form"><h2>${t('New account')}</h2>
-    <p class="muted">${t('The new member signs in with this username and temporary password, then changes the password and fills in their pairs and tower.')}</p>
+  <form class="card pad form" id="account-form"><h2 class="title">${t('New account')}</h2>
+    <p class="muted" style="margin:0">${t('The new member signs in with this username and temporary password, then changes the password and fills in their pairs and tower.')}</p>
     <div class="grid3"><label>${t('Username')}<input name="username" required pattern="[a-z0-9_.\\-]{3,32}" placeholder="${t('lowercase, digits, _ . -')}"></label>
       <label>${t('In-game name')}<input name="display_name"></label>
       <label>${t('Role')}<select name="role"><option value="member">${t('Member')}</option><option value="mod">${t('Mod')}</option><option value="admin">${t('Admin')}</option></select></label></div>
@@ -811,11 +1030,11 @@ function adminAccounts() {
       <code>${t('Link')}: ${esc(location.href.split('#')[0].split('?')[0])}\n${t('Username')}: ${esc(newAccount.username)}\n${t('Password')}: ${esc(newAccount.password)}</code></div>` : ''}
     <p class="form-err" id="account-err"></p>
   </form>
-  <div class="card pad"><h2>${t('Accounts')} (${S.profiles.length})</h2>
-    <table class="table"><tbody>${S.profiles.map(p => `<tr>
-      <td><b>${esc(nameOf(p))}</b><br><small class="muted">@${esc(p.username)}</small></td>
-      <td>${p.id === S.me ? rankTag(p.role) : `<select data-role="${p.id}">${['member', 'mod', 'admin'].map(r => `<option value="${r}" ${r === p.role ? 'selected' : ''}>${t(r[0].toUpperCase() + r.slice(1))}</option>`).join('')}</select>`}</td>
-      <td class="acts">${p.id === S.me ? '' : `<button class="btn sm ghost" data-resetpw="${p.id}">${t('Reset password')}</button><button class="btn sm danger" data-deluser="${p.id}">${t('Delete')}</button>`}</td></tr>`).join('')}</tbody></table>
+  <div class="card pad"><h2 class="title">${t('Accounts')} (${S.profiles.length})</h2>
+    <div class="scroll"><table class="table"><tbody>${S.profiles.map(p => `<tr>
+      <td><span class="who">${av(p.id, 'xs')}<span><b>${esc(nameOf(p))}</b><br><small class="muted">@${esc(p.username)}</small></span></span></td>
+      <td>${p.id === S.me ? rankTag(p.role, true) : `<select data-role="${p.id}">${['member', 'mod', 'admin'].map(r => `<option value="${r}" ${r === p.role ? 'selected' : ''}>${rankName(r)}</option>`).join('')}</select>`}</td>
+      <td class="acts">${p.id === S.me ? '' : `<button class="btn sm ghost" data-resetpw="${p.id}">${t('Reset password')}</button><button class="btn sm danger" data-deluser="${p.id}">${t('Delete')}</button>`}</td></tr>`).join('')}</tbody></table></div>
     <p class="muted">${t('Delete the account when a member leaves: their pairs and tower go, their runs keep their name.')}</p>
   </div></div>`;
 }

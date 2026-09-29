@@ -129,9 +129,11 @@ export function leaderFocus(season, leader, n) {
   return st?.leaders.find(x => x.name === leader)?.focus || [];
 }
 
-// Leader portrait: a tracker icon of one of their sync pairs, else the Dex pixel sprite
+// Gym Leader picture: their own trainer sprite from the Dex (the PMEX outfit when there is one),
+// never a sync pair icon. Seasons keep the sprite URLs they were created with.
 export function leaderImage(season, name) {
-  const own = pairs.filter(p => p.trainerName === name);
-  const pick = own.find(p => p.trainer === name) || own[0];
-  return pick ? pairImage(pick) : season?.gym_data?.leaderSprites?.[name] || PLACEHOLDER;
+  const saved = season?.gym_data?.leaderSprites?.[name];
+  if (saved) return saved;
+  const gym = [...gyms].reverse().find(g => g.leaderSprites?.[name]);
+  return gym ? DEX + gym.leaderSprites[name] : `${DEX}assets/trainers/${slug(name).replace(/-/g, '')}.png`;
 }

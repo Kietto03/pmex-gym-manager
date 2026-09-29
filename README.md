@@ -16,8 +16,8 @@ A small web app for running a **Pokémon Masters EX** gym: member accounts, the 
 |---|---|
 | **Overview** | Running season: score per round, which Gym Leaders are cleared, member scores, tickets left, recent runs |
 | **Log run** | Pick leader, round, tickets and score, add the team (1–3 sync pairs). Rules are checked as you type |
-| **Plan** | Per Gym Leader: weakness, the rule of every circuit, notes, who is assigned, and who fits best |
-| **Members** | Everyone's sync pairs (owned, 6★ EX, EX Role, move level up to 5/5 or 10/5 with Superawakening) and Pasio Tower floors per type (18 towers × 40 floors) |
+| **Plan** | Per Gym Leader: weakness, the rule of every circuit, notes, the squad (who fights them and with which 1–3 pairs **from their own roster**) and who fits best |
+| **Members** | Everyone's sync pairs (owned, 6★ EX, EX Role, move level up to 5/5 or 10/5 with Superawakening), Pasio Tower floors per type (18 towers × 40 floors) and battle plan. Mods and the admin can update any member's roster and tower |
 | **Admin** | Seasons, lock members, accounts, sync the pair catalog, activity log |
 
 ### Roles
@@ -29,7 +29,8 @@ A small web app for running a **Pokémon Masters EX** gym: member accounts, the 
 | Edit **other members'** profile, pairs, tower | | ✅ | ✅ |
 | Log own runs (the open round only) | ✅ | ✅ | ✅ |
 | Log / edit runs for others, backfill older rounds | | ✅ | ✅ |
-| Seasons, locking, assignments, leader notes, activity log | | ✅ | ✅ |
+| Assign members to Gym Leaders and pick their team from their roster | | ✅ | ✅ |
+| Seasons, locking, leader notes, activity log | | ✅ | ✅ |
 | Create / delete accounts, reset passwords, change roles | | | ✅ |
 
 Permissions are enforced **in the database** (row-level security and triggers), not only in the page.
@@ -44,6 +45,7 @@ Same logic in `src/rules.js` (instant feedback) and the `check_run()` trigger (t
 - **Round chain**: the open round is the first one where not every leader is at the cap. Members log the open round only; mods and the admin can backfill any round.
 - The last circuit ("… and onward") repeats forever and rotates Rules 1/2/3.
 - Locked members can't log new runs and don't count toward the combined score.
+- A planned team only holds pairs the member owns; removing a pair from a roster removes it from their planned teams. Logging a run against an assigned leader pre-fills that team.
 
 ## Setup (once)
 
@@ -84,7 +86,7 @@ Same logic in `src/rules.js` (instant feedback) and the `check_run()` trigger (t
 
 ```bash
 npm run serve            # http://localhost:8767/?demo
-npm run test:db          # 34 permission & rule tests on a throwaway Postgres (needs Docker)
+npm run test:db          # 40 permission & rule tests on a throwaway Postgres (needs Docker)
 # UI test: serve, then open http://localhost:8767/test/e2e.html
 ```
 
@@ -109,4 +111,4 @@ test/e2e.html             clicks through the demo in an iframe
 
 ## Credits
 
-Sync pair data and icons from the [PoMasters Sync Pairs Tracker](https://pomasters.github.io/SyncPairsTracker/). Gym Battle data from the [PMEX Dex](https://github.com/Kietto03/pmex-supez-dex) datamine build. Fan project, not affiliated with DeNA or The Pokémon Company; game assets belong to their owners.
+Sync pair data and icons from the [PoMasters Sync Pairs Tracker](https://pomasters.github.io/SyncPairsTracker/). Gym Battle data and Gym Leader pixel sprites (Pokémon Showdown trainer sprites) from the [PMEX Dex](https://github.com/Kietto03/pmex-supez-dex) datamine build. Fan project, not affiliated with DeNA or The Pokémon Company; game assets belong to their owners.
