@@ -14,7 +14,7 @@ const out = [], f = document.getElementById('f');
 // ?dex=<url> tests against a local Dex build (serve it with `npm run serve` in the Dex repo)
 const dex = new URLSearchParams(location.search).get('dex');
 f.src = '../index.html?demo' + (dex ? '&dex=' + encodeURIComponent(dex) : '');
-const log = (ok, name, info = '') => out.push(`${ok ? 'PASS' : 'FAIL'}  ${name}${info ? '  → ' + info : ''}`);
+const log = (ok, name, info = '') => { out.push(`${ok ? 'PASS' : 'FAIL'}  ${name}${info ? '  → ' + info : ''}`); document.getElementById('out').textContent = out.join('\n') + '\n…'; };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const W = () => f.contentWindow, $ = s => W().document.querySelector(s), $$ = s => [...W().document.querySelectorAll(s)];
 async function until(fn, ms = 4000) { const t = Date.now(); while (Date.now() - t < ms) { try { const v = fn(); if (v) return v; } catch {} await sleep(50); } return null; }
@@ -77,11 +77,35 @@ f.onload = async () => {
     await until(() => $$('.owned').length === count0 + 1);
     log($$('.owned').length === count0 + 1, 'member adds an owned pair');
     // Cards re-sort by strength after a change, so follow the pair by id
-    const pid = $('.owned .tog[data-k=ex]').dataset.own;
+    const order = () => $$('.owned').map(x => x.dataset.pair).join();
+    const order0 = order();
+    const pid = $('.owned .tog[data-k=ex]:not(:disabled)').dataset.own;
     const exBtn = () => $(`.owned .tog[data-k=ex][data-own="${pid}"]`);
     const was = exBtn().classList.contains('on');
     exBtn().click(); await sleep(150);
     log(exBtn().classList.contains('on') !== was, 'toggle EX on an owned pair');
+    log(order() === order0, 'cards stay in place after a toggle (no jumping)');
+
+    // A pair below 5★: raise the stars first, only then 6★ EX
+    const low = $$('.owned').find(c => c.querySelector('.stars button.up:not(.on)'));
+    const lowId = low.dataset.pair;
+    const lowCard = () => $(`.owned[data-pair="${lowId}"]`);
+    const exLow = () => lowCard().querySelector('.tog[data-k=ex]');
+    log(exLow().disabled, 'EX is locked while a pair is below 5★');
+    lowCard().querySelector('[data-own-star="5"]').click(); await sleep(150);
+    log(!exLow().disabled && lowCard().querySelectorAll('.stars .on').length === 5, 'raising to 5★ unlocks EX');
+    exLow().click(); await sleep(150);
+    log(exLow().classList.contains('on') && /_EX\.png$/.test(lowCard().querySelector('.pi').src), 'EX on shows the EX icon', lowCard().querySelector('.pi').src.split('/').pop());
+    lowCard().querySelector('[data-own-star="5"]').click(); await sleep(150);
+    log(!exLow().classList.contains('on') && exLow().disabled, 'dropping below 5★ removes EX again');
+
+    // Filters
+    const all = $$('.owned').length;
+    $('.tchip').click(); await sleep(120);
+    const ty = $('.tchip.on').title;
+    log($$('.owned').length < all && $$('.group-h').length === 1, 'type filter narrows the roster', `${all} → ${$$('.owned').length} (${ty})`);
+    $('[data-preset]').click(); await sleep(120);
+    log($$('.owned').length === all, 'clear filters shows everything again');
     $('[data-mtab=tower]').click(); await sleep(150);
     const range = await until(() => $('input[data-tower=Dragon]'));
     setVal(range, '40'); await sleep(200);

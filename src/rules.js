@@ -94,9 +94,9 @@ export function validateRun(season, st, run, { editing = null, isStaff = false }
 }
 
 // ─── Member strength for a type ─────────────────────────────
-// Pair weight: level (1–10) + 2 if 6★ EX + 1 if EX Role. Fit for a type = best three
+// Pair weight: level (1–10) + 2 if 6★ EX + 1 if EX Role − 1 per missing star. Fit for a type = best three
 // owned pairs of that type + a quarter of the tower floors cleared.
-export const pairWeight = mp => (mp.level || 1) + (mp.ex ? 2 : 0) + (mp.ex_role ? 1 : 0);
+export const pairWeight = mp => (mp.level || 1) + (mp.ex ? 2 : 0) + (mp.ex_role ? 1 : 0) - (5 - (mp.stars || 5));
 
 export function readiness(ownedPairs, towerFloor, type, pairById) {
   const mine = ownedPairs

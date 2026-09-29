@@ -40,7 +40,13 @@ export const PAIRS = () => pairs;
 export const pairById = id => byId.get(id);
 export const catalogVersion = () => version;
 export const pairName = p => (p ? `${p.trainer} & ${p.pokemon}` : '?');
-export const pairImage = (p, ex = false) => (p ? `${POMA}${(ex && p.images[1]) || p.images[0]}` : PLACEHOLDER);
+// Icons are named …_3.png / _4.png / _5.png / _EX.png: pick the one for the member's star level
+export function pairImage(p, ex = false, stars = null) {
+  if (!p) return PLACEHOLDER;
+  const find = tag => p.images.find(s => s.endsWith(`_${tag}.png`));
+  const src = (ex && find('EX')) || find(ex ? 5 : stars || p.rarity) || p.images[0];
+  return src ? POMA + src : PLACEHOLDER;
+}
 
 export async function loadCatalog() {
   const res = await fetch(`${POMA}js/syncpairs.json`);
@@ -60,7 +66,7 @@ export async function loadCatalog() {
     weakness: p.pokemonWeak,
     role: p.syncPairRole,
     exRole: p.syncPairRoleEX || '',
-    rarity: +p.syncPairRarity || 5,
+    rarity: +p.syncPairRarity || 5,          // base stars (3–5); members raise it to 5★ before 6★ EX
     maxBonus: p.syncPairSuperawakening ? 10 : 5,
     exPose: !!p.syncPairEXPose,
     release: p.releaseDate,

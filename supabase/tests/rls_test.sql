@@ -48,7 +48,9 @@ insert into auth.users (id, email, raw_user_meta_data, raw_app_meta_data) values
 
 insert into public.pair_catalog (id, trainer, pokemon, type, role, ex_role, max_bonus) values
   ('p-sa', 'Cynthia', 'Garchomp', 'Dragon', 'Strike (Physical)', 'Tech', 10),
-  ('p-5',  'Brock', 'Onix', 'Rock', 'Tech', '', 5);
+  ('p-5',  'Brock', 'Onix', 'Rock', 'Tech', '', 5),
+  ('p-3',  'Misty', 'Staryu', 'Water', 'Tech', 'Strike', 5);
+update public.pair_catalog set rarity = 3 where id = 'p-3';
 
 -- Battle opened 3 days ago → 9 + 3×3 = 18 tickets granted so far
 insert into public.seasons (name, battle_start, battle_end, leaders, circuits, is_active) values
@@ -89,6 +91,18 @@ select pg_temp.check('member cannot add pairs for someone else',    '00000000-00
   $$ insert into public.member_pairs (user_id, pair_id) values ('00000000-0000-0000-0000-00000000000d', 'p-5') $$, 'row-level security');
 select pg_temp.check('mod fills in pairs for a member',             '00000000-0000-0000-0000-00000000000b',
   $$ insert into public.member_pairs (user_id, pair_id, level) values ('00000000-0000-0000-0000-00000000000d', 'p-5', 5) $$);
+select pg_temp.check('3★ pair starts at its base stars',           '00000000-0000-0000-0000-00000000000c',
+  $$ insert into public.member_pairs (user_id, pair_id) values ('00000000-0000-0000-0000-00000000000c', 'p-3');
+     do $d$ begin assert (select stars from public.member_pairs where pair_id = 'p-3') = 3; end $d$ $$);
+select pg_temp.check('6★ EX before 5★ is rejected',                 '00000000-0000-0000-0000-00000000000c',
+  $$ update public.member_pairs set ex = true where pair_id = 'p-3' $$, 'to 5★ before 6★ EX');
+select pg_temp.check('stars below the base rarity are rejected',    '00000000-0000-0000-0000-00000000000c',
+  $$ update public.member_pairs set stars = 2 where pair_id = 'p-3' $$, 'starts at 3★');
+select pg_temp.check('EX Role before 6★ EX is rejected',            '00000000-0000-0000-0000-00000000000c',
+  $$ update public.member_pairs set stars = 5, ex_role = true where pair_id = 'p-3' $$, 'needs 6★ EX');
+select pg_temp.check('raise to 5★, then EX and EX Role',            '00000000-0000-0000-0000-00000000000c',
+  $$ update public.member_pairs set stars = 5 where pair_id = 'p-3';
+     update public.member_pairs set ex = true, ex_role = true where pair_id = 'p-3' $$);
 select pg_temp.check('mod updates a member''s pair level',          '00000000-0000-0000-0000-00000000000b',
   $$ do $d$ declare n int; begin update public.member_pairs set level = 4, ex = true where user_id = '00000000-0000-0000-0000-00000000000d' and pair_id = 'p-5'; get diagnostics n = row_count; assert n = 1; end $d$ $$);
 select pg_temp.check('tower floor saved',                           '00000000-0000-0000-0000-00000000000c',

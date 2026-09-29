@@ -17,7 +17,7 @@ A small web app for running a **Pokémon Masters EX** gym: member accounts, the 
 | **Overview** | Running season: score per round, which Gym Leaders are cleared, member scores, tickets left, recent runs |
 | **Log run** | Pick leader, round, tickets and score, add the team (1–3 sync pairs). Rules are checked as you type |
 | **Plan** | Per Gym Leader: weakness, the rule of every circuit, notes, the squad (who fights them and with which 1–3 pairs **from their own roster**) and who fits best |
-| **Members** | Everyone's sync pairs (owned, 6★ EX, EX Role, move level up to 5/5 or 10/5 with Superawakening), Pasio Tower floors per type (18 towers × 40 floors) and battle plan. Mods and the admin can update any member's roster and tower |
+| **Members** | Everyone's sync pairs (owned, stars for 3★/4★ pairs, 6★ EX, EX Role, move level up to 5/5 or 10/5 with Superawakening) with search, type/role/status filters and stable sorting, Pasio Tower floors per type (18 towers × 40 floors) and battle plan. Mods and the admin can update any member's roster and tower |
 | **Admin** | Seasons, lock members, accounts, sync the pair catalog, activity log |
 
 ### Roles
@@ -45,6 +45,7 @@ Same logic in `src/rules.js` (instant feedback) and the `check_run()` trigger (t
 - **Round chain**: the open round is the first one where not every leader is at the cap. Members log the open round only; mods and the admin can backfill any round.
 - The last circuit ("… and onward") repeats forever and rotates Rules 1/2/3.
 - Locked members can't log new runs and don't count toward the combined score.
+- Sync pair progress follows the game: a 3★/4★ pair is raised to 5★ first, then 6★ EX, then its EX Role.
 - A planned team only holds pairs the member owns; removing a pair from a roster removes it from their planned teams. Logging a run against an assigned leader pre-fills that team.
 
 ## Setup (once)
@@ -86,7 +87,7 @@ Same logic in `src/rules.js` (instant feedback) and the `check_run()` trigger (t
 
 ```bash
 npm run serve            # http://localhost:8767/?demo
-npm run test:db          # 40 permission & rule tests on a throwaway Postgres (needs Docker)
+npm run test:db          # 45 permission & rule tests on a throwaway Postgres (needs Docker)
 # UI test: serve, then open http://localhost:8767/test/e2e.html
 ```
 

@@ -30,8 +30,10 @@ function seedData() {
     for (const c of catalog) {
       if (rnd() > 0.10 + skill * 0.18) continue;
       const level = c.max_bonus === 10 && rnd() < skill * 0.5 ? 5 + Math.ceil(rnd() * 5) : 1 + Math.floor(rnd() * 5 * skill + rnd());
-      memberPairs.push({ user_id: p.id, pair_id: c.id, level: Math.min(level, c.max_bonus), ex: rnd() < skill * 0.6,
-        ex_role: !!c.ex_role && rnd() < skill * 0.4, note: '', updated_at: new Date().toISOString() });
+      const stars = Math.min(5, c.rarity + Math.floor(rnd() * (6 - c.rarity) * (0.4 + skill)));
+      const ex = stars === 5 && rnd() < skill * 0.6;
+      memberPairs.push({ user_id: p.id, pair_id: c.id, level: Math.min(level, c.max_bonus), stars, ex,
+        ex_role: ex && !!c.ex_role && rnd() < skill * 0.6, note: '', updated_at: new Date().toISOString() });
     }
     for (const t of TYPES) {
       const f = Math.round(Math.min(40, Math.max(0, 40 * skill - 8 + rnd() * 16)));
@@ -183,7 +185,11 @@ export function createDemoApi() {
       if (row.level > c.max_bonus) deny(t('{pair} only goes up to {n}/5.', { pair: `${c.trainer} & ${c.pokemon}`, n: c.max_bonus }));
       if (row.ex_role && !c.ex_role) deny(t('{pair} has no EX Role.', { pair: `${c.trainer} & ${c.pokemon}` }));
       const i = db.memberPairs.findIndex(x => x.user_id === row.user_id && x.pair_id === row.pair_id);
-      const full = { level: 1, ex: false, ex_role: false, note: '', ...(i >= 0 ? db.memberPairs[i] : {}), ...row, updated_at: new Date().toISOString() };
+      const full = { level: 1, stars: c.rarity, ex: false, ex_role: false, note: '', ...(i >= 0 ? db.memberPairs[i] : {}), ...row, updated_at: new Date().toISOString() };
+      const name = `${c.trainer} & ${c.pokemon}`;
+      if (full.stars < c.rarity || full.stars > 5) deny(t('{pair} starts at {n}★.', { pair: name, n: c.rarity }));
+      if (full.ex && full.stars < 5) deny(t('Raise {pair} to 5★ before 6★ EX.', { pair: name }));
+      if (full.ex_role && !full.ex) deny(t('{pair} needs 6★ EX before its EX Role.', { pair: name }));
       if (i >= 0) db.memberPairs[i] = full; else db.memberPairs.push(full);
       return clone(full);
     },

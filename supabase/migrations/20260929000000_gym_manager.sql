@@ -95,7 +95,8 @@ create table public.member_pairs (
   user_id    uuid not null references public.profiles (id) on delete cascade,
   pair_id    text not null references public.pair_catalog (id) on update cascade,
   level      smallint not null default 1 check (level between 1 and 10),
-  ex         boolean not null default false,     -- 6★ EX unlocked
+  stars      smallint check (stars between 3 and 5),   -- raised from the base rarity; null on insert = base
+  ex         boolean not null default false,     -- 6★ EX unlocked (needs 5★)
   ex_role    boolean not null default false,     -- EX Role unlocked
   note       text not null default '',
   updated_at timestamptz not null default now(),
@@ -108,11 +109,21 @@ as $$
 declare c public.pair_catalog;
 begin
   select * into c from public.pair_catalog where id = new.pair_id;
+  new.stars := coalesce(new.stars, c.rarity);
   if new.level > c.max_bonus then
     raise exception '% & % only goes up to %/5.', c.trainer, c.pokemon, c.max_bonus;
   end if;
+  if new.stars < c.rarity then
+    raise exception '% & % starts at %★.', c.trainer, c.pokemon, c.rarity;
+  end if;
+  if new.ex and new.stars < 5 then
+    raise exception 'Raise % & % to 5★ before 6★ EX.', c.trainer, c.pokemon;
+  end if;
   if new.ex_role and c.ex_role = '' then
     raise exception '% & % has no EX Role.', c.trainer, c.pokemon;
+  end if;
+  if new.ex_role and not new.ex then
+    raise exception '% & % needs 6★ EX before its EX Role.', c.trainer, c.pokemon;
   end if;
   new.updated_at := now();
   return new;

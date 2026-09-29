@@ -20,7 +20,8 @@ const fmtLeft = ms => {
   return d ? `${d}d ${h}h` : h ? `${h}h ${m % 60}m` : `${m % 60}m`;
 };
 const img = (src, cls = '', alt = '') => `<img src="${esc(src || PLACEHOLDER)}" class="${cls}" alt="${esc(alt)}" loading="lazy" onerror="this.onerror=null;this.src='${PLACEHOLDER}'">`;
-const pairIcon = (p, size = 'md', ex = false) => img(pairImage(p, ex), `pi ${size}`, pairName(p));
+const pairIcon = (p, size = 'md', ex = false, stars = null) => img(pairImage(p, ex, stars), `pi ${size}`, pairName(p));
+const ownIcon = (p, mp, size = 'md') => pairIcon(p, size, mp?.ex, mp?.stars);   // as this member has it (stars / EX)
 const typeTag = t0 => t0 ? `<span class="type" style="--tc:${TYPE_COLORS[t0] || '#888'}">${img(typeIcon(t0))}${esc(t(t0))}</span>` : '';
 const roleTag = (r, ex = false) => r ? `<span class="role ${ex ? 'ex' : ''}">${img(roleIcon(r, ex), 'ri')}${ex ? 'EX ' : ''}${esc(roleKey(r).replace(/^./, c => c.toUpperCase()))}</span>` : '';
 const rankName = r => ({ admin: t('Admin'), mod: t('Mod'), member: t('Member') }[r] || r);
@@ -37,6 +38,7 @@ const ICONS = {
   calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
   edit: '<path d="M4 20h4L19 9l-4-4L4 16v4ZM13.5 6.5l4 4"/>',
   bolt: '<path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/>',
+  search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
   swords: '<path d="M14.5 17.5 3 6V3h3l11.5 11.5M13 19l6-6M16 16l4 4M9.5 17.5 21 6V3h-3L6.5 14.5M11 19l-6-6M8 16l-4 4"/>',
 };
 const ico = n => `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`;
@@ -75,7 +77,7 @@ function avatarPair(uid) {
 }
 function av(uid, size = '') {
   const x = avatarPair(uid), pair = x && pairById(x.pair_id);
-  return `<span class="av ${size}">${pair ? img(pairImage(pair, x.ex), '', '') : esc((nameOf(profile(uid)) || '?')[0].toUpperCase())}</span>`;
+  return `<span class="av ${size}">${pair ? img(pairImage(pair, x.ex, x.stars), '', '') : esc((nameOf(profile(uid)) || '?')[0].toUpperCase())}</span>`;
 }
 
 async function loadAll() {
@@ -213,7 +215,7 @@ function noSeason() {
 // Planned team of one assignment, with the member's current level / EX for each pair
 const planTeam = a => (a?.team || []).map(id => {
   const mp = ownedPair(a.user_id, id);
-  return { pair_id: id, level: mp?.level || 1, ex: !!mp?.ex, ex_role: !!mp?.ex_role };
+  return { pair_id: id, level: mp?.level || 1, stars: mp?.stars, ex: !!mp?.ex, ex_role: !!mp?.ex_role };
 });
 const assignment = (uid, leader) => S.asg.find(a => a.user_id === uid && a.leader === leader);
 
@@ -288,7 +290,7 @@ function renderOverview() {
             ${s.leaders.map(l => {
               const v = pointsIn(st, n, l.name), full = v >= c.pts;
               return `<td><a class="cell ${full ? 'full' : v ? 'part' : ''}" href="#/log/${encodeURIComponent(l.name)}/${n}" title="${esc(l.name)} · ${esc(c.label)}: ${fmtN(v)} / ${fmtN(c.pts)}">
-                <i style="width:${Math.min(100, v / c.pts * 100)}%"></i><span>${full ? '★' : v ? fmtK(v) : ''}</span></a></td>`;
+                <i style="width:${Math.min(100, v / c.pts * 100)}%"></i><span>${full ? '✓' : v ? fmtK(v) : ''}</span></a></td>`;
             }).join('')}</tr>`;
         }).join('')}</tbody>
       </table>
@@ -321,7 +323,7 @@ document.addEventListener('click', e => { if (e.target.closest('[data-all-rounds
 
 const teamIcons = team => (team || []).map(x => {
   const p = pairById(x.pair_id);
-  return `<span title="${esc(pairName(p))} ${levelLabel(x.level || 1)}${x.ex ? ' EX' : ''}">${pairIcon(p, 'xs', x.ex)}</span>`;
+  return `<span title="${esc(pairName(p))} ${levelLabel(x.level || 1)}${x.ex ? ' EX' : ''}">${ownIcon(p, x, 'xs')}</span>`;
 }).join('');
 function runLine(r) {
   const c = circuitAt(season(), r.round);
@@ -400,7 +402,7 @@ function runForm() {
       ${form.planned ? `<div class="planned">★ ${t('Planned team for {l}', { l: esc(form.leader) })}</div>` : ''}
       ${[0, 1, 2].map(i => {
         const x = form.team[i], p = x && pairById(x.pair_id);
-        return x ? `<div class="slot">${pairIcon(p, 'sm', x.ex)}<div><b>${esc(p?.trainer || '?')}</b><small>${esc(p?.pokemon || '')}</small></div>
+        return x ? `<div class="slot">${ownIcon(p, x, 'sm')}<div><b>${esc(p?.trainer || '?')}</b><small>${esc(p?.pokemon || '')}</small></div>
           <span class="badge">${levelLabel(x.level || 1)}${x.ex ? ' · EX' : ''}${x.ex_role ? ' · EXR' : ''}</span>
           <button type="button" class="x" data-f-drop="${i}" aria-label="${t('Remove')}">✕</button></div>` : '';
       }).join('')}
@@ -452,7 +454,7 @@ document.addEventListener('click', async e => {
   if (el.dataset.fTickets) { form.tickets = +el.dataset.fTickets; redrawForm(); }
   if (el.dataset.fAdd) {
     const mp = ownedPair(form.user_id, el.dataset.fAdd);
-    form.team.push({ pair_id: el.dataset.fAdd, level: mp?.level || 1, ex: !!mp?.ex, ex_role: !!mp?.ex_role });
+    form.team.push({ pair_id: el.dataset.fAdd, level: mp?.level || 1, stars: mp?.stars, ex: !!mp?.ex, ex_role: !!mp?.ex_role });
     form.auto = form.planned = false;
     redrawForm();
     $('#team-search')?.focus();
@@ -563,7 +565,7 @@ function renderPlan() {
         <div class="squad">${asg.map(a => squadRow(a)).join('') || `<p class="muted" style="margin:0">${t('nobody yet')}</p>`}</div>
         ${isStaff() ? `<div class="assign-new" style="margin-top:8px"><select data-asg-add="${esc(l.name)}"><option value="">+ ${t('Assign a member…')}</option>${members.filter(p => !asg.some(a => a.user_id === p.id)).map(p => `<option value="${p.id}">${esc(nameOf(p))}</option>`).join('')}</select></div>` : ''}</div>
       <div><div class="sub">${t('Best fit')}</div><div class="line">${sugg.map(({ p, fit }) => `
-        <span class="fit" title="${t('{n} pairs · tower {f}/40', { n: fit.count, f: fit.floor })}"><a href="#/member/${p.id}"><b>${esc(nameOf(p))}</b></a>${fit.pairs.slice(0, 3).map(x => pairIcon(x.pair, 'xs', x.ex)).join('')}<small>${fit.floor}F</small>
+        <span class="fit" title="${t('{n} pairs · tower {f}/40', { n: fit.count, f: fit.floor })}"><a href="#/member/${p.id}"><b>${esc(nameOf(p))}</b></a>${fit.pairs.slice(0, 3).map(x => ownIcon(x.pair, x, 'xs')).join('')}<small>${fit.floor}F</small>
           ${isStaff() && !asg.some(a => a.user_id === p.id) ? `<button class="add" data-asg-quick="${esc(l.name)}|${p.id}" title="${t('Assign with a suggested team')}">+</button>` : ''}</span>`).join('')}</div></div>
       </div>
     </article>`;
@@ -597,7 +599,7 @@ function squadRow(a, withLeader = false) {
     const id = a.team?.[i];
     if (!id) return `<span class="slot0">${edit ? '+' : ''}</span>`;
     const mp = ownedPair(a.user_id, id), p = pairById(id);
-    return `<span title="${esc(pairName(p))} · ${levelLabel(mp?.level || 1)}${mp?.ex ? ' EX' : ''}">${pairIcon(p, 'xs', mp?.ex)}</span>`;
+    return `<span title="${esc(pairName(p))} · ${levelLabel(mp?.level || 1)}${mp?.ex ? ' EX' : ''}">${ownIcon(p, mp, 'xs')}</span>`;
   }).join('');
   const who = withLeader
     ? `<span class="who">${leaderImg(s, a.leader)}<span>${esc(a.leader)}${a.note ? `<small>${esc(a.note)}</small>` : ''}</span></span>`
@@ -626,7 +628,7 @@ function asgEditor(a) {
     <div class="roster">${list.map(x => {
       const i = a.team.indexOf(x.pair_id);
       return `<button type="button" class="rp ${i >= 0 ? 'on' : a.team.length >= 3 ? 'off' : ''}" data-asg-pair="${x.pair_id}" ${i >= 0 ? `data-n="${i + 1}"` : ''}
-        title="${esc(pairName(x.pair))} · ${esc(x.pair.role)} · ${levelLabel(x.level)}${x.ex ? ' EX' : ''}">${img(typeIcon(x.pair.type), 'ti')}${pairIcon(x.pair, 'sm', x.ex)}<small>${levelLabel(x.level)}${x.ex ? ' EX' : ''}</small></button>`;
+        title="${esc(pairName(x.pair))} · ${esc(x.pair.role)} · ${levelLabel(x.level)}${x.ex ? ' EX' : ''}">${img(typeIcon(x.pair.type), 'ti')}${ownIcon(x.pair, x, 'sm')}<small>${levelLabel(x.level)}${x.ex ? ' EX' : ''}</small></button>`;
     }).join('') || `<p class="hint">${q ? t('Nothing found.') : t('No pairs of the weakness types in this roster — try All types.')}</p>`}</div>
     <input data-asg-note placeholder="${t('Note for {n} (optional)', { n: esc(who) })}" value="${esc(a.note)}">
   </div>`;
@@ -738,7 +740,21 @@ document.addEventListener('click', e => { const b = e.target.closest('[data-mvie
 //  MEMBER PROFILE
 // ═══════════════════════════════════════════════════════════════
 let memberTab = 'pairs', editingInfo = false;
-const pairFilter = { q: '', type: '' };
+// Roster filters. The shown order is frozen until a filter, the sort or the owned set changes,
+// so toggling EX / stars / level never makes a card jump away under the cursor.
+const pairFilter = { q: '', types: new Set(), role: '', status: '', sort: 'type' };
+let pairOrder = { key: '', ids: [] };
+const SORTS = [['type', 'By type'], ['strength', 'Strongest first'], ['name', 'Name A–Z'], ['new', 'Newest first'], ['rarity', 'Base rarity']];
+const STATUS = [['', 'All'], ['ex', '6★ EX'], ['noex', 'Not EX yet'], ['low', 'Below 5★'], ['sa', 'Superawakened']];
+const ROLE_KEYS = ['strike', 'tech', 'support', 'sprint', 'field', 'multi'];
+const statusOk = (x, st) => !st || (st === 'ex' ? x.ex : st === 'noex' ? !x.ex : st === 'low' ? (x.stars || 5) < 5 : x.level > 5);
+const pairSort = {
+  type: (a, b) => TYPES.indexOf(a.pair.type) - TYPES.indexOf(b.pair.type) || pairWeight(b) - pairWeight(a) || a.pair.trainer.localeCompare(b.pair.trainer),
+  strength: (a, b) => pairWeight(b) - pairWeight(a) || a.pair.trainer.localeCompare(b.pair.trainer),
+  name: (a, b) => a.pair.trainer.localeCompare(b.pair.trainer) || a.pair.pokemon.localeCompare(b.pair.pokemon),
+  new: (a, b) => String(b.pair.release || '').localeCompare(String(a.pair.release || '')),
+  rarity: (a, b) => a.pair.rarity - b.pair.rarity || (a.stars || 5) - (b.stars || 5) || a.pair.trainer.localeCompare(b.pair.trainer),
+};
 const MTABS = ['pairs', 'tower', 'plan', 'runs'];
 
 function renderMember(id = S.me, tab = '') {
@@ -786,31 +802,65 @@ const tabBody = (id, edit) => ({ pairs: pairsTab, tower: towerTab, plan: planTab
 function pairsTab(id, edit) {
   const f = pairFilter;
   const mine = owned(id).map(x => ({ ...x, pair: pairById(x.pair_id) })).filter(x => x.pair);
-  const types = TYPES.filter(ty => mine.some(x => x.pair.type === ty));
-  const shown = mine.filter(x => (!f.type || x.pair.type === f.type) && (!f.q || pairName(x.pair).toLowerCase().includes(f.q.toLowerCase())))
-    .sort((a, b) => TYPES.indexOf(a.pair.type) - TYPES.indexOf(b.pair.type) || pairWeight(b) - pairWeight(a));
+  const byId = new Map(mine.map(x => [x.pair_id, x]));
+  const key = JSON.stringify([id, f.q, [...f.types], f.role, f.status, f.sort, mine.map(x => x.pair_id).sort()]);
+  if (pairOrder.key !== key) {
+    const q = f.q.trim().toLowerCase();
+    pairOrder = { key, ids: mine.filter(x => (!f.types.size || f.types.has(x.pair.type)) && (!f.role || roleKey(x.pair.role) === f.role)
+      && statusOk(x, f.status) && (!q || `${x.pair.trainer} ${x.pair.pokemon}`.toLowerCase().includes(q)))
+      .sort(pairSort[f.sort]).map(x => x.pair_id) };
+  }
+  const shown = pairOrder.ids.map(pid => byId.get(pid)).filter(Boolean);
+  const count = ty => mine.filter(x => x.pair.type === ty).length;
+  const filtered = f.q || f.types.size || f.role || f.status;
+  const card = x => ownedCard(x, edit);
+  let body;
+  if (!shown.length) body = `<p class="muted pad">${mine.length ? t('No sync pair matches these filters.') : t('No sync pairs yet.')}</p>`;
+  else if (f.sort === 'type') {
+    body = TYPES.filter(ty => shown.some(x => x.pair.type === ty)).map(ty => {
+      const list = shown.filter(x => x.pair.type === ty);
+      return `<div class="group-h">${img(typeIcon(ty), 'ti', ty)}${esc(t(ty))} <small>${list.length}</small></div><div class="owned-grid">${list.map(card).join('')}</div>`;
+    }).join('');
+  } else body = `<div class="owned-grid">${shown.map(card).join('')}</div>`;
+
   return `
-  ${edit ? `<div class="card pad add-pair"><b>${id === S.me ? t('Add a sync pair you own') : t('Add a sync pair {n} owns', { n: esc(nameOf(profile(id))) })}</b>
+  ${edit ? `<div class="card add-pair"><b>${id === S.me ? t('Add a sync pair you own') : t('Add a sync pair {n} owns', { n: esc(nameOf(profile(id))) })}</b>
     <div class="search-box"><input id="own-search" placeholder="${t('Type a trainer or Pokémon name…')}" autocomplete="off"><div class="results" id="own-results"></div></div></div>` : ''}
-  <div class="toolbar wrap">
-    <input class="input" data-pq placeholder="${t('Filter {n} pairs…', { n: mine.length })}" value="${esc(f.q)}">
-    <button class="pill ${!f.type ? 'on' : ''}" data-ptype="">${t('All')}</button>
-    ${types.map(ty => `<button class="pill ${f.type === ty ? 'on' : ''}" data-ptype="${ty}">${img(typeIcon(ty), 'ti', ty)} ${mine.filter(x => x.pair.type === ty).length}</button>`).join('')}
+  <div class="pf">
+    <div class="pf-row">
+      <label class="search">${ico('search')}<input data-pq placeholder="${t('Search {n} pairs…', { n: mine.length })}" value="${esc(f.q)}" autocomplete="off"></label>
+      <label class="sort">${t('Sort')}<select data-psort>${SORTS.map(([k, l]) => `<option value="${k}" ${f.sort === k ? 'selected' : ''}>${t(l)}</option>`).join('')}</select></label>
+    </div>
+    <div class="tchips">${TYPES.filter(count).map(ty => `<button class="tchip ${f.types.has(ty) ? 'on' : ''}" data-ptype="${ty}" style="--tc:${TYPE_COLORS[ty]}" title="${t(ty)}">${img(typeIcon(ty), 'ti', ty)}${count(ty)}</button>`).join('')}</div>
+    <div class="pf-row">
+      <div class="seg sm">${['', ...ROLE_KEYS].map(r => `<button class="${f.role === r ? 'on' : ''}" data-prole="${r}">${r ? `${img(roleIcon(r), 'ri')}${t(r[0].toUpperCase() + r.slice(1))}` : t('All roles')}</button>`).join('')}</div>
+      <div class="seg sm">${STATUS.map(([k, l]) => `<button class="${f.status === k ? 'on' : ''}" data-pstatus="${k}">${t(l)}</button>`).join('')}</div>
+      <span class="count">${t('{a} of {b}', { a: shown.length, b: mine.length })}</span>
+      ${filtered ? `<button class="reset" data-preset>${t('Clear filters')}</button>` : ''}
+    </div>
   </div>
-  <div class="owned-grid">${shown.map(x => {
-    const p = x.pair, max = p.maxBonus;
-    return `<div class="owned card ${x.level >= 10 ? 'sa' : ''}" style="--tc:${tc(p.type)}">
-      ${pairIcon(p, 'md', x.ex)}
-      <div class="o-body"><b>${esc(p.trainer)}</b><small>${esc(p.pokemon)}</small>
-        <div class="o-tags">${typeTag(p.type)}${roleTag(p.role)}</div></div>
-      <div class="o-ctl">
-        <select data-own="${p.id}" data-k="level" ${edit ? '' : 'disabled'} title="${t('Move level')}${max === 10 ? ' · ' + t('6/5–10/5 = Superawakened') : ''}">
-          ${Array.from({ length: max }, (_, i) => i + 1).map(l => `<option value="${l}" ${l === x.level ? 'selected' : ''}>${levelLabel(l)}</option>`).join('')}</select>
-        <button class="tog ${x.ex ? 'on' : ''}" data-own="${p.id}" data-k="ex" ${edit ? '' : 'disabled'} title="${t('6★ EX unlocked')}">EX</button>
-        ${p.exRole ? `<button class="tog ${x.ex_role ? 'on' : ''}" data-own="${p.id}" data-k="ex_role" ${edit ? '' : 'disabled'} title="EX Role: ${esc(p.exRole)}">${img(roleIcon(p.exRole, true), 'ri')}</button>` : ''}
-        ${edit ? `<button class="x" data-own-del="${p.id}" aria-label="${t('Remove')}">✕</button>` : ''}
-      </div></div>`;
-  }).join('') || `<p class="muted pad">${t('No sync pairs yet.')}</p>`}</div>`;
+  ${body}`;
+}
+
+// One owned pair: stars (for pairs below 5★) → 6★ EX → EX Role, plus move level
+function ownedCard(x, edit) {
+  const p = x.pair, max = p.maxBonus, stars = x.stars || p.rarity;
+  const starBtns = [1, 2, 3, 4, 5].map(n => {
+    const base = n <= p.rarity, on = n <= stars;
+    return `<button type="button" class="${on ? 'on' : ''} ${base ? 'base' : 'up'}" ${edit && !base ? `data-own-star="${n}"` : 'disabled'}
+      title="${base ? t('Base rarity {n}★', { n: p.rarity }) : t('Raise to {n}★', { n })}">★</button>`;
+  }).join('');
+  return `<div class="owned card ${x.level > 5 ? 'sa' : ''}" data-pair="${p.id}">
+    ${ownIcon(p, x, 'md')}
+    <div class="o-body"><b>${esc(p.trainer)}</b><small>${esc(p.pokemon)}</small><span class="o-tags">${img(typeIcon(p.type), 'ti', p.type)}${p.role ? img(roleIcon(p.role), 'ri', p.role) : ''}</span></div>
+    <div class="o-ctl">
+      ${p.rarity < 5 ? `<span class="stars" title="${t('Raise the stars to 5★ to unlock 6★ EX')}">${starBtns}</span>` : ''}
+      <button class="tog ex ${x.ex ? 'on' : ''}" data-own="${p.id}" data-k="ex" ${edit && stars >= 5 ? '' : 'disabled'} title="${stars < 5 ? t('Raise to 5★ first') : t('6★ EX unlocked')}">EX</button>
+      ${p.exRole ? `<button class="tog ${x.ex_role ? 'on' : ''}" data-own="${p.id}" data-k="ex_role" ${edit && x.ex ? '' : 'disabled'} title="EX Role: ${esc(p.exRole)}${x.ex ? '' : ` — ${t('needs 6★ EX')}`}">${img(roleIcon(p.exRole, true), 'ri')}</button>` : ''}
+      <select data-own="${p.id}" data-k="level" ${edit ? '' : 'disabled'} title="${t('Move level')}${max === 10 ? ' · ' + t('6/5–10/5 = Superawakened') : ''}">
+        ${Array.from({ length: max }, (_, i) => i + 1).map(l => `<option value="${l}" ${l === x.level ? 'selected' : ''}>${levelLabel(l)}</option>`).join('')}</select>
+      ${edit ? `<button class="x" data-own-del="${p.id}" aria-label="${t('Remove')}">✕</button>` : ''}
+    </div></div>`;
 }
 
 function towerTab(id, edit) {
@@ -846,32 +896,44 @@ function runsTab(id) {
 const memberId = () => location.hash.split('/')[2] || S.me;
 const redrawTab = () => { $('#member-tab').innerHTML = tabBody(memberId(), canEdit(memberId())); };
 
+// Save one owned pair and redraw in place (the frozen order keeps the card where it is)
+async function saveOwned(uid, pid, patch) {
+  if (await act(() => api.upsertMemberPair({ user_id: uid, pair_id: pid, ...patch }))) { S.mp = await api.memberPairs(); redrawTab(); }
+}
 document.addEventListener('click', async e => {
-  const el = e.target.closest('[data-mtab],[data-ptype],[data-edit-info],[data-own-add],[data-own-del],.tog[data-own]');
+  const el = e.target.closest('[data-mtab],[data-ptype],[data-prole],[data-pstatus],[data-preset],[data-edit-info],[data-own-add],[data-own-del],[data-own-star],.tog[data-own]');
   if (!el) return;
-  const uid = memberId();
-  if (el.dataset.mtab) { memberTab = el.dataset.mtab; asgEdit = null; route(); }
-  if ('ptype' in el.dataset) { pairFilter.type = el.dataset.ptype; redrawTab(); }
-  if ('editInfo' in el.dataset) { editingInfo = !editingInfo; route(); }
-  if (el.dataset.ownAdd) {
-    if (await act(() => api.upsertMemberPair({ user_id: uid, pair_id: el.dataset.ownAdd, level: 1 }), t('Added {p}.', { p: pairName(pairById(el.dataset.ownAdd)) }))) {
+  const uid = memberId(), d = el.dataset;
+  if (d.mtab) { memberTab = d.mtab; asgEdit = null; route(); }
+  if (d.ptype) { pairFilter.types.has(d.ptype) ? pairFilter.types.delete(d.ptype) : pairFilter.types.add(d.ptype); redrawTab(); }
+  if ('prole' in d) { pairFilter.role = d.prole; redrawTab(); }
+  if ('pstatus' in d) { pairFilter.status = d.pstatus; redrawTab(); }
+  if ('preset' in d) { Object.assign(pairFilter, { q: '', role: '', status: '' }); pairFilter.types.clear(); redrawTab(); }
+  if ('editInfo' in d) { editingInfo = !editingInfo; route(); }
+  if (d.ownAdd) {
+    if (await act(() => api.upsertMemberPair({ user_id: uid, pair_id: d.ownAdd, level: 1 }), t('Added {p}.', { p: pairName(pairById(d.ownAdd)) }))) {
       S.mp = await api.memberPairs(); route(); $('#own-search')?.focus();
     }
   }
-  if (el.dataset.ownDel) {
-    if (!confirm(t('Remove {p} from the owned list?', { p: pairName(pairById(el.dataset.ownDel)) }))) return;
-    if (await act(() => api.deleteMemberPair(uid, el.dataset.ownDel))) { [S.mp, S.asg] = await Promise.all([api.memberPairs(), S.sid ? api.assignments(S.sid) : []]); redrawTab(); }
+  if (d.ownDel) {
+    if (!confirm(t('Remove {p} from the owned list?', { p: pairName(pairById(d.ownDel)) }))) return;
+    if (await act(() => api.deleteMemberPair(uid, d.ownDel))) { [S.mp, S.asg] = await Promise.all([api.memberPairs(), S.sid ? api.assignments(S.sid) : []]); redrawTab(); }
+  }
+  if (d.ownStar) {
+    const pid = el.closest('[data-pair]').dataset.pair, cur = ownedPair(uid, pid), p = pairById(pid);
+    const n = +d.ownStar, now = cur.stars || p.rarity;
+    const stars = n === now ? Math.max(p.rarity, n - 1) : n;   // click the top star again to step back
+    saveOwned(uid, pid, stars < 5 ? { stars, ex: false, ex_role: false } : { stars });
   }
   if (el.classList.contains('tog')) {
-    const cur = ownedPair(uid, el.dataset.own);
-    if (await act(() => api.upsertMemberPair({ user_id: uid, pair_id: el.dataset.own, [el.dataset.k]: !cur[el.dataset.k] }))) { S.mp = await api.memberPairs(); redrawTab(); }
+    const cur = ownedPair(uid, d.own), on = !cur[d.k];
+    saveOwned(uid, d.own, d.k === 'ex' && !on ? { ex: false, ex_role: false } : { [d.k]: on });
   }
 });
 document.addEventListener('change', async e => {
   const el = e.target;
-  if (el.dataset.own && el.dataset.k === 'level') {
-    if (await act(() => api.upsertMemberPair({ user_id: memberId(), pair_id: el.dataset.own, level: +el.value }))) { S.mp = await api.memberPairs(); redrawTab(); }
-  }
+  if (el.dataset.own && el.dataset.k === 'level') saveOwned(memberId(), el.dataset.own, { level: +el.value });
+  if ('psort' in el.dataset) { pairFilter.sort = el.value; redrawTab(); }
   if (el.dataset.tower) {
     if (await act(() => api.upsertTower({ user_id: memberId(), type: el.dataset.tower, floor: +el.value }), t('{type} tower: floor {n}', { type: t(el.dataset.tower), n: el.value }))) {
       S.tower = await api.tower(); redrawTab();
