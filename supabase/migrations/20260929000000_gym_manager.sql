@@ -209,36 +209,46 @@ end $$;
 create trigger assignments_check before insert or update on public.assignments
   for each row execute function public.check_assignment();
 
--- A pair that leaves the roster leaves every planned team too (runs keep their own copy)
+-- A pair that leaves the roster leaves every planned team and roster sheet cell too (runs keep their own copy)
 create function public.drop_pair_from_teams() returns trigger
   language plpgsql security definer set search_path = public
 as $$
 begin
   update public.assignments set team = array_remove(team, old.pair_id)
    where user_id = old.user_id and old.pair_id = any (team);
+  delete from public.roster_sheet where user_id = old.user_id and pair_id = old.pair_id;
   return old;
 end $$;
 
 create trigger member_pairs_drop after delete on public.member_pairs
   for each row execute function public.drop_pair_from_teams();
 
--- Core sync pairs per type, pinned by staff (the Members → type roster columns).
--- No row = the app picks the pairs most of the gym owns.
-create table public.type_cores (
-  type       text primary key check (type in ('Normal', 'Fire', 'Water', 'Electric', 'Grass', 'Ice', 'Fighting', 'Poison',
+-- The Roster sheet: for each type, which of their own pairs a member brings in each slot.
+-- pair_id null = "none" (shown as ✕); no row = not filled in yet.
+create table public.roster_sheet (
+  user_id    uuid not null references public.profiles (id) on delete cascade,
+  type       text not null check (type in ('Normal', 'Fire', 'Water', 'Electric', 'Grass', 'Ice', 'Fighting', 'Poison',
                'Ground', 'Flying', 'Psychic', 'Bug', 'Rock', 'Ghost', 'Dragon', 'Dark', 'Steel', 'Fairy')),
-  pairs      text[] not null default '{}' check (cardinality(pairs) <= 6),
+  slot       text not null check (slot in ('special', 'physical', 'wtz', 'rebuff', 'support', 'other1', 'other2', 'other3')),
+  pair_id    text references public.pair_catalog (id) on update cascade,
   updated_by uuid references public.profiles (id) on delete set null,
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  primary key (user_id, type, slot)
 );
 
--- Gym-wide settings edited by staff, e.g. key 'roster_columns' = the Roster page columns
-create table public.gym_settings (
-  key        text primary key,
-  value      jsonb not null,
-  updated_by uuid references public.profiles (id) on delete set null,
-  updated_at timestamptz not null default now()
-);
+create function public.check_roster_sheet() returns trigger
+  language plpgsql set search_path = public
+as $$
+begin
+  if new.pair_id is not null and not exists (select 1 from public.member_pairs where user_id = new.user_id and pair_id = new.pair_id) then
+    raise exception '% is not in this member''s roster.', coalesce((select trainer || ' & ' || pokemon from public.pair_catalog where id = new.pair_id), new.pair_id);
+  end if;
+  new.updated_at := now();
+  return new;
+end $$;
+
+create trigger roster_sheet_check before insert or update on public.roster_sheet
+  for each row execute function public.check_roster_sheet();
 
 -- Strategy note per Gym Leader
 create table public.leader_notes (
@@ -415,8 +425,7 @@ alter table public.seasons        enable row level security;
 alter table public.season_members enable row level security;
 alter table public.assignments    enable row level security;
 alter table public.leader_notes   enable row level security;
-alter table public.type_cores     enable row level security;
-alter table public.gym_settings   enable row level security;
+alter table public.roster_sheet   enable row level security;
 alter table public.runs           enable row level security;
 alter table public.activity       enable row level security;
 
@@ -428,8 +437,7 @@ create policy "read: signed in" on public.seasons        for select to authentic
 create policy "read: signed in" on public.season_members for select to authenticated using (true);
 create policy "read: signed in" on public.assignments    for select to authenticated using (true);
 create policy "read: signed in" on public.leader_notes   for select to authenticated using (true);
-create policy "read: signed in" on public.type_cores     for select to authenticated using (true);
-create policy "read: signed in" on public.gym_settings   for select to authenticated using (true);
+create policy "read: signed in" on public.roster_sheet   for select to authenticated using (true);
 create policy "read: signed in" on public.runs           for select to authenticated using (true);
 create policy "read: staff"     on public.activity       for select to authenticated using (public.is_staff());
 
@@ -449,8 +457,8 @@ create policy "write: staff" on public.seasons        for all to authenticated u
 create policy "write: staff" on public.season_members for all to authenticated using (public.is_staff()) with check (public.is_staff());
 create policy "write: staff" on public.assignments    for all to authenticated using (public.is_staff()) with check (public.is_staff());
 create policy "write: staff" on public.leader_notes   for all to authenticated using (public.is_staff()) with check (public.is_staff());
-create policy "write: staff" on public.type_cores     for all to authenticated using (public.is_staff()) with check (public.is_staff());
-create policy "write: staff" on public.gym_settings   for all to authenticated using (public.is_staff()) with check (public.is_staff());
+create policy "write: self or staff" on public.roster_sheet for all to authenticated
+  using (user_id = auth.uid() or public.is_staff()) with check (user_id = auth.uid() or public.is_staff());
 
 -- Runs: members log and fix their own battles; staff can log for anyone
 create policy "insert: self or staff" on public.runs for insert to authenticated

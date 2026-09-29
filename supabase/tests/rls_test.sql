@@ -130,18 +130,26 @@ select pg_temp.check('member cannot change assignments',            '00000000-00
 select pg_temp.check('pair removed from roster leaves the team',    '00000000-0000-0000-0000-00000000000c',
   $$ delete from public.member_pairs where user_id = '00000000-0000-0000-0000-00000000000c' and pair_id = 'p-sa';
      insert into public.member_pairs (user_id, pair_id, level, ex, ex_role) values ('00000000-0000-0000-0000-00000000000c', 'p-sa', 10, true, true);
-     do $d$ begin assert (select team from public.assignments where user_id = '00000000-0000-0000-0000-00000000000c') = '{}'::text[]; end $d$ $$);
+     do $d$ begin assert (select team from public.assignments where user_id = '00000000-0000-0000-0000-00000000000c') = '{}'::text[];
+                  end $d$ $$);
 
--- ─── Core pairs per type (staff) ───
-select pg_temp.check('mod pins core pairs for a type',              '00000000-0000-0000-0000-00000000000b',
-  $$ insert into public.type_cores (type, pairs) values ('Dragon', '{p-sa}') $$);
-select pg_temp.check('member cannot pin core pairs',                '00000000-0000-0000-0000-00000000000c',
-  $$ insert into public.type_cores (type, pairs) values ('Rock', '{p-5}') $$, 'row-level security');
-
-select pg_temp.check('mod saves the roster columns',              '00000000-0000-0000-0000-00000000000b',
-  $$ insert into public.gym_settings (key, value) values ('roster_columns', '[{"kind":"tower"}]') $$);
-select pg_temp.check('member cannot change gym settings',           '00000000-0000-0000-0000-00000000000c',
-  $$ do $d$ declare n int; begin update public.gym_settings set value = '[]'; get diagnostics n = row_count; assert n = 0, 'updated'; end $d$ $$);
+-- ─── Roster sheet: members fill their own row, staff fill anyone's ───
+select pg_temp.check('member fills their own sheet cell',           '00000000-0000-0000-0000-00000000000c',
+  $$ insert into public.roster_sheet (user_id, type, slot, pair_id) values ('00000000-0000-0000-0000-00000000000c', 'Dragon', 'physical', 'p-sa') $$);
+select pg_temp.check('member marks a slot as none',                 '00000000-0000-0000-0000-00000000000c',
+  $$ insert into public.roster_sheet (user_id, type, slot, pair_id) values ('00000000-0000-0000-0000-00000000000c', 'Dragon', 'special', null) $$);
+select pg_temp.check('sheet cell with an unowned pair is rejected', '00000000-0000-0000-0000-00000000000c',
+  $$ insert into public.roster_sheet (user_id, type, slot, pair_id) values ('00000000-0000-0000-0000-00000000000c', 'Rock', 'support', 'p-5') $$, 'not in this member''s roster');
+select pg_temp.check('member cannot fill someone else''s row',      '00000000-0000-0000-0000-00000000000c',
+  $$ insert into public.roster_sheet (user_id, type, slot, pair_id) values ('00000000-0000-0000-0000-00000000000d', 'Rock', 'support', 'p-5') $$, 'row-level security');
+select pg_temp.check('mod fills a member''s sheet cell',            '00000000-0000-0000-0000-00000000000b',
+  $$ insert into public.roster_sheet (user_id, type, slot, pair_id) values ('00000000-0000-0000-0000-00000000000d', 'Rock', 'support', 'p-5') $$);
+select pg_temp.check('unknown slot is rejected',                    '00000000-0000-0000-0000-00000000000b',
+  $$ insert into public.roster_sheet (user_id, type, slot) values ('00000000-0000-0000-0000-00000000000d', 'Rock', 'captain') $$, 'check constraint');
+select pg_temp.check('pair removed from roster clears its sheet cells', '00000000-0000-0000-0000-00000000000c',
+  $$ delete from public.member_pairs where user_id = '00000000-0000-0000-0000-00000000000c' and pair_id = 'p-sa';
+     do $d$ begin assert not exists (select 1 from public.roster_sheet where pair_id = 'p-sa'); end $d$;
+     insert into public.member_pairs (user_id, pair_id, level, ex, ex_role) values ('00000000-0000-0000-0000-00000000000c', 'p-sa', 10, true, true) $$);
 
 -- ─── Runs: the Gym Battle rules ───
 select pg_temp.check('member logs a run in the open round',         '00000000-0000-0000-0000-00000000000c',

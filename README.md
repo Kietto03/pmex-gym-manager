@@ -9,6 +9,7 @@ A small web app for running a **Pokémon Masters EX** gym: member accounts, the 
 - **Game data is read live**, nothing is copied into this repo:
   - Sync pairs and icons: [PoMasters Sync Pairs Tracker](https://pomasters.github.io/SyncPairsTracker/)
   - Gym Battle leaders, circuits and rules: [PMEX Dex](https://kietto03.github.io/pmex-supez-dex/) (`data/gyms.json`)
+  - Which pairs set weather / terrain / zones or lower Type Rebuffs: PMEX Dex (`data/pair-tags.json`)
 
 ## What it does
 
@@ -17,7 +18,7 @@ A small web app for running a **Pokémon Masters EX** gym: member accounts, the 
 | **Overview** | Running season: score per round, which Gym Leaders are cleared, member scores, tickets left, recent runs |
 | **Log run** | Pick leader, round, tickets and score, add the team (1–3 sync pairs). Rules are checked as you type |
 | **Plan** | Per Gym Leader: weakness, the rule of every circuit, notes, the squad (who fights them and with which 1–3 pairs **from their own roster**) and who fits best |
-| **Roster** | Pick a type and see, per member, one cell per column — icon + move level + EXR. Default columns: Special, Physical, EX WT (the type's core pairs, pinned per type), Anni Gloria and Red (fixed pairs shown for every type), on-type Support, others, tower floor. Staff can add, rename, reorder and remove columns (role / fixed pair / type core / others / tower) |
+| **Roster** | A spreadsheet per type: one row per member, columns Special · Physical · EX WTZ (sets the (EX) weather, terrain or zone) · Rebuff (lowers the opponents' Type Rebuff) · Gloria · R96 · Support · Other 1–3 · tower floor. Click a cell to pick the pair from that member's roster (suggestions come from the Dex move and passive text), mark it ✕, or auto-fill empty cells. Members edit their own row, staff edit any row |
 | **Members** | Everyone's sync pairs (owned, stars for 3★/4★ pairs, 6★ EX, EX Role, move level up to 5/5 or 10/5 with Superawakening) with search, type/role/status filters and stable sorting, Pasio Tower floors per type (18 towers × 40 floors) and battle plan. Mods and the admin can update any member's roster and tower |
 | **Admin** | Seasons, lock members, accounts, sync the pair catalog, activity log |
 
@@ -88,7 +89,7 @@ Same logic in `src/rules.js` (instant feedback) and the `check_run()` trigger (t
 
 ```bash
 npm run serve            # http://localhost:8767/?demo
-npm run test:db          # 49 permission & rule tests on a throwaway Postgres (needs Docker)
+npm run test:db          # 52 permission & rule tests on a throwaway Postgres (needs Docker)
 # UI test: serve, then open http://localhost:8767/test/e2e.html
 ```
 
@@ -105,6 +106,7 @@ src/catalog.js            sync pairs (tracker) and Gym Battles (Dex)
 src/appearance.js         styles, colour modes, accents (Settings)
 src/icons.js              12×12 pixel icon set
 src/mascot.js             the header Pikachu
+src/sheet.js              roster sheet columns + suggestions
 src/i18n.js, src/lang/    translations (English text is the key; add a file per language)
 supabase/migrations/      tables, row-level security, rule triggers, activity log
 supabase/functions/       admin-users: create / delete accounts, reset passwords, roles

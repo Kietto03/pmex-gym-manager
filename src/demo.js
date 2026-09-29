@@ -5,6 +5,7 @@
    that follow the real rules. Reloading the page resets everything.
    ═══════════════════════════════════════════════════════════════ */
 import { GYMS, catalogRows, seasonFromGym, TYPES, pairById } from './catalog.js';
+import { autoFill } from './sheet.js';
 import { circuitAt, seasonState, validateRun, suggestTeam } from './rules.js';
 import { t } from './i18n.js';
 
@@ -70,7 +71,17 @@ function seedData() {
   }
   const activity = runs.slice(0, 30).map((r, i) => ({ id: i + 1, at: r.created_at, actor: r.created_by, actor_name: r.member_name,
     action: 'runs.insert', detail: { leader: r.leader, round: r.round, score: r.score } }));
-  return { profiles, catalog, memberPairs, tower, seasons, seasonMembers, runs, assignments, notes, activity, typeCores: [], settings: [] };
+  return { profiles, catalog, memberPairs, tower, seasons, seasonMembers, runs, assignments, notes, activity, sheet: seedSheet(profiles, memberPairs) };
+}
+
+// Every member's roster sheet, filled with the suggestions (as if each had done "Auto-fill")
+function seedSheet(profiles, memberPairs) {
+  const rows = [];
+  for (const p of profiles) {
+    const mine = memberPairs.filter(m => m.user_id === p.id);
+    for (const ty of TYPES) for (const [slot, pair_id] of Object.entries(autoFill(mine, ty))) rows.push({ user_id: p.id, type: ty, slot, pair_id, updated_by: p.id });
+  }
+  return rows;
 }
 
 // Fill a season with runs that pass validateRun, the way a gym plays it
@@ -156,6 +167,7 @@ export function createDemoApi() {
         db.memberPairs = db.memberPairs.filter(x => x.user_id !== body.user_id);
         db.tower = db.tower.filter(x => x.user_id !== body.user_id);
         db.assignments = db.assignments.filter(x => x.user_id !== body.user_id);
+        db.sheet = db.sheet.filter(x => x.user_id !== body.user_id);
         db.seasonMembers = db.seasonMembers.filter(x => x.user_id !== body.user_id);
         for (const r of db.runs) if (r.user_id === body.user_id) r.user_id = null;   // runs keep member_name
         return { ok: true };
@@ -197,6 +209,7 @@ export function createDemoApi() {
       selfOrStaff(user_id);
       db.memberPairs = db.memberPairs.filter(x => !(x.user_id === user_id && x.pair_id === pair_id));
       for (const a of db.assignments) if (a.user_id === user_id) a.team = a.team.filter(x => x !== pair_id);
+      db.sheet = db.sheet.filter(x => !(x.user_id === user_id && x.pair_id === pair_id));
     },
 
     tower: async () => clone(db.tower),
@@ -270,18 +283,21 @@ export function createDemoApi() {
       db.assignments = db.assignments.filter(a => !(a.season_id === season_id && a.leader === leader && a.user_id === user_id));
     },
 
-    settings: async () => clone(db.settings),
-    async saveSetting(key, value, updated_by) {
-      staff() || deny();
-      const row = db.settings.find(x => x.key === key);
-      if (row) Object.assign(row, { value: clone(value), updated_by }); else db.settings.push({ key, value: clone(value), updated_by });
+    sheet: async () => clone(db.sheet),
+    async saveSheetCells(rows) { for (const r of rows) await this.saveSheetCell(r); },
+    async saveSheetCell(row) {
+      selfOrStaff(row.user_id);
+      if (row.pair_id && !db.memberPairs.some(m => m.user_id === row.user_id && m.pair_id === row.pair_id)) {
+        const c = db.catalog.find(x => x.id === row.pair_id);
+        deny(t('{pairs} is not in this member’s roster.', { pairs: c ? `${c.trainer} & ${c.pokemon}` : row.pair_id }));
+      }
+      const i = db.sheet.findIndex(x => x.user_id === row.user_id && x.type === row.type && x.slot === row.slot);
+      const full = { ...row, updated_by: me, updated_at: new Date().toISOString() };
+      if (i >= 0) db.sheet[i] = full; else db.sheet.push(full);
     },
-    typeCores: async () => clone(db.typeCores),
-    async saveTypeCores(row) {
-      staff() || deny();
-      if ((row.pairs || []).length > 6) deny(t('Pick at most 6 core pairs.'));
-      const c = db.typeCores.find(x => x.type === row.type);
-      if (c) Object.assign(c, row); else db.typeCores.push({ ...row });
+    async clearSheetCell(user_id, type, slot) {
+      selfOrStaff(user_id);
+      db.sheet = db.sheet.filter(x => !(x.user_id === user_id && x.type === type && x.slot === slot));
     },
 
     notes: async sid => clone(db.notes.filter(n => n.season_id === sid)),

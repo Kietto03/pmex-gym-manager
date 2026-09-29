@@ -124,6 +124,10 @@ f.onload = async () => {
     const other = [...$$('.mname')].find(a => a.getAttribute('href') !== meLink);
     await go(other.getAttribute('href'));
     log(!$('#own-search') && /View only/.test(text()), 'another member\'s profile is read-only');
+    await go('#/roster');
+    await until(() => $('.troster'));
+    const editable = $$('.troster tbody tr').filter(tr => tr.querySelector('[data-sc]'));
+    log(editable.length === 1 && editable[0].classList.contains('me'), 'member can only edit their own row of the roster sheet');
 
     // 5. Sign out → sign in as admin
     await go('#/account');
@@ -179,36 +183,32 @@ f.onload = async () => {
     await until(() => $('#own-search'));
     log(!!$('.manage') && !!$('#own-search') && !$('.owned select[disabled]'), 'admin can edit another member\'s roster');
 
-    // 6c. Members → roster by type
+    // 6c. Roster sheet (admin can edit every row)
     await go('#/roster');
     await until(() => $('.troster'));
     log(!!$('#nav a[href="#/roster"]'), 'Roster has its own menu entry');
     $('[data-rtype=Poison]').click(); await sleep(200);
-    const rowsN = $$('.troster tbody tr').length;
-    log(rowsN >= 19 && $$('.troster .tc').length > 0 && $('.tchip.on').title === 'Poison', 'roster by type: one row per member with Special / Physical / core cells', `${rowsN} rows, ${$$('.troster th.core').length} core columns`);
-    const heads = () => $$('.troster thead th').map(th => th.innerText.trim());
-    log(heads().some(h => /Anni Gloria/.test(h)) && heads().some(h => /^Red/.test(h)) && heads().some(h => /Special/.test(h)),
-      'default columns: Special, Physical, EX WT, Anni Gloria, Red, support, others', heads().slice(2).join(' | ').replace(/\n/g, ' '));
-    $('[data-core-edit]').click(); await sleep(200);
-    $('[data-core]').click(); await sleep(250);
-    log($$('.troster th.core:not(.fixed)').length === 1, 'staff pin a core pair for the type → it fills the EX WT column');
-    $('[data-core-auto]').click(); await sleep(250);
-    // Customize columns
-    $('[data-col-edit]').click(); await sleep(200);
-    const cols0 = $$('.col-row').length;
-    $('[data-col-add]').click(); await sleep(250);
-    const lbl = $$('[data-col-label]').at(-1);
-    lbl.value = 'Tech carry'; lbl.dispatchEvent(new Event('change', { bubbles: true })); await sleep(250);
-    log($$('.col-row').length === cols0 + 1 && heads().includes('Tech carry'), 'staff add and rename a column');
-    const q = $$('[data-col-pairq]')[0];
-    setVal(q, 'kris'); await until(() => $('[data-col-pick]'));
-    $('[data-col-pick]').click(); await sleep(250);
-    log(/Kris/.test($$('.troster th.fixed')[0]?.title || ''), 'staff swap a fixed pair column', $$('.troster th.fixed')[0]?.title);
-    $$('[data-col-del]').at(-1).click(); await sleep(250);
-    log($$('.col-row').length === cols0, 'staff remove a column');
-    $('[data-col-reset]').click(); await sleep(250);
-    log(heads().some(h => /Anni Gloria/.test(h)), 'reset brings back the default columns');
-    $('[data-col-edit]').click(); await sleep(150);
+    const heads = $$('.troster thead th').map(th => th.innerText.trim().replace(/\s+/g, ' '));
+    log(['Special', 'Physical', 'EX WTZ', 'Rebuff', 'Gloria', 'R96', 'Support', 'Other 1'].every(h => heads.some(x => x.includes(h))) && !$('[data-core-edit]') && !$('[data-col-edit]'),
+      'sheet columns: Special, Physical, EX WTZ, Rebuff, Gloria, R96, Support, Other — no core / column buttons', heads.slice(2).join(' | '));
+    log($$('.troster tbody tr').length >= 19 && $$('.troster tbody tr').every(tr => tr.querySelector('[data-sc]')), 'admin can edit every row');
+    const cellKey = $$('[data-sc$="|support"]')[0].dataset.sc;
+    const cell = () => $(`[data-sc="${cellKey}"]`);
+    cell().click(); await sleep(200);
+    log(!!$('.sc-pick'), 'clicking a cell opens the pair picker');
+    $('[data-sc-none]').click(); await sleep(250);
+    log(!!cell().querySelector('.nope'), 'mark a cell as none (✕)');
+    cell().click(); await sleep(200);
+    $('[data-sc-all]').click(); await sleep(200);
+    $('.sc-list button:not(:disabled)').click(); await sleep(250);
+    log(!!cell().querySelector('.tc'), 'pick a pair from the member’s roster for the cell');
+    cell().click(); await sleep(200);
+    $('[data-sc-clear]').click(); await sleep(250);
+    log(!!cell().querySelector('.sc-add'), 'clear a cell');
+    W().confirm = () => true;
+    $('[data-sheet-fill]').click(); await sleep(300);
+    log($$('.sc-add').length < $$('[data-sc]').length, 'auto-fill fills empty cells with matching pairs');
+    W().document.body.click(); await sleep(100);
 
     // 7. Admin creates and deletes an account
     await go('#/admin');

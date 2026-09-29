@@ -85,6 +85,28 @@ export const catalogRows = () => pairs.map(p => ({
   ex_role: p.exRole, rarity: p.rarity, max_bonus: p.maxBonus,
 }));
 
+// ─── Battle tags (from the Dex): what weather / terrain / zone a pair sets, which Type Rebuffs it lowers ───
+export async function loadTags() {
+  let tags = {};
+  try { const res = await fetch(`${DEX}data/pair-tags.json`); if (res.ok) tags = await res.json(); } catch { /* optional */ }
+  for (const p of pairs) {
+    const tg = tags[`${p.trainer}|${p.pokemon}`.toLowerCase()];
+    p.wtz = tg?.wtz || [];
+    p.rebuff = tg?.rebuff || [];
+  }
+}
+// The weather / terrain / zone that powers up a type
+const TYPE_FIELD = { Fire: 'Sunny', Water: 'Rain', Rock: 'Sandstorm', Ground: 'Sandstorm', Steel: 'Sandstorm', Ice: 'Hail',
+  Electric: 'Electric Terrain', Grass: 'Grassy Terrain', Psychic: 'Psychic Terrain', Fairy: 'Misty Terrain' };
+// 3 = sets the EX version for this type, 2 = sets it, 1 = sets some other weather / terrain / zone
+export function wtzScore(p, type) {
+  const own = [`${type} Zone`, TYPE_FIELD[type]].filter(Boolean);
+  if ((p.wtz || []).some(w => own.some(o => w === `EX ${o}`))) return 3;
+  if ((p.wtz || []).some(w => own.includes(w))) return 2;
+  return p.wtz?.length ? 1 : 0;
+}
+export const rebuffs = (p, type) => (p.rebuff || []).some(r => r === type || r === 'Weakness');
+
 // ─── Gym Battles (from the Dex) ───
 let gyms = [];
 export const GYMS = () => gyms;
