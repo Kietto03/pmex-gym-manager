@@ -138,6 +138,11 @@ select pg_temp.check('mod pins core pairs for a type',              '00000000-00
 select pg_temp.check('member cannot pin core pairs',                '00000000-0000-0000-0000-00000000000c',
   $$ insert into public.type_cores (type, pairs) values ('Rock', '{p-5}') $$, 'row-level security');
 
+select pg_temp.check('mod saves the roster columns',              '00000000-0000-0000-0000-00000000000b',
+  $$ insert into public.gym_settings (key, value) values ('roster_columns', '[{"kind":"tower"}]') $$);
+select pg_temp.check('member cannot change gym settings',           '00000000-0000-0000-0000-00000000000c',
+  $$ do $d$ declare n int; begin update public.gym_settings set value = '[]'; get diagnostics n = row_count; assert n = 0, 'updated'; end $d$ $$);
+
 -- ─── Runs: the Gym Battle rules ───
 select pg_temp.check('member logs a run in the open round',         '00000000-0000-0000-0000-00000000000c',
   $$ insert into public.runs (season_id, user_id, leader, round, tickets, score) select id, '00000000-0000-0000-0000-00000000000c', 'Roark', 1, 3, 10000 from public.seasons $$);

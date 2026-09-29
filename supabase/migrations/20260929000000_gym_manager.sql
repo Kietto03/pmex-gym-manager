@@ -232,6 +232,14 @@ create table public.type_cores (
   updated_at timestamptz not null default now()
 );
 
+-- Gym-wide settings edited by staff, e.g. key 'roster_columns' = the Roster page columns
+create table public.gym_settings (
+  key        text primary key,
+  value      jsonb not null,
+  updated_by uuid references public.profiles (id) on delete set null,
+  updated_at timestamptz not null default now()
+);
+
 -- Strategy note per Gym Leader
 create table public.leader_notes (
   season_id  bigint not null references public.seasons (id) on delete cascade,
@@ -408,6 +416,7 @@ alter table public.season_members enable row level security;
 alter table public.assignments    enable row level security;
 alter table public.leader_notes   enable row level security;
 alter table public.type_cores     enable row level security;
+alter table public.gym_settings   enable row level security;
 alter table public.runs           enable row level security;
 alter table public.activity       enable row level security;
 
@@ -420,6 +429,7 @@ create policy "read: signed in" on public.season_members for select to authentic
 create policy "read: signed in" on public.assignments    for select to authenticated using (true);
 create policy "read: signed in" on public.leader_notes   for select to authenticated using (true);
 create policy "read: signed in" on public.type_cores     for select to authenticated using (true);
+create policy "read: signed in" on public.gym_settings   for select to authenticated using (true);
 create policy "read: signed in" on public.runs           for select to authenticated using (true);
 create policy "read: staff"     on public.activity       for select to authenticated using (public.is_staff());
 
@@ -440,6 +450,7 @@ create policy "write: staff" on public.season_members for all to authenticated u
 create policy "write: staff" on public.assignments    for all to authenticated using (public.is_staff()) with check (public.is_staff());
 create policy "write: staff" on public.leader_notes   for all to authenticated using (public.is_staff()) with check (public.is_staff());
 create policy "write: staff" on public.type_cores     for all to authenticated using (public.is_staff()) with check (public.is_staff());
+create policy "write: staff" on public.gym_settings   for all to authenticated using (public.is_staff()) with check (public.is_staff());
 
 -- Runs: members log and fix their own battles; staff can log for anyone
 create policy "insert: self or staff" on public.runs for insert to authenticated

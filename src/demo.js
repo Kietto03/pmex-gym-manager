@@ -70,7 +70,7 @@ function seedData() {
   }
   const activity = runs.slice(0, 30).map((r, i) => ({ id: i + 1, at: r.created_at, actor: r.created_by, actor_name: r.member_name,
     action: 'runs.insert', detail: { leader: r.leader, round: r.round, score: r.score } }));
-  return { profiles, catalog, memberPairs, tower, seasons, seasonMembers, runs, assignments, notes, activity, typeCores: [] };
+  return { profiles, catalog, memberPairs, tower, seasons, seasonMembers, runs, assignments, notes, activity, typeCores: [], settings: [] };
 }
 
 // Fill a season with runs that pass validateRun, the way a gym plays it
@@ -270,6 +270,12 @@ export function createDemoApi() {
       db.assignments = db.assignments.filter(a => !(a.season_id === season_id && a.leader === leader && a.user_id === user_id));
     },
 
+    settings: async () => clone(db.settings),
+    async saveSetting(key, value, updated_by) {
+      staff() || deny();
+      const row = db.settings.find(x => x.key === key);
+      if (row) Object.assign(row, { value: clone(value), updated_by }); else db.settings.push({ key, value: clone(value), updated_by });
+    },
     typeCores: async () => clone(db.typeCores),
     async saveTypeCores(row) {
       staff() || deny();

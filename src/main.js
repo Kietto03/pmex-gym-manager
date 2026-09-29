@@ -5,6 +5,7 @@
 import { createApi, isDemo } from './api.js';
 import { ico } from './icons.js';
 import { STYLES, ACCENTS, MODES, getAppearance, applyAppearance } from './appearance.js';
+import { mountMascot } from './mascot.js';
 import { t, getLang, setLang, LANGS, locale } from './i18n.js';
 import { TOWER_TOP, circuitAt, roundShort, seasonState, pointsIn, validateRun, readiness, pairWeight, levelLabel, suggestTeam } from './rules.js';
 import { loadCatalog, loadGyms, PAIRS, pairById, pairName, pairImage, TYPES, TYPE_COLORS, typeIcon, roleIcon, roleKey,
@@ -44,7 +45,7 @@ async function act(fn, okMsg) {
 
 // ─── State ──────────────────────────────────────────────────
 let api;
-const S = { me: null, profiles: [], mp: [], tower: [], seasons: [], sid: null, runs: [], sm: [], asg: [], notes: [], cores: [] };
+const S = { me: null, profiles: [], mp: [], tower: [], seasons: [], sid: null, runs: [], sm: [], asg: [], notes: [], cores: [], settings: [] };
 const meP = () => S.profiles.find(p => p.id === S.me);
 const isStaff = () => ['admin', 'mod'].includes(meP()?.role);
 const isAdmin = () => meP()?.role === 'admin';
@@ -69,7 +70,7 @@ function av(uid, size = '') {
 }
 
 async function loadAll() {
-  [S.profiles, S.mp, S.tower, S.seasons, S.cores] = await Promise.all([api.profiles(), api.memberPairs(), api.tower(), api.seasons(), api.typeCores()]);
+  [S.profiles, S.mp, S.tower, S.seasons, S.cores, S.settings] = await Promise.all([api.profiles(), api.memberPairs(), api.tower(), api.seasons(), api.typeCores(), api.settings()]);
   let saved = null;
   try { saved = +localStorage.getItem('gym-season'); } catch { /* private mode */ }
   S.sid = (S.seasons.find(s => s.id === saved) || S.seasons.find(s => s.is_active) || S.seasons[0])?.id ?? null;
@@ -721,11 +722,31 @@ function renderMembers() {
 }
 document.addEventListener('click', e => { const b = e.target.closest('[data-mview]'); if (b) { memberView = b.dataset.mview; route(); } });
 
-// ─── Roster by type: who can carry Special / Physical, who owns the core pairs ───
-// Columns: best Special striker · best Physical striker · core pairs (pinned by staff, else the
-// pairs most of the gym owns) · best on-type Support · the rest · tower floor for that type.
-let rosterType = null, coreEdit = false, rosterSort = 'fit';
-const isStrike = (p, kind) => /Strike/.test(p.role) && new RegExp(kind).test(p.role);
+// ─── Roster by type ───
+// The columns are gym-wide and staff can change them (gym_settings 'roster_columns'). Kinds:
+//   role  – the member's strongest pair of a role (on-type by default), e.g. Special / Physical / Support
+//   pair  – one fixed sync pair shown for every type (e.g. Anni Gloria, Red 1996 — broken everywhere)
+//   core  – the type's core pairs, pinned per type by staff (else the ones most of the gym owns)
+//   rest  – the member's other pairs of the type · tower – their tower floor for the type
+let rosterType = null, coreEdit = false, colEdit = false, rosterSort = 'fit';
+const ROLE_OPTS = [['Strike (Special)', 'Special striker'], ['Strike (Physical)', 'Physical striker'], ['Strike', 'Any striker'],
+  ['Tech', 'Tech'], ['Support', 'Support'], ['Field', 'Field'], ['Sprint', 'Sprint'], ['Multi', 'Multi']];
+const COL_KINDS = [['role', 'Best of a role'], ['pair', 'Fixed sync pair'], ['core', 'Type core pairs'], ['rest', 'Other pairs'], ['tower', 'Tower floor']];
+const roleMatch = (p, role) => (role === 'Strike' ? /^Strike/.test(p.role) : p.role === role);
+function defaultColumns() {
+  const find = (name, re) => PAIRS().find(p => p.trainerName === name && re.test(p.alt))?.id;
+  return [
+    { kind: 'role', role: 'Strike (Special)', label: 'Special', onType: true },
+    { kind: 'role', role: 'Strike (Physical)', label: 'Physical', onType: true },
+    { kind: 'core', label: 'EX WT' },
+    { kind: 'pair', pair: find('Gloria', /Anniversary/), label: 'Anni Gloria' },
+    { kind: 'pair', pair: find('Red', /1996/), label: 'Red' },
+    { kind: 'role', role: 'Support', label: 'On-type support', onType: true },
+    { kind: 'rest', label: 'Others' },
+    { kind: 'tower', label: 'Tower' },
+  ].filter(c => c.kind !== 'pair' || c.pair);
+}
+const rosterCols = () => S.settings.find(x => x.key === 'roster_columns')?.value || defaultColumns();
 function autoCores(ty) {
   const n = new Map();
   for (const x of S.mp) { const p = pairById(x.pair_id); if (p?.type === ty && !/Strike/.test(p.role)) n.set(p.id, (n.get(p.id) || 0) + 1); }
@@ -741,31 +762,54 @@ function defaultRosterType() {
 function renderRoster() {
   return `<div class="toolbar"><h1>${t('Roster by type')}</h1><p class="muted" style="margin:0">${t('Who can carry Special or Physical, and who owns the core pairs of each type.')}</p></div>${typeRoster(memberRows())}`;
 }
+const rosterCell = x => x
+  ? `<div class="tc" title="${esc(pairName(x.pair))} · ${esc(x.pair.role)} · ${levelLabel(x.level)}${x.ex ? ' · 6★ EX' : ''}${x.ex_role ? ' · EX Role' : ''}">${ownIcon(x.pair, x, 'sm')}<small>${levelLabel(x.level)}${x.ex_role ? ' <b>EXR</b>' : ''}</small></div>`
+  : `<span class="nope" aria-label="${t('none')}">${ico('x')}</span>`;
+
 function typeRoster(rows) {
   const ty = rosterType || defaultRosterType();
-  const cores = coresFor(ty), pinned = pinnedCores(ty).length > 0;
-  const cell = x => x
-    ? `<div class="tc" title="${esc(pairName(x.pair))} · ${esc(x.pair.role)} · ${levelLabel(x.level)}${x.ex ? ' · 6★ EX' : ''}${x.ex_role ? ' · EX Role' : ''}">${ownIcon(x.pair, x, 'sm')}<small>${levelLabel(x.level)}${x.ex_role ? ' <b>EXR</b>' : ''}</small></div>`
-    : `<span class="nope" aria-label="${t('none')}">${ico('x')}</span>`;
+  const cols = rosterCols(), cores = coresFor(ty), pinned = pinnedCores(ty).length > 0;
+  const hasCore = cols.some(c => c.kind === 'core');
   const data = rows.map(r => {
-    const mine = owned(r.p.id).map(x => ({ ...x, pair: pairById(x.pair_id) })).filter(x => x.pair?.type === ty)
-      .sort((a, b) => pairWeight(b) - pairWeight(a));
-    const used = new Set(cores);
-    const take = fn => { const x = mine.find(y => !used.has(y.pair_id) && fn(y.pair)); if (x) used.add(x.pair_id); return x; };
-    const special = take(p => isStrike(p, 'Special')), physical = take(p => isStrike(p, 'Physical')), support = take(p => /Support/.test(p.role));
-    return { r, mine, special, physical, support, core: cores.map(id => mine.find(x => x.pair_id === id)),
-      rest: mine.filter(x => !used.has(x.pair_id)), fit: readiness(owned(r.p.id), towerFloor(r.p.id, ty), ty, pairById).score };
+    const all = owned(r.p.id).map(x => ({ ...x, pair: pairById(x.pair_id) })).filter(x => x.pair).sort((a, b) => pairWeight(b) - pairWeight(a));
+    const mine = all.filter(x => x.pair.type === ty);
+    const used = new Set([...cols.filter(c => c.kind === 'pair').map(c => c.pair), ...(hasCore ? cores : [])]);
+    const cells = cols.map(c => {
+      if (c.kind === 'pair') return all.find(x => x.pair_id === c.pair);
+      if (c.kind === 'core') return cores.map(id => all.find(x => x.pair_id === id));
+      if (c.kind !== 'role') return null;
+      const x = (c.onType === false ? all : mine).find(y => !used.has(y.pair_id) && roleMatch(y.pair, c.role));
+      if (x) used.add(x.pair_id);
+      return x;
+    });
+    return { r, mine, cells, rest: mine.filter(x => !used.has(x.pair_id)), fit: readiness(owned(r.p.id), towerFloor(r.p.id, ty), ty, pairById).score };
   }).sort(rosterSort === 'name' ? (a, b) => nameOf(a.r.p).localeCompare(nameOf(b.r.p)) : (a, b) => b.fit - a.fit);
   const typePairs = PAIRS().filter(p => p.type === ty).sort((a, b) => a.trainer.localeCompare(b.trainer));
+
+  const head = cols.map(c => {
+    const label = esc(t(c.label || ''));
+    if (c.kind === 'pair') { const p = pairById(c.pair); return `<th class="core fixed" title="${esc(pairName(p))}">${p ? pairIcon(p, 'xs') : ''}<span>${label}</span></th>`; }
+    if (c.kind === 'core') return cores.length ? cores.map(id => { const p = pairById(id); return `<th class="core" title="${esc(pairName(p))}"><em>${label}</em>${pairIcon(p, 'xs')}<span>${esc(p?.trainer || id)}</span></th>`; }).join('') : `<th class="core"><em>${label}</em></th>`;
+    return `<th class="${c.kind === 'tower' ? 'num' : ''}">${label}</th>`;
+  }).join('');
+  const body = d => cols.map((c, i) => {
+    const v = d.cells[i];
+    if (c.kind === 'core') return cores.length ? v.map(x => `<td>${rosterCell(x)}</td>`).join('') : '<td class="muted">—</td>';
+    if (c.kind === 'rest') return `<td class="rest">${d.rest.slice(0, 4).map(rosterCell).join('')}${d.rest.length > 4 ? `<span class="more">+${d.rest.length - 4}</span>` : ''}</td>`;
+    if (c.kind === 'tower') return `<td class="num">${towerFloor(d.r.p.id, ty)}<small class="muted">F</small></td>`;
+    return `<td>${rosterCell(v)}</td>`;
+  }).join('');
 
   return `<div class="pf">
     <div class="tchips">${TYPES.map(x => `<button class="tchip ${x === ty ? 'on' : ''}" data-rtype="${x}" style="--tc:${TYPE_COLORS[x]}" title="${t(x)}">${img(typeIcon(x), 'ti', x)}${esc(t(x))}</button>`).join('')}</div>
     <div class="pf-row">
-      <span class="muted">${pinned ? t('Core pairs pinned by the admin / mods.') : t('Core pairs: the {t} supports and techs most of the gym owns.', { t: esc(t(ty)) })}</span>
-      ${isStaff() ? `<button class="btn sm" data-core-edit>${coreEdit ? t('Done') : t('Choose core pairs')}</button>` : ''}
+      ${hasCore ? `<span class="muted">${pinned ? t('Core pairs pinned by the admin / mods.') : t('Core pairs: the {t} supports and techs most of the gym owns.', { t: esc(t(ty)) })}</span>` : ''}
+      ${isStaff() ? `${hasCore ? `<button class="btn sm ${coreEdit ? 'primary' : ''}" data-core-edit>${ico('star')} ${coreEdit ? t('Done') : t('Choose core pairs')}</button>` : ''}
+        <button class="btn sm ${colEdit ? 'primary' : ''}" data-col-edit>${ico('gear')} ${colEdit ? t('Done') : t('Customize columns')}</button>` : ''}
       <div class="seg sm" style="margin-left:auto">${[['fit', 'Best fit first'], ['name', 'Name A–Z']].map(([k, l]) => `<button class="${rosterSort === k ? 'on' : ''}" data-rsort="${k}">${t(l)}</button>`).join('')}</div>
     </div>
-    ${coreEdit && isStaff() ? `<div class="card pad core-pick">
+    ${colEdit && isStaff() ? columnEditor(cols) : ''}
+    ${coreEdit && isStaff() && hasCore ? `<div class="card pad core-pick">
       <p class="hint">${t('Pick up to 6 {t} pairs that matter for this type — they get their own column.', { t: esc(t(ty)) })}
         ${pinned ? `<button class="reset" data-core-auto>${t('Back to automatic')}</button>` : ''}</p>
       <div class="roster">${typePairs.map(p => {
@@ -774,25 +818,66 @@ function typeRoster(rows) {
       }).join('')}</div></div>` : ''}
   </div>
   <div class="card scroll"><table class="table troster" style="--tc:${TYPE_COLORS[ty]}">
-    <thead><tr><th>#</th><th>${t('Member')}</th><th>${t('Special')}</th><th>${t('Physical')}</th>
-      ${cores.map(id => { const p = pairById(id); return `<th class="core" title="${esc(pairName(p))}">${pairIcon(p, 'xs')}<span>${esc(p?.trainer || id)}</span></th>`; }).join('')}
-      <th>${t('Support')}</th><th>${t('Others')}</th><th class="num">${t('Tower')}</th></tr></thead>
+    <thead><tr><th>#</th><th>${t('Member')}</th>${head}</tr></thead>
     <tbody>${data.map((d, i) => `<tr class="${d.r.banned ? 'dim' : ''}">
       <td class="rank">${i + 1}</td>
       <td><a class="who" href="#/member/${d.r.p.id}/pairs">${av(d.r.p.id, 'xs')}${esc(nameOf(d.r.p))}</a><small class="muted count">${t('{n} pairs', { n: d.mine.length })}</small></td>
-      <td>${cell(d.special)}</td><td>${cell(d.physical)}</td>
-      ${d.core.map(x => `<td>${cell(x)}</td>`).join('')}
-      <td>${cell(d.support)}</td>
-      <td class="rest">${d.rest.slice(0, 4).map(x => cell(x)).join('')}${d.rest.length > 4 ? `<span class="more">+${d.rest.length - 4}</span>` : ''}</td>
-      <td class="num">${towerFloor(d.r.p.id, ty)}<small class="muted">F</small></td></tr>`).join('')}</tbody></table></div>`;
+      ${body(d)}</tr>`).join('')}</tbody></table></div>`;
 }
+
+// Staff: add / remove / reorder / rename columns
+function columnEditor(cols) {
+  return `<div class="card pad col-edit">
+    <p class="hint">${t('Columns are shared by the whole gym. Fixed pairs show for every type; role columns pick each member’s strongest pair of that role.')}</p>
+    <div class="col-list">${cols.map((c, i) => `<div class="col-row">
+      <span class="col-n">${i + 1}</span>
+      <input class="col-label" data-col-label="${i}" value="${esc(c.label || '')}" aria-label="${t('Column name')}">
+      <select data-col-kind="${i}">${COL_KINDS.map(([k, l]) => `<option value="${k}" ${c.kind === k ? 'selected' : ''}>${t(l)}</option>`).join('')}</select>
+      ${c.kind === 'role' ? `<select data-col-role="${i}">${ROLE_OPTS.map(([k, l]) => `<option value="${k}" ${c.role === k ? 'selected' : ''}>${t(l)}</option>`).join('')}</select>
+        <label class="chk"><input type="checkbox" data-col-ontype="${i}" ${c.onType !== false ? 'checked' : ''}> ${t('same type only')}</label>` : ''}
+      ${c.kind === 'pair' ? `<span class="col-pair">${c.pair ? `${pairIcon(pairById(c.pair), 'xs')}${esc(pairName(pairById(c.pair)))}` : `<span class="muted">${t('No pair yet')}</span>`}</span>
+        <div class="search-box"><input data-col-pairq="${i}" placeholder="${t('Change pair…')}" autocomplete="off"><div class="results" id="col-results-${i}"></div></div>` : ''}
+      ${c.kind === 'core' ? `<span class="muted small">${t('Pinned per type with “Choose core pairs”.')}</span>` : ''}
+      <span class="col-acts">
+        <button class="x" data-col-move="${i}|-1" ${i === 0 ? 'disabled' : ''} aria-label="${t('Move left')}">${ico('left')}</button>
+        <button class="x" data-col-move="${i}|1" ${i === cols.length - 1 ? 'disabled' : ''} aria-label="${t('Move right')}">${ico('right')}</button>
+        <button class="x" data-col-del="${i}" aria-label="${t('Remove')}">${ico('x')}</button></span>
+    </div>`).join('')}</div>
+    <div class="row"><button class="btn sm" data-col-add>${ico('plus')} ${t('Add column')}</button>
+      <button class="btn sm ghost" data-col-reset>${t('Reset to default')}</button></div>
+  </div>`;
+}
+async function saveCols(cols) {
+  if (await act(() => api.saveSetting('roster_columns', cols, S.me))) { S.settings = await api.settings(); route(); }
+}
+const KIND_DEFAULTS = {
+  role: { role: 'Support', label: 'Support', onType: true }, pair: { pair: null, label: 'Pair' },
+  core: { label: 'Core' }, rest: { label: 'Others' }, tower: { label: 'Tower' },
+};
+
 document.addEventListener('click', async e => {
-  const el = e.target.closest('[data-rtype],[data-rsort],[data-core-edit],[data-core],[data-core-auto]');
+  const el = e.target.closest('[data-rtype],[data-rsort],[data-core-edit],[data-core],[data-core-auto],[data-col-edit],[data-col-add],[data-col-reset],[data-col-move],[data-col-del],[data-col-pick]');
   if (!el) return;
   const d = el.dataset, ty = rosterType || defaultRosterType();
+  const cols = structuredClone(rosterCols());
   if (d.rtype) { rosterType = d.rtype; route(); }
   if (d.rsort) { rosterSort = d.rsort; route(); }
   if ('coreEdit' in d) { coreEdit = !coreEdit; route(); }
+  if ('colEdit' in d) { colEdit = !colEdit; route(); }
+  if ('colAdd' in d) saveCols([...cols, { kind: 'role', role: 'Tech', label: 'Tech', onType: true }]);
+  if ('colReset' in d) saveCols(defaultColumns());
+  if (d.colMove) {
+    const [i, dir] = d.colMove.split('|').map(Number);
+    [cols[i], cols[i + dir]] = [cols[i + dir], cols[i]];
+    saveCols(cols);
+  }
+  if (d.colDel) { cols.splice(+d.colDel, 1); saveCols(cols); }
+  if (d.colPick) {
+    const [i, pid] = d.colPick.split('|');
+    const was = cols[+i], p = pairById(pid);
+    cols[+i] = { ...was, pair: pid, label: !was.pair && (!was.label || was.label === 'Pair') ? p.trainer.replace(/\s*\(.*\)/, '') : was.label };
+    saveCols(cols);
+  }
   const saveCores = async pairs => {
     if (await act(() => api.saveTypeCores({ type: ty, pairs, updated_by: S.me }))) { S.cores = await api.typeCores(); route(); }
   };
@@ -802,6 +887,29 @@ document.addEventListener('click', async e => {
     saveCores(cur.includes(d.core) ? cur.filter(x => x !== d.core) : [...cur, d.core]);
   }
   if ('coreAuto' in d) saveCores([]);
+});
+document.addEventListener('change', e => {
+  const d = e.target.dataset;
+  if (!('colLabel' in d || 'colKind' in d || 'colRole' in d || 'colOntype' in d)) return;
+  const cols = structuredClone(rosterCols());
+  if ('colLabel' in d) cols[+d.colLabel].label = e.target.value.trim();
+  if ('colKind' in d) { const i = +d.colKind; cols[i] = { kind: e.target.value, ...KIND_DEFAULTS[e.target.value] }; }
+  if ('colRole' in d) {
+    const c = cols[+d.colRole], old = ROLE_OPTS.find(r => r[0] === c.role);
+    const auto = !c.label || c.label === c.role || (old && [old[1], 'Special', 'Physical', 'Support', 'On-type support'].includes(c.label));
+    c.role = e.target.value;
+    if (auto) c.label = ROLE_OPTS.find(r => r[0] === c.role)[1];
+  }
+  if ('colOntype' in d) cols[+d.colOntype].onType = e.target.checked;
+  saveCols(cols);
+});
+document.addEventListener('input', e => {
+  const i = e.target.dataset.colPairq;
+  if (i == null) return;
+  const q = e.target.value.trim().toLowerCase();
+  $(`#col-results-${i}`).innerHTML = q.length < 2 ? '' : PAIRS().filter(p => `${p.trainer} ${p.pokemon}`.toLowerCase().includes(q)).slice(0, 10)
+    .map(p => `<button type="button" data-col-pick="${i}|${p.id}">${pairIcon(p, 'xs')}<span>${esc(pairName(p))}</span>${typeTag(p.type)}</button>`).join('')
+    || `<p class="muted">${t('No sync pair found.')}</p>`;
 });
 
 // ═══════════════════════════════════════════════════════════════
@@ -1288,6 +1396,7 @@ document.addEventListener('submit', async e => {
 // ─── Boot ───────────────────────────────────────────────────
 (async () => {
   applyAppearance();
+  mountMascot($('#mascot'));
   renderHeader('');
   try {
     await Promise.all([loadCatalog(), loadGyms()]);

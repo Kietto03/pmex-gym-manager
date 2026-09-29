@@ -91,6 +91,8 @@ function supabaseApi(sb) {
     saveAssignment: async row => ok(await sb.from('assignments').upsert(row)),   // merges: only the given columns change
     removeAssignment: async (season_id, leader, user_id) => ok(await sb.from('assignments').delete().match({ season_id, leader, user_id })),
 
+    settings: async () => ok(await sb.from('gym_settings').select('*')),
+    saveSetting: async (key, value, updated_by) => ok(await sb.from('gym_settings').upsert({ key, value, updated_by })),
     typeCores: async () => ok(await sb.from('type_cores').select('*')),
     saveTypeCores: async row => ok(await sb.from('type_cores').upsert(row)),
 

@@ -61,6 +61,7 @@ export async function loadCatalog() {
     id: clash.has(base[i]) ? `${base[i]}-${slug(p.internalPokemonName || String(i))}` : base[i],
     trainer: trainerLabel(p.trainerName, p.trainerAlt),
     trainerName: p.trainerName,
+    alt: p.trainerAlt || '',
     pokemon: p.pokemonName,
     type: p.pokemonType,
     weakness: p.pokemonWeak,
