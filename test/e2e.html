@@ -79,17 +79,19 @@ f.onload = async () => {
     // Cards re-sort by strength after a change, so follow the pair by id
     const order = () => $$('.owned').map(x => x.dataset.pair).join();
     const order0 = order();
-    const pid = $('.owned .tog[data-k=ex]:not(:disabled)').dataset.own;
-    const exBtn = () => $(`.owned .tog[data-k=ex][data-own="${pid}"]`);
+    const pid = $$('.owned').find(c => c.dataset.stars === '5').dataset.pair;
+    $(`.owned[data-pair="${pid}"] [data-tile]`).click(); await sleep(150);
+    log(!!$('.tile.open .pop') && !!$('.tile.open .cap'), 'a pair is one tile (level under the icon); clicking opens its editor');
+    const exBtn = () => $('.tile.open .tog[data-k=ex]');
     const was = exBtn().classList.contains('on');
     exBtn().click(); await sleep(150);
     log(exBtn().classList.contains('on') !== was, 'toggle EX on an owned pair');
-    log(order() === order0, 'cards stay in place after a toggle (no jumping)');
+    log(order() === order0, 'tiles stay in place after a toggle (no jumping)');
 
     // A pair below 5★: raise the stars first, only then 6★ EX
-    const low = $$('.owned').find(c => c.querySelector('.stars button.up:not(.on)'));
-    const lowId = low.dataset.pair;
+    const lowId = $$('.owned').find(c => +c.dataset.stars < 5).dataset.pair;
     const lowCard = () => $(`.owned[data-pair="${lowId}"]`);
+    lowCard().querySelector('[data-tile]').click(); await sleep(150);
     const exLow = () => lowCard().querySelector('.tog[data-k=ex]');
     log(exLow().disabled, 'EX is locked while a pair is below 5★');
     lowCard().querySelector('[data-own-star="5"]').click(); await sleep(150);
@@ -98,6 +100,8 @@ f.onload = async () => {
     log(exLow().classList.contains('on') && /_EX\.png$/.test(lowCard().querySelector('.pi').src), 'EX on shows the EX icon', lowCard().querySelector('.pi').src.split('/').pop());
     lowCard().querySelector('[data-own-star="5"]').click(); await sleep(150);
     log(!exLow().classList.contains('on') && exLow().disabled, 'dropping below 5★ removes EX again');
+    W().document.body.click(); await sleep(120);
+    log(!$('.tile.open'), 'clicking outside closes the editor');
 
     // Filters
     const all = $$('.owned').length;
@@ -162,6 +166,17 @@ f.onload = async () => {
     await go(`#/member/${who}/pairs`);
     await until(() => $('#own-search'));
     log(!!$('.manage') && !!$('#own-search') && !$('.owned select[disabled]'), 'admin can edit another member\'s roster');
+
+    // 6c. Members → roster by type
+    await go('#/members');
+    $('[data-mview=types]').click(); await sleep(200);
+    $('[data-rtype=Poison]').click(); await sleep(200);
+    const rowsN = $$('.troster tbody tr').length;
+    log(rowsN >= 19 && $$('.troster .tc').length > 0 && $('.tchip.on').title === 'Poison', 'roster by type: one row per member with Special / Physical / core cells', `${rowsN} rows, ${$$('.troster th.core').length} core columns`);
+    $('[data-core-edit]').click(); await sleep(200);
+    $('[data-core]').click(); await sleep(250);
+    log($$('.troster th.core').length === 1, 'staff pin a core pair → it gets its own column');
+    $('[data-core-auto]').click(); await sleep(250);
 
     // 7. Admin creates and deletes an account
     await go('#/admin');

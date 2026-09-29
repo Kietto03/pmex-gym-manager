@@ -56,7 +56,7 @@ async function act(fn, okMsg) {
 
 // ─── State ──────────────────────────────────────────────────
 let api;
-const S = { me: null, profiles: [], mp: [], tower: [], seasons: [], sid: null, runs: [], sm: [], asg: [], notes: [] };
+const S = { me: null, profiles: [], mp: [], tower: [], seasons: [], sid: null, runs: [], sm: [], asg: [], notes: [], cores: [] };
 const meP = () => S.profiles.find(p => p.id === S.me);
 const isStaff = () => ['admin', 'mod'].includes(meP()?.role);
 const isAdmin = () => meP()?.role === 'admin';
@@ -81,7 +81,7 @@ function av(uid, size = '') {
 }
 
 async function loadAll() {
-  [S.profiles, S.mp, S.tower, S.seasons] = await Promise.all([api.profiles(), api.memberPairs(), api.tower(), api.seasons()]);
+  [S.profiles, S.mp, S.tower, S.seasons, S.cores] = await Promise.all([api.profiles(), api.memberPairs(), api.tower(), api.seasons(), api.typeCores()]);
   let saved = null;
   try { saved = +localStorage.getItem('gym-season'); } catch { /* private mode */ }
   S.sid = (S.seasons.find(s => s.id === saved) || S.seasons.find(s => s.is_active) || S.seasons[0])?.id ?? null;
@@ -719,7 +719,7 @@ function renderMembers() {
   const heat = (v, max, ty) => `<td class="heat" style="--h:${Math.min(1, v / max).toFixed(2)};--tc:${TYPE_COLORS[ty]}"><b>${v || '·'}</b></td>`;
 
   return `<div class="toolbar"><h1>${t('Members')} <small>${t('{n} people', { n: S.profiles.length })}</small></h1>
-    <div class="seg">${[['list', 'Cards'], ['types', 'Pairs by type'], ['tower', 'Tower by type']].map(([k, l]) => `<button class="${memberView === k ? 'on' : ''}" data-mview="${k}">${t(l)}</button>`).join('')}</div></div>
+    <div class="seg">${[['list', 'Cards'], ['types', 'Roster by type'], ['tower', 'Tower by type']].map(([k, l]) => `<button class="${memberView === k ? 'on' : ''}" data-mview="${k}">${t(l)}</button>`).join('')}</div></div>
   ${memberView === 'list' ? `<div class="mgrid">${rows.map(r => `
     <article class="card mcard ${r.banned ? 'dim' : ''}">
       <div class="mtop">${av(r.p.id)}<div><a class="mname" href="#/member/${r.p.id}">${esc(nameOf(r.p))}</a>
@@ -728,13 +728,92 @@ function renderMembers() {
       <div class="mtypes">${r.byType.slice(0, 6).map(([ty, n]) => `<span style="--tc:${TYPE_COLORS[ty]}" title="${t(ty)}">${img(typeIcon(ty), 'ti', ty)}${n}</span>`).join('')}</div>
       ${isStaff() ? `<div class="mlinks"><a class="btn sm" href="#/member/${r.p.id}/pairs">${t('Roster')}</a><a class="btn sm" href="#/member/${r.p.id}/tower">${t('Tower')}</a><a class="btn sm" href="#/member/${r.p.id}/plan">${t('Battle plan')}</a></div>` : ''}
     </article>`).join('')}</div>`
+  : memberView === 'types' ? typeRoster(rows)
   : `<div class="card scroll"><table class="table heatmap">
     <thead><tr><th>${t('Member')}</th>${TYPES.map(ty => `<th title="${t(ty)}">${img(typeIcon(ty), 'ti', ty)}</th>`).join('')}</tr></thead>
-    <tbody>${rows.map(r => `<tr><td><a class="who" href="#/member/${r.p.id}">${av(r.p.id, 'xs')}${esc(nameOf(r.p))}</a></td>${TYPES.map(ty => memberView === 'tower'
-      ? heat(towerFloor(r.p.id, ty), TOWER_TOP, ty)
-      : heat(owned(r.p.id).filter(x => pairById(x.pair_id)?.type === ty).length, 8, ty)).join('')}</tr>`).join('')}</tbody></table></div>`}`;
+    <tbody>${rows.map(r => `<tr><td><a class="who" href="#/member/${r.p.id}">${av(r.p.id, 'xs')}${esc(nameOf(r.p))}</a></td>${TYPES.map(ty => heat(towerFloor(r.p.id, ty), TOWER_TOP, ty)).join('')}</tr>`).join('')}</tbody></table></div>`}`;
 }
 document.addEventListener('click', e => { const b = e.target.closest('[data-mview]'); if (b) { memberView = b.dataset.mview; route(); } });
+
+// ─── Roster by type: who can carry Special / Physical, who owns the core pairs ───
+// Columns: best Special striker · best Physical striker · core pairs (pinned by staff, else the
+// pairs most of the gym owns) · best on-type Support · the rest · tower floor for that type.
+let rosterType = null, coreEdit = false, rosterSort = 'fit';
+const isStrike = (p, kind) => /Strike/.test(p.role) && new RegExp(kind).test(p.role);
+function autoCores(ty) {
+  const n = new Map();
+  for (const x of S.mp) { const p = pairById(x.pair_id); if (p?.type === ty && !/Strike/.test(p.role)) n.set(p.id, (n.get(p.id) || 0) + 1); }
+  return [...n].filter(([, c]) => c >= Math.max(2, S.profiles.length / 3)).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([id]) => id);
+}
+const pinnedCores = ty => S.cores.find(c => c.type === ty)?.pairs || [];
+const coresFor = ty => (pinnedCores(ty).length ? pinnedCores(ty) : autoCores(ty));
+function defaultRosterType() {
+  const s = season();
+  return s?.leaders.flatMap(l => l.weakness || [])[0] || 'Normal';
+}
+
+function typeRoster(rows) {
+  const ty = rosterType || defaultRosterType();
+  const cores = coresFor(ty), pinned = pinnedCores(ty).length > 0;
+  const cell = x => x
+    ? `<div class="tc" title="${esc(pairName(x.pair))} · ${esc(x.pair.role)} · ${levelLabel(x.level)}${x.ex ? ' · 6★ EX' : ''}${x.ex_role ? ' · EX Role' : ''}">${ownIcon(x.pair, x, 'sm')}<small>${levelLabel(x.level)}${x.ex_role ? ' <b>EXR</b>' : ''}</small></div>`
+    : `<span class="nope" aria-label="${t('none')}">✕</span>`;
+  const data = rows.map(r => {
+    const mine = owned(r.p.id).map(x => ({ ...x, pair: pairById(x.pair_id) })).filter(x => x.pair?.type === ty)
+      .sort((a, b) => pairWeight(b) - pairWeight(a));
+    const used = new Set(cores);
+    const take = fn => { const x = mine.find(y => !used.has(y.pair_id) && fn(y.pair)); if (x) used.add(x.pair_id); return x; };
+    const special = take(p => isStrike(p, 'Special')), physical = take(p => isStrike(p, 'Physical')), support = take(p => /Support/.test(p.role));
+    return { r, mine, special, physical, support, core: cores.map(id => mine.find(x => x.pair_id === id)),
+      rest: mine.filter(x => !used.has(x.pair_id)), fit: readiness(owned(r.p.id), towerFloor(r.p.id, ty), ty, pairById).score };
+  }).sort(rosterSort === 'name' ? (a, b) => nameOf(a.r.p).localeCompare(nameOf(b.r.p)) : (a, b) => b.fit - a.fit);
+  const typePairs = PAIRS().filter(p => p.type === ty).sort((a, b) => a.trainer.localeCompare(b.trainer));
+
+  return `<div class="pf">
+    <div class="tchips">${TYPES.map(x => `<button class="tchip ${x === ty ? 'on' : ''}" data-rtype="${x}" style="--tc:${TYPE_COLORS[x]}" title="${t(x)}">${img(typeIcon(x), 'ti', x)}${esc(t(x))}</button>`).join('')}</div>
+    <div class="pf-row">
+      <span class="muted">${pinned ? t('Core pairs pinned by the admin / mods.') : t('Core pairs: the {t} supports and techs most of the gym owns.', { t: esc(t(ty)) })}</span>
+      ${isStaff() ? `<button class="btn sm" data-core-edit>${coreEdit ? t('Done') : t('Choose core pairs')}</button>` : ''}
+      <div class="seg sm" style="margin-left:auto">${[['fit', 'Best fit first'], ['name', 'Name A–Z']].map(([k, l]) => `<button class="${rosterSort === k ? 'on' : ''}" data-rsort="${k}">${t(l)}</button>`).join('')}</div>
+    </div>
+    ${coreEdit && isStaff() ? `<div class="card pad core-pick">
+      <p class="hint">${t('Pick up to 6 {t} pairs that matter for this type — they get their own column.', { t: esc(t(ty)) })}
+        ${pinned ? `<button class="reset" data-core-auto>${t('Back to automatic')}</button>` : ''}</p>
+      <div class="roster">${typePairs.map(p => {
+        const i = pinnedCores(ty).indexOf(p.id);
+        return `<button type="button" class="rp ${i >= 0 ? 'on' : ''}" data-core="${p.id}" ${i >= 0 ? `data-n="${i + 1}"` : ''} title="${esc(pairName(p))} · ${esc(p.role)}">${pairIcon(p, 'sm')}<small>${esc(p.trainer.split(' ')[0])}</small></button>`;
+      }).join('')}</div></div>` : ''}
+  </div>
+  <div class="card scroll"><table class="table troster" style="--tc:${TYPE_COLORS[ty]}">
+    <thead><tr><th>#</th><th>${t('Member')}</th><th>${t('Special')}</th><th>${t('Physical')}</th>
+      ${cores.map(id => { const p = pairById(id); return `<th class="core" title="${esc(pairName(p))}">${pairIcon(p, 'xs')}<span>${esc(p?.trainer || id)}</span></th>`; }).join('')}
+      <th>${t('Support')}</th><th>${t('Others')}</th><th class="num">${t('Tower')}</th></tr></thead>
+    <tbody>${data.map((d, i) => `<tr class="${d.r.banned ? 'dim' : ''}">
+      <td class="rank">${i + 1}</td>
+      <td><a class="who" href="#/member/${d.r.p.id}/pairs">${av(d.r.p.id, 'xs')}${esc(nameOf(d.r.p))}</a><small class="muted count">${t('{n} pairs', { n: d.mine.length })}</small></td>
+      <td>${cell(d.special)}</td><td>${cell(d.physical)}</td>
+      ${d.core.map(x => `<td>${cell(x)}</td>`).join('')}
+      <td>${cell(d.support)}</td>
+      <td class="rest">${d.rest.slice(0, 4).map(x => cell(x)).join('')}${d.rest.length > 4 ? `<span class="more">+${d.rest.length - 4}</span>` : ''}</td>
+      <td class="num">${towerFloor(d.r.p.id, ty)}<small class="muted">F</small></td></tr>`).join('')}</tbody></table></div>`;
+}
+document.addEventListener('click', async e => {
+  const el = e.target.closest('[data-rtype],[data-rsort],[data-core-edit],[data-core],[data-core-auto]');
+  if (!el) return;
+  const d = el.dataset, ty = rosterType || defaultRosterType();
+  if (d.rtype) { rosterType = d.rtype; route(); }
+  if (d.rsort) { rosterSort = d.rsort; route(); }
+  if ('coreEdit' in d) { coreEdit = !coreEdit; route(); }
+  const saveCores = async pairs => {
+    if (await act(() => api.saveTypeCores({ type: ty, pairs, updated_by: S.me }))) { S.cores = await api.typeCores(); route(); }
+  };
+  if (d.core) {
+    const cur = pinnedCores(ty);
+    if (!cur.includes(d.core) && cur.length >= 6) return toast(t('Pick at most 6 core pairs.'), true);
+    saveCores(cur.includes(d.core) ? cur.filter(x => x !== d.core) : [...cur, d.core]);
+  }
+  if ('coreAuto' in d) saveCores([]);
+});
 
 // ═══════════════════════════════════════════════════════════════
 //  MEMBER PROFILE
@@ -842,26 +921,49 @@ function pairsTab(id, edit) {
   ${body}`;
 }
 
-// One owned pair: stars (for pairs below 5★) → 6★ EX → EX Role, plus move level
+// One owned pair = one tile: icon (shows stars / EX), then "4/5 · EXR" underneath.
+// Click it to open a small editor: stars (pairs below 5★) → 6★ EX → EX Role, and move level.
+let pairEdit = null;
 function ownedCard(x, edit) {
+  const p = x.pair, stars = x.stars || p.rarity, open = pairEdit === p.id;
+  return `<div class="owned tile ${x.level > 5 ? 'sa' : ''} ${open ? 'open' : ''}" data-pair="${p.id}" data-stars="${stars}">
+    <button type="button" class="tile-btn" data-tile="${p.id}" title="${esc(pairName(p))} · ${esc(p.role)}${x.ex_role ? ` · EX Role ${esc(p.exRole)}` : ''}">
+      ${ownIcon(p, x, 'md')}<span class="cap">${levelLabel(x.level)}${x.ex_role ? '<b>EXR</b>' : ''}</span></button>
+    ${open ? pairPop(x, edit) : ''}</div>`;
+}
+function pairPop(x, edit) {
   const p = x.pair, max = p.maxBonus, stars = x.stars || p.rarity;
   const starBtns = [1, 2, 3, 4, 5].map(n => {
-    const base = n <= p.rarity, on = n <= stars;
-    return `<button type="button" class="${on ? 'on' : ''} ${base ? 'base' : 'up'}" ${edit && !base ? `data-own-star="${n}"` : 'disabled'}
+    const base = n <= p.rarity;
+    return `<button type="button" class="${n <= stars ? 'on' : ''} ${base ? 'base' : 'up'}" ${edit && !base ? `data-own-star="${n}"` : 'disabled'}
       title="${base ? t('Base rarity {n}★', { n: p.rarity }) : t('Raise to {n}★', { n })}">★</button>`;
   }).join('');
-  return `<div class="owned card ${x.level > 5 ? 'sa' : ''}" data-pair="${p.id}">
-    ${ownIcon(p, x, 'md')}
-    <div class="o-body"><b>${esc(p.trainer)}</b><small>${esc(p.pokemon)}</small><span class="o-tags">${img(typeIcon(p.type), 'ti', p.type)}${p.role ? img(roleIcon(p.role), 'ri', p.role) : ''}</span></div>
+  return `<div class="pop" role="dialog">
+    <div class="pop-h"><b>${esc(p.trainer)}</b><small>${esc(p.pokemon)}</small>
+      <span class="o-tags">${typeTag(p.type)}${roleTag(p.role)}</span></div>
     <div class="o-ctl">
       ${p.rarity < 5 ? `<span class="stars" title="${t('Raise the stars to 5★ to unlock 6★ EX')}">${starBtns}</span>` : ''}
       <button class="tog ex ${x.ex ? 'on' : ''}" data-own="${p.id}" data-k="ex" ${edit && stars >= 5 ? '' : 'disabled'} title="${stars < 5 ? t('Raise to 5★ first') : t('6★ EX unlocked')}">EX</button>
       ${p.exRole ? `<button class="tog ${x.ex_role ? 'on' : ''}" data-own="${p.id}" data-k="ex_role" ${edit && x.ex ? '' : 'disabled'} title="EX Role: ${esc(p.exRole)}${x.ex ? '' : ` — ${t('needs 6★ EX')}`}">${img(roleIcon(p.exRole, true), 'ri')}</button>` : ''}
       <select data-own="${p.id}" data-k="level" ${edit ? '' : 'disabled'} title="${t('Move level')}${max === 10 ? ' · ' + t('6/5–10/5 = Superawakened') : ''}">
         ${Array.from({ length: max }, (_, i) => i + 1).map(l => `<option value="${l}" ${l === x.level ? 'selected' : ''}>${levelLabel(l)}</option>`).join('')}</select>
-      ${edit ? `<button class="x" data-own-del="${p.id}" aria-label="${t('Remove')}">✕</button>` : ''}
+      ${edit ? `<button class="x" data-own-del="${p.id}" aria-label="${t('Remove')}" title="${t('Remove')}">✕</button>` : ''}
     </div></div>`;
 }
+// Keep the editor inside the window
+function placePop() {
+  const pop = $('.tile.open .pop');
+  if (!pop) return;
+  const r = pop.getBoundingClientRect();
+  if (r.right > innerWidth - 8) pop.style.left = `${-(r.right - innerWidth + 8)}px`;
+  if (r.left < 8) pop.style.left = `${8 - r.left}px`;
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-tile]');
+  if (b) { pairEdit = pairEdit === b.dataset.tile ? null : b.dataset.tile; redrawTab(); return; }
+  if (pairEdit && !e.target.closest('.tile.open')) { pairEdit = null; if ($('#member-tab')) redrawTab(); }
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && pairEdit) { pairEdit = null; redrawTab(); } });
 
 function towerTab(id, edit) {
   const total = TYPES.reduce((a, ty) => a + towerFloor(id, ty), 0);
@@ -894,7 +996,7 @@ function runsTab(id) {
 }
 
 const memberId = () => location.hash.split('/')[2] || S.me;
-const redrawTab = () => { $('#member-tab').innerHTML = tabBody(memberId(), canEdit(memberId())); };
+const redrawTab = () => { $('#member-tab').innerHTML = tabBody(memberId(), canEdit(memberId())); placePop(); };
 
 // Save one owned pair and redraw in place (the frozen order keeps the card where it is)
 async function saveOwned(uid, pid, patch) {

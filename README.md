@@ -17,7 +17,7 @@ A small web app for running a **Pokémon Masters EX** gym: member accounts, the 
 | **Overview** | Running season: score per round, which Gym Leaders are cleared, member scores, tickets left, recent runs |
 | **Log run** | Pick leader, round, tickets and score, add the team (1–3 sync pairs). Rules are checked as you type |
 | **Plan** | Per Gym Leader: weakness, the rule of every circuit, notes, the squad (who fights them and with which 1–3 pairs **from their own roster**) and who fits best |
-| **Members** | Everyone's sync pairs (owned, stars for 3★/4★ pairs, 6★ EX, EX Role, move level up to 5/5 or 10/5 with Superawakening) with search, type/role/status filters and stable sorting, Pasio Tower floors per type (18 towers × 40 floors) and battle plan. Mods and the admin can update any member's roster and tower |
+| **Members** | **Roster by type**: pick a type and see, per member, their best Special and Physical striker, the type's core pairs (pinned by staff or picked automatically), best Support, the rest and their tower floor — each as icon + move level + EXR. Plus everyone's sync pairs (owned, stars for 3★/4★ pairs, 6★ EX, EX Role, move level up to 5/5 or 10/5 with Superawakening) with search, type/role/status filters and stable sorting, Pasio Tower floors per type (18 towers × 40 floors) and battle plan. Mods and the admin can update any member's roster and tower |
 | **Admin** | Seasons, lock members, accounts, sync the pair catalog, activity log |
 
 ### Roles
@@ -87,7 +87,7 @@ Same logic in `src/rules.js` (instant feedback) and the `check_run()` trigger (t
 
 ```bash
 npm run serve            # http://localhost:8767/?demo
-npm run test:db          # 45 permission & rule tests on a throwaway Postgres (needs Docker)
+npm run test:db          # 47 permission & rule tests on a throwaway Postgres (needs Docker)
 # UI test: serve, then open http://localhost:8767/test/e2e.html
 ```
 

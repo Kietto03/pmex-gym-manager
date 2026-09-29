@@ -132,6 +132,12 @@ select pg_temp.check('pair removed from roster leaves the team',    '00000000-00
      insert into public.member_pairs (user_id, pair_id, level, ex, ex_role) values ('00000000-0000-0000-0000-00000000000c', 'p-sa', 10, true, true);
      do $d$ begin assert (select team from public.assignments where user_id = '00000000-0000-0000-0000-00000000000c') = '{}'::text[]; end $d$ $$);
 
+-- ─── Core pairs per type (staff) ───
+select pg_temp.check('mod pins core pairs for a type',              '00000000-0000-0000-0000-00000000000b',
+  $$ insert into public.type_cores (type, pairs) values ('Dragon', '{p-sa}') $$);
+select pg_temp.check('member cannot pin core pairs',                '00000000-0000-0000-0000-00000000000c',
+  $$ insert into public.type_cores (type, pairs) values ('Rock', '{p-5}') $$, 'row-level security');
+
 -- ─── Runs: the Gym Battle rules ───
 select pg_temp.check('member logs a run in the open round',         '00000000-0000-0000-0000-00000000000c',
   $$ insert into public.runs (season_id, user_id, leader, round, tickets, score) select id, '00000000-0000-0000-0000-00000000000c', 'Roark', 1, 3, 10000 from public.seasons $$);

@@ -68,7 +68,7 @@ export default {
   'Note saved.': 'Đã lưu ghi chú.',
 
   // ─── Members ───
-  '{n} people': '{n} người', 'Role': 'Vai trò','Pairs by type': 'Pair theo type', 'Tower by type': 'Tháp theo type',
+  '{n} people': '{n} người', 'Role': 'Vai trò', 'Tower by type': 'Tháp theo type',
 
   // ─── Profile ───
   'Member not found': 'Không tìm thấy thành viên',
@@ -236,4 +236,19 @@ export default {
   'Sprint': 'Sprint',
   'Field': 'Field',
   'Multi': 'Multi',
+
+  // Roster by type
+  'none': 'không có',
+  'Core pairs pinned by the admin / mods.': 'Pair core do admin / mod ghim.',
+  'Core pairs: the {t} supports and techs most of the gym owns.': 'Pair core: các support và tech hệ {t} mà phần lớn gym sở hữu.',
+  'Choose core pairs': 'Chọn pair core',
+  'Pick up to 6 {t} pairs that matter for this type — they get their own column.': 'Chọn tối đa 6 pair hệ {t} quan trọng — mỗi pair có một cột riêng.',
+  'Back to automatic': 'Về tự động',
+  'Special': 'Special',
+  'Physical': 'Physical',
+  'Others': 'Khác',
+  '{n} pairs': '{n} pair',
+  'Pick at most 6 core pairs.': 'Chỉ chọn tối đa 6 pair core.',
+  'Roster by type': 'Roster theo type',
+  'Best fit first': 'Hợp nhất trước',
 };

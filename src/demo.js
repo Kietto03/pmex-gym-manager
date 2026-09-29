@@ -70,7 +70,7 @@ function seedData() {
   }
   const activity = runs.slice(0, 30).map((r, i) => ({ id: i + 1, at: r.created_at, actor: r.created_by, actor_name: r.member_name,
     action: 'runs.insert', detail: { leader: r.leader, round: r.round, score: r.score } }));
-  return { profiles, catalog, memberPairs, tower, seasons, seasonMembers, runs, assignments, notes, activity };
+  return { profiles, catalog, memberPairs, tower, seasons, seasonMembers, runs, assignments, notes, activity, typeCores: [] };
 }
 
 // Fill a season with runs that pass validateRun, the way a gym plays it
@@ -268,6 +268,14 @@ export function createDemoApi() {
     async removeAssignment(season_id, leader, user_id) {
       staff() || deny();
       db.assignments = db.assignments.filter(a => !(a.season_id === season_id && a.leader === leader && a.user_id === user_id));
+    },
+
+    typeCores: async () => clone(db.typeCores),
+    async saveTypeCores(row) {
+      staff() || deny();
+      if ((row.pairs || []).length > 6) deny(t('Pick at most 6 core pairs.'));
+      const c = db.typeCores.find(x => x.type === row.type);
+      if (c) Object.assign(c, row); else db.typeCores.push({ ...row });
     },
 
     notes: async sid => clone(db.notes.filter(n => n.season_id === sid)),

@@ -222,6 +222,16 @@ end $$;
 create trigger member_pairs_drop after delete on public.member_pairs
   for each row execute function public.drop_pair_from_teams();
 
+-- Core sync pairs per type, pinned by staff (the Members → type roster columns).
+-- No row = the app picks the pairs most of the gym owns.
+create table public.type_cores (
+  type       text primary key check (type in ('Normal', 'Fire', 'Water', 'Electric', 'Grass', 'Ice', 'Fighting', 'Poison',
+               'Ground', 'Flying', 'Psychic', 'Bug', 'Rock', 'Ghost', 'Dragon', 'Dark', 'Steel', 'Fairy')),
+  pairs      text[] not null default '{}' check (cardinality(pairs) <= 6),
+  updated_by uuid references public.profiles (id) on delete set null,
+  updated_at timestamptz not null default now()
+);
+
 -- Strategy note per Gym Leader
 create table public.leader_notes (
   season_id  bigint not null references public.seasons (id) on delete cascade,
@@ -397,6 +407,7 @@ alter table public.seasons        enable row level security;
 alter table public.season_members enable row level security;
 alter table public.assignments    enable row level security;
 alter table public.leader_notes   enable row level security;
+alter table public.type_cores     enable row level security;
 alter table public.runs           enable row level security;
 alter table public.activity       enable row level security;
 
@@ -408,6 +419,7 @@ create policy "read: signed in" on public.seasons        for select to authentic
 create policy "read: signed in" on public.season_members for select to authenticated using (true);
 create policy "read: signed in" on public.assignments    for select to authenticated using (true);
 create policy "read: signed in" on public.leader_notes   for select to authenticated using (true);
+create policy "read: signed in" on public.type_cores     for select to authenticated using (true);
 create policy "read: signed in" on public.runs           for select to authenticated using (true);
 create policy "read: staff"     on public.activity       for select to authenticated using (public.is_staff());
 
@@ -427,6 +439,7 @@ create policy "write: staff" on public.seasons        for all to authenticated u
 create policy "write: staff" on public.season_members for all to authenticated using (public.is_staff()) with check (public.is_staff());
 create policy "write: staff" on public.assignments    for all to authenticated using (public.is_staff()) with check (public.is_staff());
 create policy "write: staff" on public.leader_notes   for all to authenticated using (public.is_staff()) with check (public.is_staff());
+create policy "write: staff" on public.type_cores     for all to authenticated using (public.is_staff()) with check (public.is_staff());
 
 -- Runs: members log and fix their own battles; staff can log for anyone
 create policy "insert: self or staff" on public.runs for insert to authenticated
