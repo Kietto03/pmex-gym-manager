@@ -4,7 +4,7 @@ A small web app for running a **Pokémon Masters EX** gym: member accounts, the 
 
 **Live demo:** <https://kietto03.github.io/pmex-gym-manager/?demo> (sample data kept in your browser, nothing is saved)
 
-- **English by default**, Vietnamese included. **Settings** lets each person pick a style — *Switch* (rounded, Joy-Con colours), *DS* (pixel titles, hard edges), *Game Boy* (four greens) or *Studio* (paper and ink) — plus light/dark/auto and an accent colour. Pixel icons, no emoji, and a pixel Pikachu in the header that blinks, watches the pointer and says hi when clicked.
+- **English by default**, Vietnamese included. **Settings** lets each person pick a style — *Switch* (rounded, Joy-Con colours), *DS* (pixel titles, hard edges), *Game Boy* (four greens) or *Studio* (paper and ink) — plus light/dark/auto and an accent colour. Pixel icons, no emoji, and a companion mascot (Pikachu, Bulbasaur or Eevee — or off) that turns its head toward the pointer, reacts when poked, dozes when idle and tells you what's worth doing (tickets left, open round, your battles, empty roster cells).
 - **Static site + Supabase**: no server to run. Free tier is plenty for a gym (~20 members, 1 admin, 2 mods).
 - **Game data is read live**, nothing is copied into this repo:
   - Sync pairs and icons: [PoMasters Sync Pairs Tracker](https://pomasters.github.io/SyncPairsTracker/)
@@ -105,7 +105,8 @@ src/rules.js              Gym Battle rules (no DOM)
 src/catalog.js            sync pairs (tracker) and Gym Battles (Dex)
 src/appearance.js         styles, colour modes, accents (Settings)
 src/icons.js              12×12 pixel icon set
-src/mascot.js             the header Pikachu
+src/mascot.js             companion mascot (vanilla port of page-mascot)
+tools/draw_mascots.py     draws the mascot sprite sheets → assets/mascots/
 src/sheet.js              roster sheet columns + suggestions
 src/i18n.js, src/lang/    translations (English text is the key; add a file per language)
 supabase/migrations/      tables, row-level security, rule triggers, activity log
@@ -118,4 +119,4 @@ test/e2e.html             clicks through the demo in an iframe
 
 ## Credits
 
-Sync pair data and icons from the [PoMasters Sync Pairs Tracker](https://pomasters.github.io/SyncPairsTracker/). Gym Battle data and Gym Leader pixel sprites (Pokémon Showdown trainer sprites) from the [PMEX Dex](https://github.com/Kietto03/pmex-supez-dex) datamine build. Fan project, not affiliated with DeNA or The Pokémon Company; game assets belong to their owners.
+Sync pair data and icons from the [PoMasters Sync Pairs Tracker](https://pomasters.github.io/SyncPairsTracker/). Gym Battle data and Gym Leader pixel sprites (Pokémon Showdown trainer sprites) from the [PMEX Dex](https://github.com/Kietto03/pmex-supez-dex) datamine build. Mascot component and sprite-sheet format from [page-mascot](https://github.com/nilbuild/page-mascot) (MIT, Kamran Ahmed); the Pokémon sheets themselves are hand-made pixel fan art. Fan project, not affiliated with DeNA or The Pokémon Company; game assets belong to their owners.

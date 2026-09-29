@@ -1,87 +1,136 @@
 /* ═══════════════════════════════════════════════════════════════
-   Pixel Pikachu mascot for the header.
-   · blinks on its own and its eyes follow the pointer
-   · ears wiggle on hover
-   · click: hop + cheek sparks + a speech bubble; five quick clicks → Thunderbolt
-   Drawn on an 18×19 grid: k outline · y yellow · w eye shine · r cheek
+   Companion mascot — a vanilla port of page-mascot's <Mascot />
+   (github.com/nilbuild/page-mascot, MIT). Two 3×3 sheets per character:
+   nine head directions and nine reactions, swapped with background-position.
+   · the head turns toward the pointer (8 sectors, dead zone, hysteresis)
+   · a click blinks, then shows a heart / sparkles / a grin; four quick clicks → dizzy
+   · it dozes off when the page sits still, and says something useful in a speech card
+   Sheets: assets/mascots/<id>-{directions,reactions}.png (tools/draw_mascots.py)
    ═══════════════════════════════════════════════════════════════ */
-const ART = `
-k................k
-kk..............kk
-kkk............kkk
-.kkk..........kkk.
-.kyyk........kyyk.
-..kyyk......kyyk..
-..kyyyk....kyyyk..
-...kyyykkkkyyyk...
-..kyyyyyyyyyyyyk..
-.kyywkyyyyyywkyyk.
-.kyykkyyyyyykkyyk.
-kyrryyyyyyyyyyrryk
-kyrryyykyykyyyrryk
-.kyyyyyykkyyyyyyk.
-..kyyyyyyyyyyyyk..
-..kyykyyyyyykyyk..
-..kyyyyyyyyyyyyk..
-...kyyk....kyyk...
-...kkkk....kkkk...`;
+export const MASCOTS = [
+  { id: 'pikachu', name: 'Pikachu', cry: ['Pika!', 'Pika pika!', 'Pikachu!'] },
+  { id: 'bulbasaur', name: 'Bulbasaur', cry: ['Bulba!', 'Bulbasaur!', 'Saur~'] },
+  { id: 'eevee', name: 'Eevee', cry: ['Vee!', 'Eevee!', 'Vui~'] },
+];
+const DIRECTIONS = ['up-left', 'up', 'up-right', 'left', 'center', 'right', 'down-left', 'down', 'down-right'];
+const REACTIONS = ['blink', 'heart', 'sparkle', 'surprised', 'starstruck', 'bashful', 'sleepy', 'dizzy', 'delighted'];
+const CLOCKWISE = ['right', 'down-right', 'down', 'down-left', 'left', 'up-left', 'up', 'up-right'];
+const SECTOR = (Math.PI * 2) / CLOCKWISE.length;
+const HYSTERESIS = 0.12, DEAD_ZONE = 70;
+const PAYOFFS = ['heart', 'sparkle', 'delighted', 'starstruck', 'bashful'];
+const BOOP_PAYOFF = 120, BOOP_END = 700, DIZZY_AFTER = 4, DIZZY_WINDOW = 1600, DIZZY_END = 1300;
+const DOZE_AFTER = 45000;
+const SQUASH = [
+  { transform: 'scale(1, 1)', easing: 'ease-in' },
+  { transform: 'scale(1.10, 0.86)', offset: 0.18, easing: 'ease-out' },
+  { transform: 'scale(0.95, 1.08)', offset: 0.45, easing: 'ease-in-out' },
+  { transform: 'scale(1.03, 0.97)', offset: 0.72, easing: 'ease-in-out' },
+  { transform: 'scale(1, 1)' },
+];
+const pos = i => `${(i % 3) * 50}% ${Math.floor(i / 3) * 50}%`;
+const wrap = a => Math.atan2(Math.sin(a), Math.cos(a));
+const sheet = (id, kind) => `assets/mascots/${id}-${kind}.png`;
+const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-const FILL = { k: 'var(--pk-line)', y: 'var(--pk-body)', w: '#fff', r: 'var(--pk-cheek)' };
-const LINES = ['Pika!', 'Pika pika!', 'Pikachu!', 'Pika pi?', 'Chaa~', 'Pi-ka!'];
+// Static head (the "center" cell) — used as the brand logo and in Settings
+export const mascotHead = (id, cls = '') =>
+  `<span class="m-head ${cls}" style="background-image:url(${sheet(id, 'directions')});background-position:${pos(4)}" aria-hidden="true"></span>`;
 
-function svg() {
-  const rows = ART.trim().split('\n');
-  const parts = { earL: '', earR: '', eyes: '', cheeks: '', body: '' };
-  rows.forEach((row, y) => [...row].forEach((c, x) => {
-    if (c === '.') return;
-    const rect = `<rect x="${x}" y="${y}" width="1.02" height="1.02" fill="${FILL[c]}"/>`;
-    if (y <= 6) parts[x < 9 ? 'earL' : 'earR'] += rect;
-    else if ((y === 9 || y === 10) && [4, 5, 12, 13].includes(x)) parts.eyes += rect;
-    else if (c === 'r') parts.cheeks += rect;
-    else parts.body += rect;
-  }));
-  return `<svg class="pk" viewBox="0 0 18 19" shape-rendering="crispEdges" aria-hidden="true">
-    <g class="pk-ear pk-ear-l">${parts.earL}</g><g class="pk-ear pk-ear-r">${parts.earR}</g>
-    <g class="pk-body">${parts.body}</g><g class="pk-cheeks">${parts.cheeks}</g><g class="pk-eyes">${parts.eyes}</g>
-  </svg>`;
-}
+export function mountCompanion(root, { getTips, t = s => s }) {
+  let id = null, direction = 'center', reaction = null, timers = [], boops = { count: 0, at: 0 };
+  let sector = -1, pointer = null, lastMove = Date.now(), tipIndex = 0, sayTimer, typeTimer;
 
-export function mountMascot(el) {
-  el.innerHTML = `${svg()}<span class="pk-say" aria-live="polite"></span><span class="pk-zap" aria-hidden="true"></span>`;
-  el.title = 'Pika!';
-  const say = el.querySelector('.pk-say'), eyes = el.querySelector('.pk-eyes');
-  let clicks = [], sayTimer;
+  root.innerHTML = `
+    <div class="m-say" role="status" aria-live="polite"><b class="m-name"></b><p></p><button type="button" class="m-close" aria-label="${t('Hide')}">×</button></div>
+    <button type="button" class="m-btn"><span class="m-squash"><span class="m-layer m-dir"></span><span class="m-layer m-react"></span></span></button>`;
+  const btn = root.querySelector('.m-btn'), squash = root.querySelector('.m-squash');
+  const dir = root.querySelector('.m-dir'), react = root.querySelector('.m-react');
+  const card = root.querySelector('.m-say'), text = card.querySelector('p'), name = card.querySelector('.m-name');
 
-  // Eyes follow the pointer (at most one pixel each way)
-  addEventListener('pointermove', e => {
-    const r = el.getBoundingClientRect();
-    const dx = Math.max(-1, Math.min(1, (e.clientX - (r.left + r.width / 2)) / 120));
-    const dy = Math.max(-1, Math.min(1, (e.clientY - (r.top + r.height / 2)) / 120));
-    eyes.style.transform = `translate(${dx.toFixed(2)}px, ${(dy * .6).toFixed(2)}px)`;
-  }, { passive: true });
-
-  // Blink every few seconds, sometimes twice
-  const blink = () => {
-    el.classList.add('blink');
-    setTimeout(() => el.classList.remove('blink'), 140);
-    setTimeout(blink, 2500 + Math.random() * 3500);
+  const paint = () => {
+    dir.style.backgroundPosition = pos(DIRECTIONS.indexOf(direction));
+    react.style.backgroundPosition = pos(REACTIONS.indexOf(reaction || 'blink'));
+    dir.style.opacity = reaction ? 0 : 1;
+    react.style.opacity = reaction ? 1 : 0;
   };
-  setTimeout(blink, 1800);
+  const setReaction = r => { reaction = r; paint(); };
+  const later = (ms, next) => timers.push(setTimeout(() => setReaction(next), ms));
+  const clearTimers = () => { timers.forEach(clearTimeout); timers = []; };
 
-  el.addEventListener('click', e => {
-    e.preventDefault();
-    e.stopPropagation();
+  // ─── Head follows the pointer ───
+  const aim = () => {
+    if (!pointer || reaction === 'sleepy') return;
+    const box = btn.getBoundingClientRect();
+    const dx = pointer.x - (box.left + box.width / 2), dy = pointer.y - (box.top + box.height / 2);
+    if (Math.hypot(dx, dy) < DEAD_ZONE) { sector = -1; direction = 'center'; return paint(); }
+    const angle = Math.atan2(dy, dx);
+    if (sector !== -1 && Math.abs(wrap(angle - sector * SECTOR)) < SECTOR / 2 + HYSTERESIS) return;
+    sector = (Math.round(angle / SECTOR) + CLOCKWISE.length) % CLOCKWISE.length;
+    direction = CLOCKWISE[sector];
+    paint();
+  };
+  if (matchMedia('(hover: hover) and (pointer: fine)').matches) {
+    addEventListener('pointermove', e => {
+      pointer = { x: e.clientX, y: e.clientY };
+      lastMove = Date.now();
+      if (reaction === 'sleepy') { clearTimers(); setReaction('surprised'); later(600, null); }
+      aim();
+    }, { passive: true });
+    addEventListener('scroll', aim, { passive: true });
+  }
+  // Doze off when nothing happens for a while
+  setInterval(() => { if (id && !reaction && Date.now() - lastMove > DOZE_AFTER) setReaction('sleepy'); }, 5000);
+
+  // ─── Speech card ───
+  const say = (msg, ms = 5200) => {
+    const m = MASCOTS.find(x => x.id === id);
+    name.textContent = m?.name || '';
+    clearTimeout(sayTimer); clearInterval(typeTimer);
+    card.classList.add('show');
+    if (reduced()) text.textContent = msg;
+    else {
+      let i = 0;
+      text.textContent = '';
+      typeTimer = setInterval(() => { text.textContent = msg.slice(0, ++i); if (i >= msg.length) clearInterval(typeTimer); }, 18);
+    }
+    sayTimer = setTimeout(() => card.classList.remove('show'), ms);
+  };
+  card.querySelector('.m-close').addEventListener('click', () => { clearTimeout(sayTimer); card.classList.remove('show'); });
+
+  // ─── Boop ───
+  btn.addEventListener('click', () => {
+    clearTimers();
+    lastMove = Date.now();
     const now = Date.now();
-    clicks = clicks.filter(t => now - t < 1600).concat(now);
-    const bolt = clicks.length >= 5;
-    if (bolt) clicks = [];
-    el.classList.remove('hop', 'zap', 'bolt');
-    void el.offsetWidth;   // restart the animations
-    el.classList.add('hop', 'zap');
-    if (bolt) { el.classList.add('bolt'); document.documentElement.classList.add('thunder'); setTimeout(() => document.documentElement.classList.remove('thunder'), 600); }
-    say.textContent = bolt ? 'Thunderbolt!' : LINES[Math.floor(Math.random() * LINES.length)];
-    el.classList.add('talk');
-    clearTimeout(sayTimer);
-    sayTimer = setTimeout(() => el.classList.remove('talk'), 1300);
+    boops.count = now - boops.at < DIZZY_WINDOW ? boops.count + 1 : 1;
+    boops.at = now;
+    const m = MASCOTS.find(x => x.id === id);
+    if (boops.count >= DIZZY_AFTER) {
+      boops.count = 0;
+      setReaction('dizzy');
+      later(DIZZY_END, null);
+      say(`${m.cry[0]} @_@`, 2200);
+    } else {
+      setReaction('blink');
+      later(BOOP_PAYOFF, PAYOFFS[(boops.count - 1 + tipIndex) % PAYOFFS.length]);
+      later(BOOP_END, null);
+      const tips = getTips() || [];
+      if (boops.count === 1) say(tips.length ? tips[tipIndex++ % tips.length] : m.cry[Math.floor(Math.random() * m.cry.length)]);
+    }
+    if (!reduced()) squash.animate(SQUASH, { duration: 420, easing: 'linear' });
   });
+
+  return {
+    set(next) {
+      id = next;
+      root.hidden = !id;
+      if (!id) return;
+      const m = MASCOTS.find(x => x.id === id);
+      btn.setAttribute('aria-label', t('Boop {n}', { n: m.name }));
+      dir.style.backgroundImage = `url(${sheet(id, 'directions')})`;
+      react.style.backgroundImage = `url(${sheet(id, 'reactions')})`;   // loaded up front, never on the first click
+      paint();
+    },
+    greet(msg) { if (id) { setReaction('blink'); later(BOOP_PAYOFF, 'delighted'); later(BOOP_END + 300, null); say(msg, 6500); } },
+  };
 }

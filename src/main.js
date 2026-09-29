@@ -5,7 +5,7 @@
 import { createApi, isDemo } from './api.js';
 import { ico } from './icons.js';
 import { STYLES, ACCENTS, MODES, getAppearance, applyAppearance } from './appearance.js';
-import { mountMascot } from './mascot.js';
+import { MASCOTS, mascotHead, mountCompanion } from './mascot.js';
 import { t, getLang, setLang, LANGS, locale } from './i18n.js';
 import { TOWER_TOP, circuitAt, roundShort, seasonState, pointsIn, validateRun, readiness, pairWeight, levelLabel, suggestTeam } from './rules.js';
 import { loadCatalog, loadGyms, PAIRS, pairById, pairName, pairImage, TYPES, TYPE_COLORS, typeIcon, roleIcon, roleKey,
@@ -96,6 +96,34 @@ function renderHeader(active) {
   $('#demo-flag').hidden = !isDemo;
   $('#demo-flag').textContent = t('Demo');
   $('#dex-link').href = DEX;
+  const m = getAppearance().mascot;
+  $('#brand-mascot').innerHTML = mascotHead(m === 'off' ? 'pikachu' : m, 'brand');
+}
+
+// ─── Companion mascot: what it says when poked ───
+let companion = null;
+const showMascot = () => { const m = getAppearance().mascot; companion?.set(m === 'off' ? null : m); };
+function mascotTips() {
+  if (!S.me) return [t('Sign in with the account your gym admin gave you.')];
+  const tips = [];
+  const s = season(), st = state();
+  if (s && st) {
+    const left = st.granted - (st.perMember[S.me]?.tickets || 0);
+    if (st.phase === 'battle' && !st.banned.has(S.me)) tips.push(left > 0 ? t('You still have {n} tickets to spend in {s}.', { n: left, s: s.name }) : t('All the tickets handed out so far are spent — nice work!'));
+    const cur = st.active && circuitAt(s, st.active);
+    if (cur) tips.push(t('Open round: {r}. Each Gym Leader needs {n} points.', { r: cur.label, n: fmtK(cur.pts) }));
+    const mine = S.asg.filter(a => a.user_id === S.me).map(a => a.leader);
+    if (mine.length) tips.push(t('You are down for {l} — your planned team fills in when you log a run.', { l: mine.join(', ') }));
+  }
+  const ty = defaultRosterType(), cells = sheetCells(S.me, ty);
+  const empty = SHEET_SLOTS.filter(x => !x.fixed && !(x.k in cells)).length;
+  if (empty) tips.push(t('Your {t} roster sheet still has {n} empty cells.', { t: t(ty), n: empty }));
+  return tips;
+}
+function greet() {
+  try { if (sessionStorage.getItem('gym-greeted') === S.me) return; sessionStorage.setItem('gym-greeted', S.me); } catch { /* private mode */ }
+  const tips = mascotTips();
+  companion?.greet(`${t('Hi {n}!', { n: nameOf(meP()) })} ${tips[0] || ''}`.trim());
 }
 const langSelect = () => `<select id="lang" class="lang" aria-label="${t('Language')}">${LANGS.map(([k, l]) => `<option value="${k}" ${k === getLang() ? 'selected' : ''}>${l}</option>`).join('')}</select>`;
 document.addEventListener('change', e => {
@@ -163,6 +191,7 @@ async function signIn(username, password) {
     await loadAll();
     if (!location.hash || location.hash === '#/login') location.hash = '#/';
     route();
+    setTimeout(greet, 600);
   } catch (e) { $('#login-err').textContent = e.message; }
 }
 document.addEventListener('submit', e => {
@@ -1113,6 +1142,8 @@ function renderSettings() {
       <div class="seg">${MODES.map(([k, l]) => `<button class="${a.mode === k ? 'on' : ''}" data-set-mode="${k}">${k === 'light' ? ico('sun') : k === 'dark' ? ico('moon') : ''}${t(l)}</button>`).join('')}</div></div>
     <div class="set-row"><span>${t('Accent')}</span>
       <div class="swatches">${ACCENTS.map(x => `<button class="swatch ${a.accent === x.id ? 'on' : ''}" data-set-accent="${x.id}" style="--sw:${x.color}" title="${t(x.name)}" aria-label="${t(x.name)}"></button>`).join('')}</div></div>
+    <div class="set-row"><span>${t('Mascot')}</span>
+      <div class="mascot-pick">${[...MASCOTS.map(m => [m.id, m.name]), ['off', t('Off')]].map(([k, l]) => `<button class="${a.mascot === k ? 'on' : ''}" data-set-mascot="${k}">${k === 'off' ? `<span class="m-off">${ico('x')}</span>` : mascotHead(k)}<span>${esc(l)}</span></button>`).join('')}</div></div>
     <div class="set-row"><span>${t('Language')}</span>${langSelect()}</div>
   </section>
   <div class="cols section">
@@ -1126,10 +1157,11 @@ function renderSettings() {
   </div>`;
 }
 document.addEventListener('click', e => {
-  const el = e.target.closest('[data-set-style],[data-set-mode],[data-set-accent]');
+  const el = e.target.closest('[data-set-style],[data-set-mode],[data-set-accent],[data-set-mascot]');
   if (!el) return;
   const d = el.dataset;
-  applyAppearance(d.setStyle ? { style: d.setStyle } : d.setMode ? { mode: d.setMode } : { accent: d.setAccent });
+  applyAppearance(d.setStyle ? { style: d.setStyle } : d.setMode ? { mode: d.setMode } : d.setMascot ? { mascot: d.setMascot } : { accent: d.setAccent });
+  if (d.setMascot) { showMascot(); if (d.setMascot !== 'off') companion.greet(MASCOTS.find(m => m.id === d.setMascot).cry[1]); }
   route();
 });
 document.addEventListener('submit', async e => {
@@ -1325,7 +1357,8 @@ document.addEventListener('submit', async e => {
 // ─── Boot ───────────────────────────────────────────────────
 (async () => {
   applyAppearance();
-  mountMascot($('#mascot'));
+  companion = mountCompanion($('#companion'), { getTips: mascotTips, t });
+  showMascot();
   renderHeader('');
   try {
     await Promise.all([loadCatalog(), loadGyms()]);
@@ -1338,4 +1371,5 @@ document.addEventListener('submit', async e => {
     return;
   }
   route();
+  if (S.me) setTimeout(greet, 800);
 })();

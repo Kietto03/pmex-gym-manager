@@ -295,4 +295,16 @@ export default {
   'Lowers the opponents’ Type Rebuff for this type': 'Hạ Type Rebuff của đối thủ cho type này',
   'Support of this type': 'Support cùng type',
   'Any other pair of this type': 'Pair khác cùng type',
+
+  // Mascot
+  'Hide': 'Ẩn',
+  'Boop {n}': 'Chọc {n}',
+  'You still have {n} tickets to spend in {s}.': 'Bạn còn {n} vé chưa dùng trong {s}.',
+  'All the tickets handed out so far are spent — nice work!': 'Bạn đã dùng hết số vé được phát — làm tốt lắm!',
+  'Open round: {r}. Each Gym Leader needs {n} points.': 'Round đang mở: {r}. Mỗi Gym Leader cần {n} điểm.',
+  'You are down for {l} — your planned team fills in when you log a run.': 'Bạn được phân công đánh {l} — team đã lên kế hoạch sẽ tự điền khi bạn ghi lượt.',
+  'Your {t} roster sheet still has {n} empty cells.': 'Roster sheet hệ {t} của bạn còn {n} ô trống.',
+  'Hi {n}!': 'Chào {n}!',
+  'Mascot': 'Mascot',
+  'Off': 'Tắt',
 };

@@ -23,12 +23,12 @@
       document.write('<link id="style-fonts" rel="stylesheet" href="https://fonts.googleapis.com/css2?' + (fonts[style] || fonts.switch) + '&display=swap">');
     })();
   </script>
-  <link rel="stylesheet" href="styles.css?v=7">
+  <link rel="stylesheet" href="styles.css?v=8">
 </head>
 <body>
   <header class="topbar">
     <a class="brand" href="#/">
-      <span id="mascot" class="mascot"></span>
+      <span id="brand-mascot"></span>
       <span>Gym Manager</span>
       <span id="demo-flag" class="demo-flag" hidden>Demo</span>
     </a>
@@ -40,6 +40,7 @@
   </header>
 
   <main id="view" class="view"><p class="muted loading">Loading…</p></main>
+  <div id="companion" class="companion" hidden></div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <footer class="footer">
@@ -49,6 +50,6 @@
   </footer>
 
   <script src="config.js"></script>
-  <script type="module" src="src/main.js?v=7"></script>
+  <script type="module" src="src/main.js?v=8"></script>
 </body>
 </html>
