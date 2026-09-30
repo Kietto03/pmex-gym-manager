@@ -816,8 +816,8 @@ function typeRoster(rows) {
       ${row(d)}<td class="num">${towerFloor(d.r.p.id, ty)}<small class="muted">F</small></td></tr>`).join('')}</tbody></table></div>`;
 }
 
-// The dropdown of one cell. Every pair the member owns can go in any cell — the suggestions
-// (fits the column, ranked strongest first) only decide the order, they never hide anything.
+// The dropdown of one cell. It lists the pairs of the sheet's type, with the ones that fit the column
+// (Physical, Special, EX WTZ…) on top. A pair of another type is one search away: type its name.
 const pickCtx = uid => ({ r: { p: profile(uid) }, mine: ownedWithPair(uid), cells: sheetCells(uid, rosterType || defaultRosterType()) });
 
 function sheetPickList(d, ty, slot) {
@@ -827,10 +827,11 @@ function sheetPickList(d, ty, slot) {
   for (const [k, v] of Object.entries(d.cells)) if (v && k !== slot.k) (where.get(v) || where.set(v, []).get(v)).push(t(SHEET_SLOTS.find(x => x.k === k)?.label || k));
   for (const sl of SHEET_SLOTS) if (sl.fixed && sl.k !== slot.k && sl.fixed()) (where.get(sl.fixed()) || where.set(sl.fixed(), []).get(sl.fixed())).push(t(sl.label));
   const match = x => !q || `${x.pair.trainer} ${x.pair.pokemon} ${x.pair.type} ${x.pair.role} ${x.pair.alt || ''}`.toLowerCase().includes(q);
-  const fitting = rankForSlot(d.mine, ty, slot).filter(match), inFit = new Set(fitting.map(x => x.pair_id));
+  const inType = x => q || x.pair.type === ty;   // other types only show up when the user types something
+  const fitting = rankForSlot(d.mine, ty, slot).filter(x => match(x) && inType(x)), inFit = new Set(fitting.map(x => x.pair_id));
   const strongest = (a, b) => pairWeight(b) - pairWeight(a) || a.pair.trainer.localeCompare(b.pair.trainer);
   const sameType = d.mine.filter(x => match(x) && !inFit.has(x.pair_id) && x.pair.type === ty).sort(strongest);
-  const others = d.mine.filter(x => match(x) && !inFit.has(x.pair_id) && x.pair.type !== ty).sort((a, b) => TYPES.indexOf(a.pair.type) - TYPES.indexOf(b.pair.type) || strongest(a, b));
+  const others = !q ? [] : d.mine.filter(x => match(x) && !inFit.has(x.pair_id) && x.pair.type !== ty).sort((a, b) => TYPES.indexOf(a.pair.type) - TYPES.indexOf(b.pair.type) || strongest(a, b));
   const item = (x, why) => {
     const also = where.get(x.pair_id);
     return `<button type="button" class="${x.pair_id === cur ? 'on' : ''}" data-sc-pick="${x.pair_id}">
@@ -838,11 +839,14 @@ function sheetPickList(d, ty, slot) {
       ${why.length ? `<em>${why.map(esc).join(' · ')}</em>` : ''}</span>${also ? `<i>${t('also in {c}', { c: esc(also.join(', ')) })}</i>` : ''}</button>`;
   };
   const group = (title, list, why = () => []) => list.length ? `<div class="sc-sec">${title} <small>${list.length}</small></div>${list.map(x => item(x, why(x))).join('')}` : '';
-  const body = group(t('Suggested'), fitting, x => tagsFor(x.pair, ty, slot))
+  const body = group(t('Suggested for {slot}', { slot: esc(t(slot.label)) }), fitting, x => tagsFor(x.pair, ty, slot))
     + group(t('Other {t} pairs', { t: esc(t(ty)) }), sameType, x => tagsFor(x.pair, ty, slot))
     + group(t('Other types'), others, x => tagsFor(x.pair, ty, slot));
-  return body || `<p class="muted">${d.mine.length ? t('Nothing in this roster matches “{q}”.', { q: esc(sheetPick.q) }) : t('No sync pairs yet.')}
-    ${t('A pair must be in the roster first — add it under Sync pairs.')} <a href="#/member/${sheetPick.uid}/pairs">${t('Open roster')}</a></p>`;
+  const hint = q ? '' : `<p class="sc-hint">${t('Showing {t} pairs. Type a name to find a pair of another type.', { t: esc(t(ty)) })}</p>`;
+  if (body) return body + hint;
+  const why = q ? t('Nothing in this roster matches “{q}”.', { q: esc(sheetPick.q) })
+    : d.mine.length ? t('No {t} pairs in this roster yet.', { t: esc(t(ty)) }) : t('No sync pairs yet.');
+  return `<p class="muted">${why} ${t('A pair must be in the roster first — add it under Sync pairs.')} <a href="#/member/${sheetPick.uid}/pairs">${t('Open roster')}</a></p>${hint}`;
 }
 function sheetPicker(d, ty, slot) {
   return `<div class="sc-pick" role="listbox">

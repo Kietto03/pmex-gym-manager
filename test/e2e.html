@@ -233,17 +233,20 @@ f.onload = async () => {
     $('[data-sc-none]').click(); await sleep(250);
     log(!!cell().querySelector('.nope'), 'mark a cell as none (✕)');
     cell().click(); await sleep(200);
-    const offered = $$('.sc-list [data-sc-pick]').length, mineCount = +$('.mcount')?.textContent || 0;
-    log($$('.sc-sec').length >= 1 && offered > 0, 'the picker lists the member’s pairs in groups (suggested / same type / other types)', `${offered} pairs, groups: ${$$('.sc-sec').map(x => x.firstChild.textContent.trim()).join(' | ')}`);
-    // a pair that is NOT in the suggestions (e.g. a Sprint used as the Physical DPS) can still be chosen
-    const sugg = new Set($$('.sc-list [data-sc-pick]').slice(0, $$('.sc-sec')[0] ? +($$('.sc-sec')[0].querySelector('small')?.textContent || 0) : 0).map(b => b.dataset.scPick));
+    const offered = $$('.sc-list [data-sc-pick]').length;
+    const typeCount = +($$('.troster tbody tr').find(tr => tr.contains(cell()))?.querySelector('.count')?.textContent.match(/\d+/)?.[0] || -1);
+    const titles = $$('.sc-sec').map(x => x.firstChild.textContent.trim());
+    log(offered === typeCount && !titles.includes('Other types'), 'by default the picker lists only pairs of the sheet’s type', `${offered} offered, ${typeCount} owned of this type · groups: ${titles.join(' | ')}`);
+    log(/^Suggested for /.test(titles[0] || ''), 'suggestions are named after the column', titles[0]);
+    const sugg = new Set($$('.sc-list [data-sc-pick]').slice(0, +($$('.sc-sec')[0]?.querySelector('small')?.textContent || 0)).map(b => b.dataset.scPick));
     const offSuggestion = $$('.sc-list [data-sc-pick]').find(b => !sugg.has(b.dataset.scPick));
-    log(!!offSuggestion, 'pairs outside the suggestions are offered too');
-    // search narrows the list
+    log(!!offSuggestion, 'type pairs outside the suggestions can still be chosen');
+    setVal($('.sc-q'), 'a'); await sleep(150);
+    log($$('.sc-sec').some(x => /Other types/.test(x.textContent)) && $$('.sc-list [data-sc-pick]').length > offered, 'typing in the search also finds pairs of other types', `${offered} → ${$$('.sc-list [data-sc-pick]').length}`);
     const first = $$('.sc-list [data-sc-pick] b')[0].textContent.trim().slice(0, 4).toLowerCase();
     setVal($('.sc-q'), first); await sleep(150);
     const narrowed = $$('.sc-list [data-sc-pick]').length;
-    log(narrowed > 0 && narrowed <= offered, 'search filters the member’s pairs', `${offered} → ${narrowed} for “${first}”`);
+    log(narrowed > 0 && narrowed < offered, 'search filters the list', `${offered} → ${narrowed} for “${first}”`);
     setVal($('.sc-q'), ''); await sleep(150);
     (offSuggestion ? $(`[data-sc-pick="${offSuggestion.dataset.scPick}"]`) : $('.sc-list [data-sc-pick]')).click(); await sleep(250);
     log(!!cell().querySelector('.tc'), 'pick a pair from the member’s roster for the cell');

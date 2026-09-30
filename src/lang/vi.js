@@ -324,11 +324,13 @@ export default {
   'Type a floor number': 'Gõ số tầng',
   // Free-choice picker
   'also in {c}': 'cũng ở {c}',
-  'Suggested': 'Gợi ý',
   'Other {t} pairs': 'Pair {t} khác',
   'Other types': 'Type khác',
   'Nothing in this roster matches “{q}”.': 'Roster không có pair nào khớp “{q}”.',
   'A pair must be in the roster first — add it under Sync pairs.': 'Pair phải có trong roster trước — hãy thêm ở tab Sync pair.',
   'Open roster': 'Mở roster',
   'Search {n}’s pairs…': 'Tìm pair của {n}…',
+  'Suggested for {slot}': 'Gợi ý cho {slot}',
+  'Showing {t} pairs. Type a name to find a pair of another type.': 'Đang hiện các pair {t}. Gõ tên để tìm pair thuộc type khác.',
+  'No {t} pairs in this roster yet.': 'Roster chưa có pair {t} nào.',
 };

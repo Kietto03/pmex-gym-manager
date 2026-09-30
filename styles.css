@@ -803,3 +803,4 @@ td .muted .ico { width: 14px; height: 14px; vertical-align: -2px; }
 .sc-sec small { display: inline; font-family: var(--mono); color: var(--accent); }
 .sc-list button > i { font-style: normal; font-size: 10.5px; color: var(--muted); text-align: right; max-width: 90px; line-height: 1.2; }
 .sc-list p a { color: var(--accent); }
+.sc-hint { margin: 6px 8px 8px; padding: 6px 10px; border-radius: var(--r-md); background: var(--surface-2); color: var(--muted); font-size: 12px; line-height: 1.4; }
