@@ -760,7 +760,7 @@ document.addEventListener('click', e => { const b = e.target.closest('[data-mvie
 // ─── Roster sheet (one per type) ───
 // Works like the gym's spreadsheet: every cell is one of the member's own pairs, picked by hand.
 // Members fill their own row; the admin and mods can fill anyone's. Gloria / R96 fill themselves.
-let rosterType = null, rosterSort = 'fit', sheetPick = null;   // sheetPick = { uid, slot, all }
+let rosterType = null, rosterSort = 'fit', sheetPick = null;   // sheetPick = { uid, slot, q }
 function defaultRosterType() {
   const s = season();
   return s?.leaders.flatMap(l => l.weakness || [])[0] || 'Normal';
@@ -816,24 +816,40 @@ function typeRoster(rows) {
       ${row(d)}<td class="num">${towerFloor(d.r.p.id, ty)}<small class="muted">F</small></td></tr>`).join('')}</tbody></table></div>`;
 }
 
-// The dropdown of one cell: the member's pairs that fit the slot (or all of them), plus None / Clear
-function sheetPicker(d, ty, slot) {
-  const used = new Map(Object.entries(d.cells).filter(([k, v]) => k !== slot.k && v).map(([k, v]) => [v, k]));
-  for (const id of fixedIds()) used.set(id, slot.k === 'gloria' ? '' : 'fixed');
-  const list = sheetPick.all
-    ? [...d.mine].sort((a, b) => (b.pair.type === ty) - (a.pair.type === ty) || pairWeight(b) - pairWeight(a))
-    : rankForSlot(d.mine, ty, slot);
+// The dropdown of one cell. Every pair the member owns can go in any cell — the suggestions
+// (fits the column, ranked strongest first) only decide the order, they never hide anything.
+const pickCtx = uid => ({ r: { p: profile(uid) }, mine: ownedWithPair(uid), cells: sheetCells(uid, rosterType || defaultRosterType()) });
+
+function sheetPickList(d, ty, slot) {
+  const q = (sheetPick.q || '').trim().toLowerCase();
   const cur = d.cells[slot.k];
+  const where = new Map();   // pair → the other columns of this row that already hold it
+  for (const [k, v] of Object.entries(d.cells)) if (v && k !== slot.k) (where.get(v) || where.set(v, []).get(v)).push(t(SHEET_SLOTS.find(x => x.k === k)?.label || k));
+  for (const sl of SHEET_SLOTS) if (sl.fixed && sl.k !== slot.k && sl.fixed()) (where.get(sl.fixed()) || where.set(sl.fixed(), []).get(sl.fixed())).push(t(sl.label));
+  const match = x => !q || `${x.pair.trainer} ${x.pair.pokemon} ${x.pair.type} ${x.pair.role} ${x.pair.alt || ''}`.toLowerCase().includes(q);
+  const fitting = rankForSlot(d.mine, ty, slot).filter(match), inFit = new Set(fitting.map(x => x.pair_id));
+  const strongest = (a, b) => pairWeight(b) - pairWeight(a) || a.pair.trainer.localeCompare(b.pair.trainer);
+  const sameType = d.mine.filter(x => match(x) && !inFit.has(x.pair_id) && x.pair.type === ty).sort(strongest);
+  const others = d.mine.filter(x => match(x) && !inFit.has(x.pair_id) && x.pair.type !== ty).sort((a, b) => TYPES.indexOf(a.pair.type) - TYPES.indexOf(b.pair.type) || strongest(a, b));
+  const item = (x, why) => {
+    const also = where.get(x.pair_id);
+    return `<button type="button" class="${x.pair_id === cur ? 'on' : ''}" data-sc-pick="${x.pair_id}">
+      ${ownIcon(x.pair, x, 'xs')}<span><b>${esc(x.pair.trainer)}</b><small>${esc(x.pair.pokemon)} · ${esc(roleKey(x.pair.role).replace(/^./, c => c.toUpperCase()))} · ${levelLabel(x.level)}${x.ex ? ' · EX' : ''}${x.ex_role ? ' · EXR' : ''}</small>
+      ${why.length ? `<em>${why.map(esc).join(' · ')}</em>` : ''}</span>${also ? `<i>${t('also in {c}', { c: esc(also.join(', ')) })}</i>` : ''}</button>`;
+  };
+  const group = (title, list, why = () => []) => list.length ? `<div class="sc-sec">${title} <small>${list.length}</small></div>${list.map(x => item(x, why(x))).join('')}` : '';
+  const body = group(t('Suggested'), fitting, x => tagsFor(x.pair, ty, slot))
+    + group(t('Other {t} pairs', { t: esc(t(ty)) }), sameType, x => tagsFor(x.pair, ty, slot))
+    + group(t('Other types'), others, x => tagsFor(x.pair, ty, slot));
+  return body || `<p class="muted">${d.mine.length ? t('Nothing in this roster matches “{q}”.', { q: esc(sheetPick.q) }) : t('No sync pairs yet.')}
+    ${t('A pair must be in the roster first — add it under Sync pairs.')} <a href="#/member/${sheetPick.uid}/pairs">${t('Open roster')}</a></p>`;
+}
+function sheetPicker(d, ty, slot) {
   return `<div class="sc-pick" role="listbox">
-    <div class="sc-pick-h"><b>${esc(t(slot.label))}</b><small>${esc(nameOf(d.r.p))} · ${esc(t(slot.hint))}</small></div>
-    <div class="sc-list">${list.map(x => {
-      const taken = used.get(x.pair_id), tags = tagsFor(x.pair, ty, slot);
-      return `<button type="button" class="${x.pair_id === cur ? 'on' : ''}" data-sc-pick="${x.pair_id}" ${taken ? 'disabled' : ''}>
-        ${ownIcon(x.pair, x, 'xs')}<span><b>${esc(x.pair.trainer)}</b><small>${esc(x.pair.pokemon)} · ${levelLabel(x.level)}${x.ex ? ' · EX' : ''}${x.ex_role ? ' · EXR' : ''}</small>
-        ${tags.length ? `<em>${tags.map(esc).join(' · ')}</em>` : ''}</span>${taken ? `<i>${taken === 'fixed' ? t('own column') : esc(t(SHEET_SLOTS.find(s => s.k === taken)?.label || ''))}</i>` : ''}</button>`;
-    }).join('') || `<p class="muted">${sheetPick.all ? t('No sync pairs yet.') : t('No pair in this roster fits — show all pairs or mark it as none.')}</p>`}</div>
+    <div class="sc-pick-h"><b>${esc(t(slot.label))}</b><small>${esc(nameOf(d.r.p))} · ${esc(t(slot.hint))}</small>
+      <input class="sc-q" data-sc-q placeholder="${t('Search {n}’s pairs…', { n: esc(nameOf(d.r.p)) })}" value="${esc(sheetPick.q || '')}" autocomplete="off"></div>
+    <div class="sc-list">${sheetPickList(d, ty, slot)}</div>
     <div class="sc-pick-f">
-      <button type="button" class="btn sm ghost" data-sc-all>${sheetPick.all ? t('Only fitting pairs') : t('Show all pairs')}</button>
       <button type="button" class="btn sm" data-sc-none>${ico('x')} ${t('None')}</button>
       ${slot.k in d.cells ? `<button type="button" class="btn sm ghost" data-sc-clear>${t('Clear')}</button>` : ''}
     </div></div>`;
@@ -847,7 +863,7 @@ async function saveCell(uid, slot, pair_id) {
 }
 
 document.addEventListener('click', async e => {
-  const el = e.target.closest('[data-rtype],[data-rsort],[data-sc],[data-sc-pick],[data-sc-none],[data-sc-clear],[data-sc-all],[data-sheet-fill]');
+  const el = e.target.closest('[data-rtype],[data-rsort],[data-sc],[data-sc-pick],[data-sc-none],[data-sc-clear],[data-sheet-fill]');
   if (!el) {
     if (sheetPick && !e.target.closest('.sc-pick')) { sheetPick = null; if ($('.troster')) route(); }
     return;
@@ -857,10 +873,10 @@ document.addEventListener('click', async e => {
   if (d.rsort) { rosterSort = d.rsort; route(); }
   if (d.sc) {
     const [uid, slot] = d.sc.split('|');
-    sheetPick = sheetPick && sheetPick.uid === uid && sheetPick.slot === slot ? null : { uid, slot, all: false };
+    sheetPick = sheetPick && sheetPick.uid === uid && sheetPick.slot === slot ? null : { uid, slot, q: '' };
     route();
+    $('.sc-q')?.focus();
   }
-  if ('scAll' in d) { sheetPick.all = !sheetPick.all; route(); }
   if (d.scPick) saveCell(sheetPick.uid, sheetPick.slot, d.scPick);
   if ('scNone' in d) saveCell(sheetPick.uid, sheetPick.slot, null);
   if ('scClear' in d) saveCell(sheetPick.uid, sheetPick.slot, undefined);
@@ -874,6 +890,12 @@ document.addEventListener('click', async e => {
   }
 });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && sheetPick) { sheetPick = null; route(); } });
+document.addEventListener('input', e => {
+  if (!('scQ' in e.target.dataset) || !sheetPick) return;
+  sheetPick.q = e.target.value;
+  const ty = rosterType || defaultRosterType();
+  e.target.closest('.sc-pick').querySelector('.sc-list').innerHTML = sheetPickList(pickCtx(sheetPick.uid), ty, SHEET_SLOTS.find(x => x.k === sheetPick.slot));
+});
 
 // ═══════════════════════════════════════════════════════════════
 //  MEMBER PROFILE

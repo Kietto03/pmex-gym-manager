@@ -796,3 +796,10 @@ td .muted .ico { width: 14px; height: 14px; vertical-align: -2px; }
 .sc-list p { margin: 0; padding: 10px; font-size: 13px; }
 .sc-pick-f { display: flex; gap: 6px; flex-wrap: wrap; padding: 8px; border-top: var(--bw) solid var(--line); }
 .pf .small { font-size: 12.5px; }
+
+.sc-q { width: 100%; margin-top: 8px; padding: 7px 11px; border-radius: var(--r-pill); border: var(--bw) solid var(--line-2); background: var(--surface-2); font-size: 13px; color: var(--text); }
+.sc-q:focus { outline: none; border-color: var(--accent); }
+.sc-sec { position: sticky; top: 0; z-index: 1; padding: 6px 8px 4px; background: var(--surface); font-family: var(--mono); font-size: 10.5px; text-transform: var(--label-case, uppercase); letter-spacing: .12em; color: var(--muted); }
+.sc-sec small { display: inline; font-family: var(--mono); color: var(--accent); }
+.sc-list button > i { font-style: normal; font-size: 10.5px; color: var(--muted); text-align: right; max-width: 90px; line-height: 1.2; }
+.sc-list p a { color: var(--accent); }
