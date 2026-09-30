@@ -20,7 +20,7 @@ const NICKS = ['Lumina', 'Kaiser', 'Mochi', 'Rook', 'Astra', 'Pip', 'Nova', 'Bra
 
 function seedData() {
   const profiles = NICKS.map((nick, i) => ({
-    id: uid(i + 1), username: nick.toLowerCase(), display_name: nick, facebook: '', note: '', avatar: '',
+    id: uid(i + 1), username: nick.toLowerCase(), display_name: nick, facebook: '', note: '', avatar: '', avatar_url: '',
     role: i === 0 ? 'admin' : i < 3 ? 'mod' : 'member', joined_at: '2026-01-01',
     created_at: new Date(Date.now() - (40 - i) * 864e5).toISOString(),
   }));
@@ -157,7 +157,7 @@ export function createDemoApi() {
         if (db.profiles.some(p => p.username === body.username)) deny(t('Username already taken.'));
         if (String(body.password || '').length < 8) deny(t('Password must be at least 8 characters.'));
         const id = uid(1000 + db.profiles.length);
-        db.profiles.push({ id, username: body.username, display_name: body.display_name || '', facebook: '', note: '', avatar: '',
+        db.profiles.push({ id, username: body.username, display_name: body.display_name || '', facebook: '', note: '', avatar: '', avatar_url: '',
           role: body.role || 'member', joined_at: new Date().toISOString().slice(0, 10), created_at: new Date().toISOString() });
         return { id };
       }
@@ -186,6 +186,14 @@ export function createDemoApi() {
       if (('role' in patch || 'username' in patch) && role() !== 'admin') deny(t('Only the admin can change roles.'));
       Object.assign(db.profiles.find(p => p.id === id), patch);
     },
+
+    async uploadAvatar(id, blob) {
+      selfOrStaff(id);
+      const url = await new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob); });
+      db.profiles.find(p => p.id === id).avatar_url = url;
+      return url;
+    },
+    async removeAvatar(id) { selfOrStaff(id); db.profiles.find(p => p.id === id).avatar_url = ''; },
 
     catalogCount: async () => db.catalog.length,
     async syncCatalog(rows) { staff() || deny(); db.catalog = clone(rows); },

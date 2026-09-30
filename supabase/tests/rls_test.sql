@@ -70,6 +70,9 @@ select pg_temp.check('role follows app_metadata written after the insert', null,
      delete from auth.users where id = '00000000-0000-0000-0000-00000000000e' $$);
 select pg_temp.check('member edits own nickname',                   '00000000-0000-0000-0000-00000000000c',
   $$ update public.profiles set display_name = 'Ann!' where username = 'ann' $$);
+select pg_temp.check('member sets their own profile photo',         '00000000-0000-0000-0000-00000000000c',
+  $$ update public.profiles set avatar_url = 'https://x.test/a.webp' where username = 'ann';
+     do $d$ begin assert (select avatar_url from public.profiles where username = 'ann') = 'https://x.test/a.webp'; end $d$ $$);
 select pg_temp.check('member cannot promote self',                  '00000000-0000-0000-0000-00000000000c',
   $$ update public.profiles set role = 'admin' where username = 'ann' $$, 'Only the admin');
 select pg_temp.check('mod cannot change roles',                     '00000000-0000-0000-0000-00000000000b',

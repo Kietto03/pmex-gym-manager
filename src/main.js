@@ -66,6 +66,8 @@ function avatarPair(uid) {
   return (p?.avatar && mine.find(x => x.pair_id === p.avatar)) || [...mine].sort((a, b) => pairWeight(b) - pairWeight(a))[0];
 }
 function av(uid, size = '') {
+  const url = profile(uid)?.avatar_url;
+  if (url) return `<span class="av ${size}"><img class="upl" src="${esc(url)}" alt=""></span>`;
   const x = avatarPair(uid), pair = x && pairById(x.pair_id);
   return `<span class="av ${size}">${pair ? img(pairImage(pair, x.ex, x.stars), '', '') : esc((nameOf(profile(uid)) || '?')[0].toUpperCase())}</span>`;
 }
@@ -828,10 +830,12 @@ function sheetPickList(d, ty, slot) {
   for (const sl of SHEET_SLOTS) if (sl.fixed && sl.k !== slot.k && sl.fixed()) (where.get(sl.fixed()) || where.set(sl.fixed(), []).get(sl.fixed())).push(t(sl.label));
   const match = x => !q || `${x.pair.trainer} ${x.pair.pokemon} ${x.pair.type} ${x.pair.role} ${x.pair.alt || ''}`.toLowerCase().includes(q);
   const inType = x => q || x.pair.type === ty;   // other types only show up when the user types something
-  const fitting = rankForSlot(d.mine, ty, slot).filter(x => match(x) && inType(x)), inFit = new Set(fitting.map(x => x.pair_id));
+  // "Other" columns are for whatever is left: pairs already placed in this row are filtered out (the cell's own pair stays)
+  const isOther = slot.k.startsWith('other'), free = x => !isOther || !where.has(x.pair_id) || x.pair_id === cur;
+  const fitting = isOther ? [] : rankForSlot(d.mine, ty, slot).filter(x => match(x) && inType(x)), inFit = new Set(fitting.map(x => x.pair_id));
   const strongest = (a, b) => pairWeight(b) - pairWeight(a) || a.pair.trainer.localeCompare(b.pair.trainer);
-  const sameType = d.mine.filter(x => match(x) && !inFit.has(x.pair_id) && x.pair.type === ty).sort(strongest);
-  const others = !q ? [] : d.mine.filter(x => match(x) && !inFit.has(x.pair_id) && x.pair.type !== ty).sort((a, b) => TYPES.indexOf(a.pair.type) - TYPES.indexOf(b.pair.type) || strongest(a, b));
+  const sameType = d.mine.filter(x => match(x) && free(x) && !inFit.has(x.pair_id) && x.pair.type === ty).sort(strongest);
+  const others = !q ? [] : d.mine.filter(x => match(x) && free(x) && !inFit.has(x.pair_id) && x.pair.type !== ty).sort((a, b) => TYPES.indexOf(a.pair.type) - TYPES.indexOf(b.pair.type) || strongest(a, b));
   const item = (x, why) => {
     const also = where.get(x.pair_id);
     return `<button type="button" class="${x.pair_id === cur ? 'on' : ''}" data-sc-pick="${x.pair_id}">
@@ -840,7 +844,7 @@ function sheetPickList(d, ty, slot) {
   };
   const group = (title, list, why = () => []) => list.length ? `<div class="sc-sec">${title} <small>${list.length}</small></div>${list.map(x => item(x, why(x))).join('')}` : '';
   const body = group(t('Suggested for {slot}', { slot: esc(t(slot.label)) }), fitting, x => tagsFor(x.pair, ty, slot))
-    + group(t('Other {t} pairs', { t: esc(t(ty)) }), sameType, x => tagsFor(x.pair, ty, slot))
+    + group(isOther ? t('Remaining {t} pairs', { t: esc(t(ty)) }) : t('Other {t} pairs', { t: esc(t(ty)) }), sameType, x => tagsFor(x.pair, ty, slot))
     + group(t('Other types'), others, x => tagsFor(x.pair, ty, slot));
   const hint = q ? '' : `<p class="sc-hint">${t('Showing {t} pairs. Type a name to find a pair of another type.', { t: esc(t(ty)) })}</p>`;
   if (body) return body + hint;
@@ -948,7 +952,12 @@ function renderMember(id = S.me, tab = '') {
     <div class="grid3"><label>${t('In-game name')}<input name="display_name" value="${esc(p.display_name)}"></label>
     <label>Facebook<input name="facebook" value="${esc(p.facebook)}"></label>
     <label>${t('Joined')}<input name="joined_at" type="date" value="${esc(p.joined_at)}"></label></div>
-    <label>${t('Profile picture')}<select name="avatar"><option value="">${t('Strongest sync pair (automatic)')}</option>${[...mine].sort((a, b) => pairWeight(b) - pairWeight(a)).map(x => `<option value="${x.pair_id}" ${x.pair_id === p.avatar ? 'selected' : ''}>${esc(pairName(pairById(x.pair_id)))}</option>`).join('')}</select></label>
+    <div class="av-up">${av(id, 'lg')}<div>
+      <b>${t('Profile picture')}</b>
+      <div class="row"><label class="btn">${ico('plus')} ${t('Upload a photo')}<input type="file" accept="image/*" hidden data-avatar-file></label>
+        ${p.avatar_url ? `<button type="button" class="btn ghost" data-avatar-remove>${t('Remove photo')}</button>` : ''}</div>
+      <small class="muted">${t('Cropped to a square and saved straight away. Without a photo, a sync pair is used.')}</small></div></div>
+    <label>${t('Sync pair as the picture (when there is no photo)')}<select name="avatar"><option value="">${t('Strongest sync pair (automatic)')}</option>${[...mine].sort((a, b) => pairWeight(b) - pairWeight(a)).map(x => `<option value="${x.pair_id}" ${x.pair_id === p.avatar ? 'selected' : ''}>${esc(pairName(pairById(x.pair_id)))}</option>`).join('')}</select></label>
     <label>${t('Note')}<textarea name="note" rows="2">${esc(p.note)}</textarea></label>
     <div><button class="btn primary">${t('Save')}</button></div></form>` : ''}
   <div class="toolbar tabs">
@@ -1155,6 +1164,25 @@ document.addEventListener('input', e => {
     $('#own-results').innerHTML = res.map(p => `<button type="button" data-own-add="${p.id}">${pairIcon(p, 'xs')}<span>${esc(pairName(p))}</span>${typeTag(p.type)}<small>${t('up to {n}/5', { n: p.maxBonus })}</small></button>`).join('')
       || (q.length >= 2 ? `<p class="muted">${t('Nothing found (or already owned).')}</p>` : '');
   }
+});
+// Profile photo: crop the middle square to 256 px in the browser, then upload
+async function squarePhoto(file, size = 256) {
+  const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
+  const side = Math.min(bmp.width, bmp.height), c = Object.assign(document.createElement('canvas'), { width: size, height: size });
+  c.getContext('2d').drawImage(bmp, (bmp.width - side) / 2, (bmp.height - side) / 2, side, side, 0, 0, size, size);
+  return new Promise((res, rej) => c.toBlob(b => (b ? res(b) : rej(new Error(t('Could not read that image.')))), 'image/webp', 0.86));
+}
+document.addEventListener('change', async e => {
+  if (!('avatarFile' in e.target.dataset) || !e.target.files?.[0]) return;
+  const file = e.target.files[0];
+  if (!file.type.startsWith('image/')) return toast(t('Please choose an image file.'), true);
+  if (file.size > 12e6) return toast(t('That image is too large (12 MB max).'), true);
+  const done = await act(async () => api.uploadAvatar(memberId(), await squarePhoto(file)), t('Photo saved.'));
+  if (done) { S.profiles = await api.profiles(); route(); }
+});
+document.addEventListener('click', async e => {
+  if (!e.target.closest('[data-avatar-remove]')) return;
+  if (await act(() => api.removeAvatar(memberId()), t('Photo removed.'))) { S.profiles = await api.profiles(); route(); }
 });
 document.addEventListener('submit', async e => {
   if (e.target.id !== 'info-form') return;

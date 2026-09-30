@@ -82,6 +82,18 @@ f.onload = async () => {
     $('[data-own-add]').click();
     await until(() => $$('.owned').length === count0 + 1);
     log($$('.owned').length === count0 + 1, 'member adds an owned pair');
+    // Profile photo upload
+    $('[data-edit-info]').click(); await sleep(250);
+    const cv = W().document.createElement('canvas'); cv.width = 300; cv.height = 200;
+    const cx = cv.getContext('2d'); cx.fillStyle = '#e8453c'; cx.fillRect(0, 0, 300, 200); cx.fillStyle = '#fff'; cx.fillRect(100, 60, 100, 80);
+    const png = await new Promise(r => cv.toBlob(r, 'image/png'));
+    const dt = new (W().DataTransfer)(); dt.items.add(new (W().File)([png], 'me.png', { type: 'image/png' }));
+    const fi = $('[data-avatar-file]'); fi.files = dt.files; fi.dispatchEvent(new (W().Event)('change', { bubbles: true }));
+    await until(() => $('#userbox .av img.upl'), 40000);
+    log(!!$('#userbox .av img.upl') && !!$('[data-avatar-remove]'), 'member uploads a profile photo (cropped, shown in the header)', ($('#userbox .av img.upl')?.src || '').slice(0, 30));
+    $('[data-avatar-remove]').click(); await until(() => !$('#userbox .av img.upl'), 40000);
+    log(!$('#userbox .av img.upl'), 'removing the photo goes back to the sync pair picture');
+    $('[data-edit-info]')?.click(); await sleep(200);
     // Cards re-sort by strength after a change, so follow the pair by id
     const order = () => $$('.owned').map(x => x.dataset.pair).join();
     const order0 = order();
@@ -250,6 +262,14 @@ f.onload = async () => {
     setVal($('.sc-q'), ''); await sleep(150);
     (offSuggestion ? $(`[data-sc-pick="${offSuggestion.dataset.scPick}"]`) : $('.sc-list [data-sc-pick]')).click(); await sleep(250);
     log(!!cell().querySelector('.tc'), 'pick a pair from the member’s roster for the cell');
+    // "Other" columns list only the pairs not yet placed in the row
+    const placedIds = [...cell().closest('tr').querySelectorAll('.tc')].map(x => x.closest('td')).filter(td => td.querySelector('[data-sc]')).length;
+    const otherBtn = [...cell().closest('tr').querySelectorAll('[data-sc$="|other1"]')][0];
+    const rowPairCount = +(cell().closest('tr').querySelector('.count')?.textContent.match(/\d+/)?.[0] || 0);
+    otherBtn.click(); await sleep(200);
+    const remaining = $$('.sc-list [data-sc-pick]').length;
+    log(remaining > 0 && remaining < rowPairCount && /^Remaining /.test($('.sc-sec')?.textContent || '') && !$$('.sc-list [data-sc-pick] i').length, 'the Other column lists only pairs not yet selected in the row', `${remaining} left of ${rowPairCount} of this type`);
+    W().document.body.click(); await sleep(150);
     // the same pair may sit in two columns of the row
     const pickedId = cell().querySelector('.tc') && $$('.troster tbody tr').find(tr => tr.contains(cell()))?.dataset.uid;
     const rowTr = cell().closest('tr'), otherSlot = [...rowTr.querySelectorAll('[data-sc]')].find(b => b !== cell());

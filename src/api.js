@@ -58,6 +58,25 @@ function supabaseApi(sb) {
     profiles: async () => ok(await sb.from('profiles').select('*').order('display_name')),
     updateProfile: async (id, patch) => ok(await sb.from('profiles').update(patch).eq('id', id).select().single()),
 
+    // Profile photo: a square image in the public avatars bucket, one folder per member
+    async uploadAvatar(id, blob) {
+      const ext = blob.type === 'image/png' ? 'png' : blob.type === 'image/webp' ? 'webp' : 'jpg';
+      const path = `${id}/avatar-${Date.now()}.${ext}`;
+      const up = await sb.storage.from('avatars').upload(path, blob, { contentType: blob.type, cacheControl: '31536000' });
+      if (up.error) throw new Error(up.error.message);
+      const url = sb.storage.from('avatars').getPublicUrl(path).data.publicUrl;
+      ok(await sb.from('profiles').update({ avatar_url: url }).eq('id', id).select().single());
+      const { data: files } = await sb.storage.from('avatars').list(id);
+      const old = (files || []).map(f => `${id}/${f.name}`).filter(p => p !== path);
+      if (old.length) await sb.storage.from('avatars').remove(old);   // best effort: keep only the newest
+      return url;
+    },
+    async removeAvatar(id) {
+      ok(await sb.from('profiles').update({ avatar_url: '' }).eq('id', id).select().single());
+      const { data: files } = await sb.storage.from('avatars').list(id);
+      if (files?.length) await sb.storage.from('avatars').remove(files.map(f => `${id}/${f.name}`));
+    },
+
     catalogCount: async () => (await sb.from('pair_catalog').select('id', { count: 'exact', head: true })).count || 0,
     async syncCatalog(rows) {
       for (let i = 0; i < rows.length; i += 200) ok(await sb.from('pair_catalog').upsert(rows.slice(i, i + 200)));

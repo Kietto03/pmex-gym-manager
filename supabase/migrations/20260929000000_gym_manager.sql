@@ -17,10 +17,21 @@ create table public.profiles (
   role         public.gym_role not null default 'member',
   note         text not null default '',
   avatar       text not null default '',          -- pair id shown as the member's picture ('' = their strongest pair)
+  avatar_url   text not null default '',          -- an uploaded photo (public URL in the avatars bucket); wins over the pair
   joined_at    date not null default current_date,
   created_at   timestamptz not null default now(),
   updated_at   timestamptz not null default now()
 );
+
+-- ─── Profile pictures: a public bucket, each member writes only their own folder (staff: anyone's) ───
+do $$
+begin
+  if to_regclass('storage.objects') is not null then
+    insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+    values ('avatars', 'avatars', true, 1048576, array['image/jpeg', 'image/png', 'image/webp'])
+    on conflict (id) do update set public = true, file_size_limit = 1048576, allowed_mime_types = array['image/jpeg', 'image/png', 'image/webp'];
+  end if;
+end $$;
 
 -- ─── Role helpers (security definer: read the caller's role without tripping RLS) ───
 create function public.my_role() returns public.gym_role
@@ -491,3 +502,17 @@ grant usage on schema public to authenticated;
 grant select, insert, update, delete on all tables in schema public to authenticated;
 grant usage, select on all sequences in schema public to authenticated;
 revoke all on all tables in schema public from anon;
+
+-- Storage policies come after the role helpers they use
+do $$
+begin
+  if to_regclass('storage.objects') is not null then
+    execute $p$ create policy "avatars: write own folder or staff" on storage.objects for insert to authenticated
+      with check (bucket_id = 'avatars' and ((storage.foldername(name))[1] = auth.uid()::text or public.is_staff())) $p$;
+    execute $p$ create policy "avatars: replace own folder or staff" on storage.objects for update to authenticated
+      using (bucket_id = 'avatars' and ((storage.foldername(name))[1] = auth.uid()::text or public.is_staff()))
+      with check (bucket_id = 'avatars' and ((storage.foldername(name))[1] = auth.uid()::text or public.is_staff())) $p$;
+    execute $p$ create policy "avatars: delete own folder or staff" on storage.objects for delete to authenticated
+      using (bucket_id = 'avatars' and ((storage.foldername(name))[1] = auth.uid()::text or public.is_staff())) $p$;
+  end if;
+end $$;
