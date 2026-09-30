@@ -2,7 +2,7 @@
 //
 //   node tools/import-members.mjs [members.csv] [--dry-run]
 //
-// CSV columns: username, display_name, facebook, role (member | mod | admin), create (yes | review | no)
+// CSV columns: username, display_name, facebook, note, role (member | mod | admin), create (yes | review | no)
 // Only rows with create=yes are made. Needs SUPABASE_PROJECT_REF and SUPABASE_SERVICE_ROLE_KEY (or
 // SUPABASE_ACCESS_TOKEN, used to fetch the service key) in ~/Code/Datamine/.env or the environment.
 // Existing usernames are skipped, so it is safe to run again.
@@ -67,7 +67,7 @@ for (const m of todo) {
     user_metadata: { username: m.username, display_name: m.display_name }, app_metadata: { gym_role: m.role } }) });
   if (res.status === 422) { console.log(`  = ${m.username} already exists`); continue; }
   if (!res.ok) { console.error(`  ✗ ${m.username}: ${res.status} ${(await res.text()).slice(0, 200)}`); continue; }
-  if (m.facebook) await fetch(`${base}/rest/v1/profiles?username=eq.${encodeURIComponent(m.username)}`, { method: 'PATCH', headers: H, body: JSON.stringify({ facebook: m.facebook }) });
+  if (m.facebook || m.note) await fetch(`${base}/rest/v1/profiles?username=eq.${encodeURIComponent(m.username)}`, { method: 'PATCH', headers: H, body: JSON.stringify({ facebook: m.facebook, note: m.note }) });
   console.log(`  + ${m.username} (${m.role})`);
   made.push({ username: m.username, display_name: m.display_name, role: m.role, password: pw });
 }

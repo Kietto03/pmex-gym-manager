@@ -4,6 +4,7 @@
 window.GYM_CONFIG = {
   supabaseUrl: '',          // e.g. 'https://abcdefghijkl.supabase.co'
   supabaseAnonKey: '',      // Project Settings → API → anon public key
+  gymName: 'Palletian Folks',   // shown in the header, the tab title and on the sign-in page
   usernameDomain: 'members.pmex-gym.local',   // must match USERNAME_EMAIL_DOMAIN of the admin-users function
 
   // Where game data comes from (read at runtime, nothing is copied into this repo)

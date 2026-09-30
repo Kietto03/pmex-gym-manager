@@ -93,6 +93,9 @@ function renderHeader(active) {
   $('#settings-link').innerHTML = ico('gear');
   $('#settings-link').classList.toggle('on', active === 'settings');
   $('#settings-link').title = t('Settings');
+  const gym = (window.GYM_CONFIG || {}).gymName || 'Gym Manager';
+  $('#brand-name').textContent = gym;
+  document.title = `${gym} · Gym Manager`;
   $('#demo-flag').hidden = !isDemo;
   $('#demo-flag').textContent = t('Demo');
   $('#dex-link').href = DEX;
@@ -169,7 +172,8 @@ function renderLogin() {
     </section>
     <div class="login card">
       <img src="${POMA}images/icon_masterex.png" class="login-logo" alt="">
-      <div class="login-top"><h2>${t('Sign in')}</h2>${langSelect()}</div>
+      <div class="login-top"><h2>${esc((window.GYM_CONFIG || {}).gymName || t('Sign in'))}</h2>${langSelect()}</div>
+      <p class="kicker" style="margin:-6px 0 0">${t('Sign in')}</p>
       <p class="muted" style="margin:0">${t('Sign in with the account your gym admin gave you.')}</p>
       <form id="login-form" class="form">
         <label>${t('Username')}<input name="username" autocomplete="username" required autofocus></label>
