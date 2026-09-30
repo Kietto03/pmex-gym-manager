@@ -24,6 +24,18 @@ function supabaseApi(sb) {
     if (error) throw new Error(error.message || String(error));
     return data;
   };
+  // Supabase returns at most 1000 rows per request and cuts the rest off silently — and an edited row
+  // moves to the end of an unordered table, so it was the row you just changed that went missing.
+  // Every list that can grow past that is read page by page, in a fixed order.
+  const PAGE = 1000;
+  const all = async build => {
+    const rows = [];
+    for (let from = 0; ; from += PAGE) {
+      const page = ok(await build().range(from, from + PAGE - 1));
+      rows.push(...page);
+      if (page.length < PAGE) return rows;
+    }
+  };
 
   return {
     mode: 'supabase',
@@ -82,7 +94,7 @@ function supabaseApi(sb) {
       for (let i = 0; i < rows.length; i += 200) ok(await sb.from('pair_catalog').upsert(rows.slice(i, i + 200)));
     },
 
-    memberPairs: async () => ok(await sb.from('member_pairs').select('*')),
+    memberPairs: () => all(() => sb.from('member_pairs').select('*').order('user_id').order('pair_id')),
     upsertMemberPair: async row => ok(await sb.from('member_pairs').upsert(row).select().single()),
     async upsertMemberPairs(rows) {   // many at once (backup import); each row is checked by the same database rules
       for (let i = 0; i < rows.length; i += 150) ok(await sb.from('member_pairs').upsert(rows.slice(i, i + 150)));
@@ -92,7 +104,7 @@ function supabaseApi(sb) {
     },
     deleteMemberPair: async (user_id, pair_id) => ok(await sb.from('member_pairs').delete().match({ user_id, pair_id })),
 
-    tower: async () => ok(await sb.from('tower_progress').select('*')),
+    tower: () => all(() => sb.from('tower_progress').select('*').order('user_id').order('type')),
     upsertTower: async row => ok(await sb.from('tower_progress').upsert(row).select().single()),
 
     seasons: async () => ok(await sb.from('seasons').select('*').order('battle_start', { ascending: false })),
@@ -107,16 +119,16 @@ function supabaseApi(sb) {
     seasonMembers: async sid => ok(await sb.from('season_members').select('*').eq('season_id', sid)),
     setBanned: async (season_id, user_id, banned) => ok(await sb.from('season_members').upsert({ season_id, user_id, banned })),
 
-    runs: async sid => ok(await sb.from('runs').select('*').eq('season_id', sid).order('created_at', { ascending: false })),
+    runs: sid => all(() => sb.from('runs').select('*').eq('season_id', sid).order('created_at', { ascending: false }).order('id', { ascending: false })),
     createRun: async row => ok(await sb.from('runs').insert(row).select().single()),
     updateRun: async (id, patch) => ok(await sb.from('runs').update(patch).eq('id', id).select().single()),
     deleteRun: async id => ok(await sb.from('runs').delete().eq('id', id)),
 
-    assignments: async sid => ok(await sb.from('assignments').select('*').eq('season_id', sid)),
+    assignments: sid => all(() => sb.from('assignments').select('*').eq('season_id', sid).order('leader').order('user_id')),
     saveAssignment: async row => ok(await sb.from('assignments').upsert(row)),   // merges: only the given columns change
     removeAssignment: async (season_id, leader, user_id) => ok(await sb.from('assignments').delete().match({ season_id, leader, user_id })),
 
-    sheet: async () => ok(await sb.from('roster_sheet').select('*')),
+    sheet: () => all(() => sb.from('roster_sheet').select('*').order('user_id').order('type').order('slot')),
     saveSheetCell: async row => ok(await sb.from('roster_sheet').upsert(row)),
     saveSheetCells: async rows => ok(await sb.from('roster_sheet').upsert(rows)),
     clearSheetCell: async (user_id, type, slot) => ok(await sb.from('roster_sheet').delete().match({ user_id, type, slot })),
