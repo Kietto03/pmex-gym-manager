@@ -84,6 +84,12 @@ function supabaseApi(sb) {
 
     memberPairs: async () => ok(await sb.from('member_pairs').select('*')),
     upsertMemberPair: async row => ok(await sb.from('member_pairs').upsert(row).select().single()),
+    async upsertMemberPairs(rows) {   // many at once (backup import); each row is checked by the same database rules
+      for (let i = 0; i < rows.length; i += 150) ok(await sb.from('member_pairs').upsert(rows.slice(i, i + 150)));
+    },
+    async deleteMemberPairs(user_id, pair_ids) {
+      for (let i = 0; i < pair_ids.length; i += 100) ok(await sb.from('member_pairs').delete().eq('user_id', user_id).in('pair_id', pair_ids.slice(i, i + 100)));
+    },
     deleteMemberPair: async (user_id, pair_id) => ok(await sb.from('member_pairs').delete().match({ user_id, pair_id })),
 
     tower: async () => ok(await sb.from('tower_progress').select('*')),

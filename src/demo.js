@@ -212,6 +212,8 @@ export function createDemoApi() {
       if (i >= 0) db.memberPairs[i] = full; else db.memberPairs.push(full);
       return clone(full);
     },
+    async upsertMemberPairs(rows) { for (const r of rows) await this.upsertMemberPair(r); },
+    async deleteMemberPairs(user_id, ids) { for (const id of ids) await this.deleteMemberPair(user_id, id); },
     async deleteMemberPair(user_id, pair_id) {
       selfOrStaff(user_id);
       db.memberPairs = db.memberPairs.filter(x => !(x.user_id === user_id && x.pair_id === pair_id));

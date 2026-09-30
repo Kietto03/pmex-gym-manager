@@ -82,6 +82,24 @@ f.onload = async () => {
     $('[data-own-add]').click();
     await until(() => $$('.owned').length === count0 + 1);
     log($$('.owned').length === count0 + 1, 'member adds an owned pair');
+    // Import a SyncPairsTracker backup
+    const trackerData = (await (await fetch('https://pomasters.github.io/SyncPairsTracker/js/syncpairs.json')).json()).SYNCPAIRS;
+    const trkFind = (t, m) => trackerData.find(p => p.trainerName === t && p.pokemonName === m);
+    const kk = p => `${p.dexNumber}|${p.pokemonNumber}`;
+    const brock = trkFind('Brock', 'Onix'), gloriaP = trackerData.find(p => p.trainerName === 'Gloria' && /Anniversary/.test(p.trainerAlt));
+    const backup = JSON.stringify({ [kk(brock)]: '4|3|0|000|0|0', [kk(gloriaP)]: '2|2|0|000|1|0', '999|9999': '0|0|0|000|0|0' });
+    $('[data-trk-toggle]').click(); await sleep(200);
+    setVal($('#trk-text'), 'definitely not json'); await sleep(100);
+    log(/not a SyncPairsTracker backup/.test($('#trk-preview').textContent), 'a wrong paste is refused with a hint');
+    setVal($('#trk-text'), backup); await sleep(150);
+    log(/2 sync pairs recognised/.test($('#trk-preview').textContent) && /1 entries are not in the pair list/.test($('#trk-preview').textContent), 'the preview counts recognised and skipped entries', $('#trk-preview').textContent.replace(/\s+/g, ' ').slice(0, 130));
+    $('[data-trk-go]').click(); await until(() => !$('.trk'), 8000); await sleep(300);
+    const bId = $$('.owned').map(c => c.dataset.pair).find(id => /brock.*onix/.test(id));
+    log(!!bId, 'imported pairs appear in the roster (Brock & Onix)', bId);
+    $(`.owned[data-pair="${bId}"] [data-tile]`).click(); await sleep(150);
+    log($('.tile.open .tog[data-k=ex]')?.classList.contains('on') && $(`.owned[data-pair="${bId}"] .cap`).textContent.includes('5/5'), 'level 5/5 and 6★ EX came from the backup');
+    W().document.body.click(); await sleep(100);
+
     // Profile photo upload
     $('[data-edit-info]').click(); await sleep(250);
     const cv = W().document.createElement('canvas'); cv.width = 300; cv.height = 200;

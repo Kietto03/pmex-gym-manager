@@ -35,9 +35,10 @@ function trainerLabel(name, alt) {
   return `${name} (${alt.replace(/^\((.*)\)$/, '$1')})`;
 }
 
-let pairs = [], byId = new Map(), version = '';
+let pairs = [], byId = new Map(), version = '', trackerIndex = new Map();
 export const PAIRS = () => pairs;
 export const pairById = id => byId.get(id);
+export const pairByTrackerKey = key => trackerIndex.get(key);
 export const catalogVersion = () => version;
 export const pairName = p => (p ? `${p.trainer} & ${p.pokemon}` : '?');
 // Icons are named …_3.png / _4.png / _5.png / _EX.png: pick the one for the member's star level
@@ -57,8 +58,9 @@ export async function loadCatalog() {
   // Stable ids from the names; the rare clash (same pair in another form) adds the internal Pokémon id
   const base = raw.map(p => slug(`${p.trainerAlt} ${p.trainerName} ${p.pokemonName} ${(p.pokemonForm || []).join(' ')}`));
   const clash = new Set(base.filter((id, i) => base.indexOf(id) !== i));
+  const idOf = raw.map((p, i) => (clash.has(base[i]) ? `${base[i]}-${slug(p.internalPokemonName || String(i))}` : base[i]));
   pairs = raw.map((p, i) => ({
-    id: clash.has(base[i]) ? `${base[i]}-${slug(p.internalPokemonName || String(i))}` : base[i],
+    id: idOf[i],
     trainer: trainerLabel(p.trainerName, p.trainerAlt),
     trainerName: p.trainerName,
     alt: p.trainerAlt || '',
@@ -70,6 +72,7 @@ export async function loadCatalog() {
     rarity: +p.syncPairRarity || 5,          // base stars (3–5); members raise it to 5★ before 6★ EX
     maxBonus: p.syncPairSuperawakening ? 10 : 5,
     exPose: !!p.syncPairEXPose,
+    dex: p.dexNumber, pnum: p.pokemonNumber,   // SyncPairsTracker backups are keyed by "<dex>|<pnum>"
     release: p.releaseDate,
     acquisition: p.syncPairAcquisition,
     themes: p.themes || [],
@@ -77,8 +80,11 @@ export async function loadCatalog() {
   }));
   // The tracker occasionally lists the very same pair twice: keep the first
   const seen = new Set();
-  pairs = pairs.filter(p => !seen.has(p.id) && seen.add(p.id));
+  const first = new Map();
+  pairs = pairs.filter(p => (first.has(p.id) ? false : (first.set(p.id, p), seen.add(p.id))));
   byId = new Map(pairs.map(p => [p.id, p]));
+  trackerIndex = new Map();
+  for (const [i, p] of raw.entries()) trackerIndex.set(`${p.dexNumber}|${p.pokemonNumber}`, first.get(idOf[i]));
   return pairs;
 }
 

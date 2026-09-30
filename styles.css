@@ -809,3 +809,11 @@ td .muted .ico { width: 14px; height: 14px; vertical-align: -2px; }
 .sc-list button > i { font-style: normal; font-size: 10.5px; color: var(--muted); text-align: right; max-width: 90px; line-height: 1.2; }
 .sc-list p a { color: var(--accent); }
 .sc-hint { margin: 6px 8px 8px; padding: 6px 10px; border-radius: var(--r-md); background: var(--surface-2); color: var(--muted); font-size: 12px; line-height: 1.4; }
+
+.trk { display: flex; flex-direction: column; gap: 12px; margin-bottom: 18px; }
+.trk h3 { font-size: 17px; }
+.trk ol { margin: 0; padding-left: 20px; color: var(--text-2); font-size: 13.5px; display: flex; flex-direction: column; gap: 4px; }
+.trk ol a { color: var(--accent); }
+.trk textarea { width: 100%; padding: 10px 12px; border-radius: var(--r-md); border: var(--bw) solid var(--line-2); background: var(--surface-2); font-family: var(--mono); font-size: 12px; resize: vertical; color: var(--text); }
+#trk-preview p { margin: 0; font-size: 13.5px; }
+#trk-preview .warn { color: var(--bad); font-weight: 700; }

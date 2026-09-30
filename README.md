@@ -5,6 +5,7 @@ A small web app for running a **Pokémon Masters EX** gym: member accounts, the 
 **Live demo:** <https://kietto03.github.io/pmex-gym-manager/?demo> (sample data kept in your browser, nothing is saved)
 
 - **English by default**, Vietnamese included. **Settings** lets each person pick a style — *Switch* (rounded, Joy-Con colours), *DS* (pixel titles, hard edges), *Game Boy* (four greens) or *Studio* (paper and ink) — plus light/dark/auto and an accent colour. Pixel icons, no emoji, and a companion trainer mascot (Kai, Momo, Sage or Aria, modern or pixel — or off) that glances around, blinks, reacts when poked, dozes when idle and tells you what's worth doing (tickets left, open round, your battles, empty roster cells).
+- **Import from SyncPairsTracker**: on a member's Sync pairs tab, paste a backup made with the tracker's *Export* button. Levels, stars, 6★ EX and EX Role come along (hearts and grid progress are ignored). *Add & update* keeps what is already there; *Replace roster* also removes pairs that are not in the backup. The format is read in `src/tracker.js`.
 - **Static site + Supabase**: no server to run. Free tier is plenty for a gym (~20 members, 1 admin, 2 mods).
 - **Game data is read live**, nothing is copied into this repo:
   - Sync pairs and icons: [PoMasters Sync Pairs Tracker](https://pomasters.github.io/SyncPairsTracker/)

@@ -9,8 +9,9 @@ import { MASCOTS, MASCOT_STYLES, mascotHead, mountCompanion } from './mascot.js'
 import { t, getLang, setLang, LANGS, locale } from './i18n.js';
 import { TOWER_TOP, circuitAt, roundShort, seasonState, pointsIn, validateRun, readiness, pairWeight, levelLabel, suggestTeam } from './rules.js';
 import { loadCatalog, loadGyms, PAIRS, pairById, pairName, pairImage, TYPES, TYPE_COLORS, typeIcon, roleIcon, roleKey,
-  PLACEHOLDER, catalogRows, catalogVersion, GYMS, seasonFromGym, leaderRule, leaderFocus, leaderImage, POMA, DEX, loadTags, wtzScore } from './catalog.js';
+  PLACEHOLDER, catalogRows, catalogVersion, GYMS, seasonFromGym, leaderRule, leaderFocus, leaderImage, POMA, DEX, loadTags, wtzScore, pairByTrackerKey } from './catalog.js';
 import { SHEET_SLOTS, fixedIds, rankForSlot, autoFill } from './sheet.js';
+import { parseTrackerBackup, trackerRows } from './tracker.js';
 
 // ─── Helpers ────────────────────────────────────────────────
 const $ = (s, el = document) => el.querySelector(s);
@@ -999,7 +1000,9 @@ function pairsTab(id, edit) {
 
   return `
   ${edit ? `<div class="card add-pair"><b>${id === S.me ? t('Add a sync pair you own') : t('Add a sync pair {n} owns', { n: esc(nameOf(profile(id))) })}</b>
-    <div class="search-box"><input id="own-search" placeholder="${t('Type a trainer or Pokémon name…')}" autocomplete="off"><div class="results" id="own-results"></div></div></div>` : ''}
+    <div class="search-box"><input id="own-search" placeholder="${t('Type a trainer or Pokémon name…')}" autocomplete="off"><div class="results" id="own-results"></div></div>
+    <button class="btn ${trk.open ? 'primary' : ''}" data-trk-toggle>${ico('plus')} ${t('Import from SyncPairsTracker')}</button></div>
+  ${trk.open ? trackerPanel(id) : ''}` : ''}
   <div class="pf">
     <div class="pf-row">
       <label class="search">${ico('search')}<input data-pq placeholder="${t('Search {n} pairs…', { n: mine.length })}" value="${esc(f.q)}" autocomplete="off"></label>
@@ -1059,6 +1062,68 @@ document.addEventListener('click', e => {
   if (pairEdit && !e.target.closest('.tile.open')) { pairEdit = null; if ($('#member-tab')) redrawTab(); }
 });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && pairEdit) { pairEdit = null; redrawTab(); } });
+
+// ─── Import a SyncPairsTracker backup into the roster ───
+const trk = { open: false, text: '', replace: false };
+function trkPlan(uid) {
+  const parsed = parseTrackerBackup(trk.text);
+  if (parsed.error) return { parsed };
+  const { rows, unknown } = trackerRows(parsed.entries, pairByTrackerKey);
+  const have = new Map(owned(uid).map(x => [x.pair_id, x]));
+  const seen = new Set(rows.map(r => r.pair_id));
+  const fresh = rows.filter(r => !have.has(r.pair_id)).length;
+  const changed = rows.filter(r => { const h = have.get(r.pair_id); return h && (h.level !== r.level || (h.stars || 0) !== r.stars || !!h.ex !== r.ex || !!h.ex_role !== r.ex_role); }).length;
+  const dropped = [...have.keys()].filter(id => !seen.has(id));
+  return { parsed, rows: rows.filter((r, i) => rows.findIndex(x => x.pair_id === r.pair_id) === i), unknown, fresh, changed, dropped };
+}
+function trkPreview(uid) {
+  if (!trk.text.trim()) return `<p class="muted">${t('Nothing pasted yet.')}</p>`;
+  const plan = trkPlan(uid);
+  if (plan.parsed.error) return `<p class="form-err">${plan.parsed.error === 'json' ? t('That is not a SyncPairsTracker backup — copy it with the tracker’s Export button.') : t('No sync pairs found in that backup.')}</p>`;
+  return `<p><b>${t('{n} sync pairs recognised', { n: plan.rows.length })}</b> · ${t('{a} new, {b} changed, {c} unchanged', { a: plan.fresh, b: plan.changed, c: plan.rows.length - plan.fresh - plan.changed })}
+    ${plan.unknown.length ? `<br><span class="muted">${t('{n} entries are not in the pair list and were skipped.', { n: plan.unknown.length })}</span>` : ''}
+    ${trk.replace && plan.dropped.length ? `<br><span class="warn">${t('{n} pairs of this roster are not in the backup and will be removed.', { n: plan.dropped.length })}</span>` : ''}</p>`;
+}
+function trackerPanel(uid) {
+  return `<div class="card pad trk">
+    <h3>${t('Import from SyncPairsTracker')}</h3>
+    <ol><li>${t('Open the tracker, tick your sync pairs and press')} <b>Export</b> — ${t('it copies a backup to your clipboard.')} <a href="${POMA}" target="_blank" rel="noopener">${t('Open the tracker')}</a></li>
+      <li>${t('Paste it below. Levels, stars, 6★ EX and EX Role come along.')}</li></ol>
+    <textarea id="trk-text" rows="4" placeholder='{"002|0095":"4|3|0|000|0|0", …}' spellcheck="false">${esc(trk.text)}</textarea>
+    <div class="row"><button class="btn sm" data-trk-paste>${t('Paste from clipboard')}</button>
+      <div class="seg sm"><button class="${trk.replace ? '' : 'on'}" data-trk-mode="merge">${t('Add & update')}</button><button class="${trk.replace ? 'on' : ''}" data-trk-mode="replace">${t('Replace roster')}</button></div></div>
+    <div id="trk-preview">${trkPreview(uid)}</div>
+    <div class="row"><button class="btn primary" data-trk-go>${t('Import')}</button><button class="btn ghost" data-trk-toggle>${t('Cancel')}</button></div>
+  </div>`;
+}
+document.addEventListener('input', e => {
+  if (e.target.id !== 'trk-text') return;
+  trk.text = e.target.value;
+  $('#trk-preview').innerHTML = trkPreview(memberId());
+});
+document.addEventListener('click', async e => {
+  const el = e.target.closest('[data-trk-toggle],[data-trk-paste],[data-trk-mode],[data-trk-go]');
+  if (!el) return;
+  const uid = memberId(), d = el.dataset;
+  if ('trkToggle' in d) { trk.open = !trk.open; if (!trk.open) trk.text = ''; redrawTab(); }
+  if ('trkPaste' in d) {
+    try { trk.text = await navigator.clipboard.readText(); } catch { return toast(t('Could not read the clipboard — paste into the box instead.'), true); }
+    redrawTab();
+  }
+  if (d.trkMode) { trk.replace = d.trkMode === 'replace'; redrawTab(); }
+  if ('trkGo' in d) {
+    const plan = trkPlan(uid);
+    if (plan.parsed.error || !plan.rows.length) return toast(t('Paste a SyncPairsTracker backup first.'), true);
+    if (trk.replace && plan.dropped.length && !confirm(t('Replace the roster? {n} pairs that are not in the backup will be removed.', { n: plan.dropped.length }))) return;
+    const rows = plan.rows.map(r => ({ user_id: uid, ...r }));
+    if (await act(async () => { await api.upsertMemberPairs(rows); if (trk.replace && plan.dropped.length) await api.deleteMemberPairs(uid, plan.dropped); },
+      t('Imported {n} sync pairs ({a} new, {b} updated).', { n: rows.length, a: plan.fresh, b: plan.changed }))) {
+      [S.mp, S.asg, S.sheet] = await Promise.all([api.memberPairs(), S.sid ? api.assignments(S.sid) : [], api.sheet()]);
+      Object.assign(trk, { open: false, text: '' });
+      redrawTab();
+    }
+  }
+});
 
 function towerTab(id, edit) {
   const total = TYPES.reduce((a, ty) => a + towerFloor(id, ty), 0);
