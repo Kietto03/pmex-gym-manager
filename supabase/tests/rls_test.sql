@@ -103,8 +103,9 @@ select pg_temp.check('6★ EX before 5★ is rejected',                 '0000000
   $$ update public.member_pairs set ex = true where pair_id = 'p-3' $$, 'to 5★ before 6★ EX');
 select pg_temp.check('stars below the base rarity are rejected',    '00000000-0000-0000-0000-00000000000c',
   $$ update public.member_pairs set stars = 2 where pair_id = 'p-3' $$, 'starts at 3★');
-select pg_temp.check('EX Role before 6★ EX is rejected',            '00000000-0000-0000-0000-00000000000c',
-  $$ update public.member_pairs set stars = 5, ex_role = true where pair_id = 'p-3' $$, 'needs 6★ EX');
+select pg_temp.check('EX Role is independent of 6★ EX',             '00000000-0000-0000-0000-00000000000c',
+  $$ update public.member_pairs set stars = 5, ex_role = true where pair_id = 'p-3';
+     do $d$ begin assert (select ex_role and not ex from public.member_pairs where pair_id = 'p-3'); end $d$ $$);
 select pg_temp.check('raise to 5★, then EX and EX Role',            '00000000-0000-0000-0000-00000000000c',
   $$ update public.member_pairs set stars = 5 where pair_id = 'p-3';
      update public.member_pairs set ex = true, ex_role = true where pair_id = 'p-3' $$);

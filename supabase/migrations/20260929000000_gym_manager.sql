@@ -139,9 +139,6 @@ begin
   if new.ex_role and c.ex_role = '' then
     raise exception '% & % has no EX Role.', c.trainer, c.pokemon;
   end if;
-  if new.ex_role and not new.ex then
-    raise exception '% & % needs 6★ EX before its EX Role.', c.trainer, c.pokemon;
-  end if;
   new.updated_at := now();
   return new;
 end $$;

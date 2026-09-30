@@ -1004,7 +1004,7 @@ function pairPop(x, edit) {
     <div class="o-ctl">
       ${p.rarity < 5 ? `<span class="stars" title="${t('Raise the stars to 5★ to unlock 6★ EX')}">${starBtns}</span>` : ''}
       <button class="tog ex ${x.ex ? 'on' : ''}" data-own="${p.id}" data-k="ex" ${edit && stars >= 5 ? '' : 'disabled'} title="${stars < 5 ? t('Raise to 5★ first') : t('6★ EX unlocked')}">EX</button>
-      ${p.exRole ? `<button class="tog ${x.ex_role ? 'on' : ''}" data-own="${p.id}" data-k="ex_role" ${edit && x.ex ? '' : 'disabled'} title="EX Role: ${esc(p.exRole)}${x.ex ? '' : ` — ${t('needs 6★ EX')}`}">${img(roleIcon(p.exRole, true), 'ri')}</button>` : ''}
+      ${p.exRole ? `<button class="tog ${x.ex_role ? 'on' : ''}" data-own="${p.id}" data-k="ex_role" ${edit ? '' : 'disabled'} title="EX Role: ${esc(p.exRole)}">${img(roleIcon(p.exRole, true), 'ri')}</button>` : ''}
       <select data-own="${p.id}" data-k="level" ${edit ? '' : 'disabled'} title="${t('Move level')}${max === 10 ? ' · ' + t('6/5–10/5 = Superawakened') : ''}">
         ${Array.from({ length: max }, (_, i) => i + 1).map(l => `<option value="${l}" ${l === x.level ? 'selected' : ''}>${levelLabel(l)}</option>`).join('')}</select>
       ${edit ? `<button class="x" data-own-del="${p.id}" aria-label="${t('Remove')}" title="${t('Remove')}">${ico('x')}</button>` : ''}
@@ -1085,11 +1085,11 @@ document.addEventListener('click', async e => {
     const pid = el.closest('[data-pair]').dataset.pair, cur = ownedPair(uid, pid), p = pairById(pid);
     const n = +d.ownStar, now = cur.stars || p.rarity;
     const stars = n === now ? Math.max(p.rarity, n - 1) : n;   // click the top star again to step back
-    saveOwned(uid, pid, stars < 5 ? { stars, ex: false, ex_role: false } : { stars });
+    saveOwned(uid, pid, stars < 5 ? { stars, ex: false } : { stars });
   }
   if (el.classList.contains('tog')) {
     const cur = ownedPair(uid, d.own), on = !cur[d.k];
-    saveOwned(uid, d.own, d.k === 'ex' && !on ? { ex: false, ex_role: false } : { [d.k]: on });
+    saveOwned(uid, d.own, { [d.k]: on });
   }
 });
 document.addEventListener('change', async e => {

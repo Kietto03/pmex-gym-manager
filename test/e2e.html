@@ -109,6 +109,20 @@ f.onload = async () => {
     W().document.body.click(); await sleep(120);
     log(!$('.tile.open'), 'clicking outside closes the editor');
 
+    // EX Role does not depend on 6★ EX
+    W().document.body.click(); await sleep(100);
+    for (const id of $$('.owned').map(c => c.dataset.pair).slice(0, 80)) {
+      $(`.owned[data-pair="${id}"] [data-tile]`).click(); await sleep(50);
+      const b = $('.tile.open .tog[data-k=ex_role]'), ex = $('.tile.open .tog[data-k=ex]');
+      if (b && ex && !ex.classList.contains('on') && !b.classList.contains('on')) {
+        log(!b.disabled, 'EX Role button is enabled while 6★ EX is off');
+        b.click(); await sleep(200);
+        log(/EXR/.test($(`.owned[data-pair="${id}"] .cap`)?.textContent || '') && !$(`.owned[data-pair="${id}"] .tog[data-k=ex]`).classList.contains('on'), 'EX Role can be on without 6★ EX');
+        break;
+      }
+    }
+    W().document.body.click(); await sleep(100);
+
     // Filters
     const all = $$('.owned').length;
     $('.tchip').click(); await sleep(120);

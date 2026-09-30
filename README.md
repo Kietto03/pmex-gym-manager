@@ -47,7 +47,7 @@ Same logic in `src/rules.js` (instant feedback) and the `check_run()` trigger (t
 - **Round chain**: the open round is the first one where not every leader is at the cap. Members log the open round only; mods and the admin can backfill any round.
 - The last circuit ("… and onward") repeats forever and rotates Rules 1/2/3.
 - Locked members can't log new runs and don't count toward the combined score.
-- Sync pair progress follows the game: a 3★/4★ pair is raised to 5★ first, then 6★ EX, then its EX Role.
+- Sync pair progress follows the game: a 3★/4★ pair is raised to 5★ before 6★ EX; EX Role is independent of 6★ EX.
 - A planned team only holds pairs the member owns; removing a pair from a roster removes it from their planned teams. Logging a run against an assigned leader pre-fills that team.
 
 ## Setup (once)

@@ -201,7 +201,6 @@ export function createDemoApi() {
       const name = `${c.trainer} & ${c.pokemon}`;
       if (full.stars < c.rarity || full.stars > 5) deny(t('{pair} starts at {n}★.', { pair: name, n: c.rarity }));
       if (full.ex && full.stars < 5) deny(t('Raise {pair} to 5★ before 6★ EX.', { pair: name }));
-      if (full.ex_role && !full.ex) deny(t('{pair} needs 6★ EX before its EX Role.', { pair: name }));
       if (i >= 0) db.memberPairs[i] = full; else db.memberPairs.push(full);
       return clone(full);
     },
