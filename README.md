@@ -78,13 +78,14 @@ Same logic in `src/rules.js` (instant feedback) and the `check_run()` trigger (t
 
 ## Going to production with scripts
 
-Instead of steps 2–6 above by hand: create the Supabase project, then put `SUPABASE_ACCESS_TOKEN` (an account access token) and `SUPABASE_PROJECT_REF` in an env file and run
+Instead of steps 2–6 above by hand: create the Supabase project, then put `SUPABASE_ACCESS_TOKEN` (a personal access token, `sbp_…`) and `SUPABASE_PROJECT_REF` in `.env` (see `.env.example`; never committed) and run
 
 ```bash
 node tools/provision.mjs --dry-run   # look first
 node tools/provision.mjs             # no public sign-ups, tables + security, admin-users function, config.js
 node tools/import-members.mjs --dry-run ~/.config/pmex/members.csv
 node tools/import-members.mjs        # creates the accounts, writes temporary passwords to ~/.config/pmex/credentials.csv
+node tools/sync-catalog.mjs           # loads all sync pairs into the database (or Admin → Pair catalog → Sync)
 ```
 
 The member CSV (`username,display_name,facebook,role,create`) and the credentials file stay outside the repo — they hold real names. Accounts already there are skipped, so the import can be re-run.
@@ -102,7 +103,7 @@ The member CSV (`username,display_name,facebook,role,create`) and the credential
 
 ```bash
 npm run serve            # http://localhost:8767/?demo
-npm run test:db          # 52 permission & rule tests on a throwaway Postgres (needs Docker)
+npm run test:db          # 53 permission & rule tests on a throwaway Postgres (needs Docker)
 # UI test: serve, then open http://localhost:8767/test/e2e.html
 ```
 

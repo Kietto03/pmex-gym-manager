@@ -63,6 +63,11 @@ insert into public.seasons (name, battle_start, battle_end, leaders, circuits, i
 select pg_temp.check('profile created from auth user with role',   null, $$ do $d$ begin
   assert (select role from public.profiles where username = 'boss') = 'admin';
   assert (select role from public.profiles where username = 'ann') = 'member'; end $d$ $$);
+select pg_temp.check('role follows app_metadata written after the insert', null,
+  $$ insert into auth.users (id, email, raw_user_meta_data, raw_app_meta_data) values ('00000000-0000-0000-0000-00000000000e', 'late@x', '{"username":"late"}', '{}');
+     update auth.users set raw_app_meta_data = '{"gym_role":"mod"}' where id = '00000000-0000-0000-0000-00000000000e';
+     do $d$ begin assert (select role from public.profiles where username = 'late') = 'mod'; end $d$;
+     delete from auth.users where id = '00000000-0000-0000-0000-00000000000e' $$);
 select pg_temp.check('member edits own nickname',                   '00000000-0000-0000-0000-00000000000c',
   $$ update public.profiles set display_name = 'Ann!' where username = 'ann' $$);
 select pg_temp.check('member cannot promote self',                  '00000000-0000-0000-0000-00000000000c',

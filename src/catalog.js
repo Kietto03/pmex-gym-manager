@@ -75,6 +75,9 @@ export async function loadCatalog() {
     themes: p.themes || [],
     images: p.images || [],
   }));
+  // The tracker occasionally lists the very same pair twice: keep the first
+  const seen = new Set();
+  pairs = pairs.filter(p => !seen.has(p.id) && seen.add(p.id));
   byId = new Map(pairs.map(p => [p.id, p]));
   return pairs;
 }

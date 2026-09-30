@@ -55,6 +55,23 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
 
+-- Supabase Auth writes app_metadata in a second step after inserting the user, so the trigger above
+-- can miss the role. Keep the profile's role in step whenever app_metadata.gym_role is (re)written.
+create function public.sync_role_from_auth() returns trigger
+  language plpgsql security definer set search_path = public
+as $$
+begin
+  if (new.raw_app_meta_data ->> 'gym_role') is not null then
+    update public.profiles set role = (new.raw_app_meta_data ->> 'gym_role')::public.gym_role
+     where id = new.id and role is distinct from (new.raw_app_meta_data ->> 'gym_role')::public.gym_role;
+  end if;
+  return new;
+end $$;
+
+create trigger on_auth_user_role
+  after update of raw_app_meta_data on auth.users
+  for each row execute function public.sync_role_from_auth();
+
 -- Only the admin may change a role or a username. Calls without a user (SQL editor,
 -- service role) are allowed so the first admin can be promoted by hand.
 create function public.guard_profile_update() returns trigger
