@@ -131,9 +131,19 @@ f.onload = async () => {
     $('[data-preset]').click(); await sleep(120);
     log($$('.owned').length === all, 'clear filters shows everything again');
     $('[data-mtab=tower]').click(); await sleep(150);
-    const range = await until(() => $('input[data-tower=Dragon]'));
-    setVal(range, '40'); await sleep(200);
-    log(/40/.test([...$$('.tw')].find(x => /Dragon/.test(x.innerText)).querySelector('.tw-head b').textContent), 'tower floor saved to 40');
+    const tile = ty => [...$$('.tw')].find(x => x.querySelector(`[data-tower=${ty}]`));
+    const range = await until(() => $('input[type=range][data-tower=Dragon]'));
+    setVal(range, '40'); await sleep(250);
+    log(tile('Dragon').querySelector('.tw-n').value === '40', 'tower floor saved to 40 with the slider');
+    // Click the number and type a floor instead of dragging
+    const num = () => tile('Dragon').querySelector('.tw-n');
+    setVal(num(), '17'); await sleep(300);
+    log(num().value === '17' && tile('Dragon').querySelector('input[type=range]').value === '17', 'typing a floor number saves it and moves the slider', num().value);
+    setVal(num(), '99'); await sleep(300);
+    log(num().value === '40', 'a floor above 40 is limited to 40', num().value);
+    setVal(num(), '-5'); await sleep(300);
+    log(num().value === '0', 'a negative floor becomes 0', num().value);
+    setVal(num(), '40'); await sleep(300);
 
     // 4. Member cannot edit someone else
     await go('#/members');

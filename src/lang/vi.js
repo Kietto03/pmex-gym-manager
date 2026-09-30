@@ -325,4 +325,5 @@ export default {
   'Tickets used': 'Vé đã dùng',
   '{n} of {g}': '{n} / {g}',
   'This Gym Battle is over. The scores above are the final results.': 'Gym Battle này đã kết thúc. Điểm bên trái là kết quả cuối cùng.',
+  'Type a floor number': 'Gõ số tầng',
 };

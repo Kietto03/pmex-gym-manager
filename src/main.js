@@ -1031,7 +1031,9 @@ function towerTab(id, edit) {
   <div class="tower-grid">${TYPES.map(ty => {
     const f = towerFloor(id, ty);
     return `<div class="card tw ${f >= TOWER_TOP ? 'top' : ''}" style="--tc:${TYPE_COLORS[ty]}">
-      <div class="tw-head">${typeTag(ty)}<b>${f}<small> / ${TOWER_TOP}</small></b></div>
+      <div class="tw-head">${typeTag(ty)}<span class="tw-val">${edit
+        ? `<input class="tw-n" type="number" min="0" max="${TOWER_TOP}" step="1" inputmode="numeric" value="${f}" data-tower="${ty}" aria-label="${t('{type} tower floor', { type: t(ty) })}" title="${t('Type a floor number')}">`
+        : `<b>${f}</b>`}<small> / ${TOWER_TOP}</small></span></div>
       <div class="meter"><i style="width:${f / TOWER_TOP * 100}%"></i></div>
       ${edit ? `<input type="range" min="0" max="${TOWER_TOP}" value="${f}" data-tower="${ty}" aria-label="${t('{type} tower floor', { type: t(ty) })}">` : ''}
     </div>`;
@@ -1096,18 +1098,23 @@ document.addEventListener('change', async e => {
   const el = e.target;
   if (el.dataset.own && el.dataset.k === 'level') saveOwned(memberId(), el.dataset.own, { level: +el.value });
   if ('psort' in el.dataset) { pairFilter.sort = el.value; redrawTab(); }
-  if (el.dataset.tower) {
-    if (await act(() => api.upsertTower({ user_id: memberId(), type: el.dataset.tower, floor: +el.value }), t('{type} tower: floor {n}', { type: t(el.dataset.tower), n: el.value }))) {
+  if (el.dataset.tower) {   // the slider and the number box save the same way; typed numbers are kept within 0–40
+    const floor = Math.max(0, Math.min(TOWER_TOP, Math.round(Number(el.value)) || 0));
+    if (await act(() => api.upsertTower({ user_id: memberId(), type: el.dataset.tower, floor }), t('{type} tower: floor {n}', { type: t(el.dataset.tower), n: floor }))) {
       S.tower = await api.tower(); redrawTab();
     }
   }
 });
+// Click a floor number to type it: select it so typing replaces it
+document.addEventListener('focusin', e => { if (e.target.classList?.contains('tw-n')) e.target.select(); });
+document.addEventListener('keydown', e => { if (e.target.classList?.contains('tw-n') && e.key === 'Enter') e.target.blur(); });
 document.addEventListener('input', e => {
   const el = e.target;
-  if (el.dataset.tower) {   // live number while dragging; saved on change
-    const tile = el.closest('.tw');
-    tile.querySelector('.tw-head b').innerHTML = `${el.value}<small> / ${TOWER_TOP}</small>`;
-    tile.querySelector('.meter i').style.width = `${el.value / TOWER_TOP * 100}%`;
+  if (el.dataset.tower) {   // live while dragging or typing; saved on change
+    const tile = el.closest('.tw'), v = Math.max(0, Math.min(TOWER_TOP, Math.round(Number(el.value)) || 0));
+    tile.querySelector('.meter i').style.width = `${v / TOWER_TOP * 100}%`;
+    if (el.type === 'range') tile.querySelector('.tw-n').value = v;
+    else if (el.value !== '') tile.querySelector('input[type=range]').value = v;
   }
   if ('pq' in el.dataset) {
     pairFilter.q = el.value;

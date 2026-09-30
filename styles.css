@@ -577,11 +577,17 @@ td.team img { display: inline-block; vertical-align: middle; }
 .tower-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
 .tw { position: relative; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; box-shadow: none; overflow: hidden; }
 .tw-head { display: flex; justify-content: space-between; align-items: center; }
-.tw-head b { font-family: var(--mono); font-size: 22px; font-weight: 500; letter-spacing: -.03em; }
+.tw-head b, .tw-n { font-family: var(--mono); font-size: 22px; font-weight: 500; letter-spacing: -.03em; }
+.tw-val { display: inline-flex; align-items: baseline; gap: 2px; flex: none; white-space: nowrap; }
+.tw-val small { white-space: nowrap; }
+.tw-n { width: 1.9em; min-width: 0; padding: 0 2px; text-align: right; color: var(--text); background: transparent; border: 0; border-bottom: 2px dashed var(--line-2); border-radius: 0; -moz-appearance: textfield; appearance: textfield; }
+.tw-n::-webkit-outer-spin-button, .tw-n::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.tw-n:hover { border-bottom-color: var(--accent); }
+.tw-n:focus { outline: none; border-bottom: 2px solid var(--accent); background: var(--accent-soft); }
 .tw-head small { font-size: 12px; color: var(--muted); font-weight: 400; }
 .tw .meter i { background: var(--tc); }
 .tw.top { border-color: color-mix(in srgb, var(--tc) 55%, var(--line)); background: linear-gradient(160deg, color-mix(in srgb, var(--tc) 10%, var(--surface)), var(--surface) 65%); }
-.tw.top .tw-head b::after { content: ' ★'; color: #f2b21c; font-size: 14px; }
+.tw.top .tw-val::before { content: '★'; color: #f2b21c; font-size: 14px; order: 2; margin-left: 2px; }
 .tw input[type=range] { width: 100%; accent-color: var(--tc); }
 
 /* ─── Sign in ─── */
