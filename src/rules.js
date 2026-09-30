@@ -31,8 +31,10 @@ export const roundShort = label => String(label).replace(/^Circuit (\d+)/, 'C$1'
 export function ticketsGranted(season, now = Date.now()) {
   const start = Date.parse(season.battle_start), end = Date.parse(season.battle_end);
   if (!(now >= start)) return 0;
-  const days = Math.max(Math.ceil((end - start) / DAY) - 1, 0);
-  const passed = Math.floor((Math.min(now, end) - start) / DAY);
+  // +daily every 24 h, and the last daily allotment is in hand for the whole final day, so a full
+  // 7-day Battle reaches 9 + 7×3 = 30 (the event log shows members using all 30)
+  const days = Math.ceil((end - start) / DAY);
+  const passed = Math.floor((Math.min(now, end) - start) / DAY) + (now >= end - DAY ? 1 : 0);
   return Math.min(season.ticket_cap, season.tickets_day1 + season.tickets_daily * Math.min(passed, days));
 }
 
@@ -46,10 +48,11 @@ export function seasonState(season, runs, seasonMembers = [], now = Date.now()) 
   for (const r of runs) {
     ((pts[r.round] ||= {})[r.leader] = (pts[r.round][r.leader] || 0) + r.score);
     const key = r.user_id || `name:${r.member_name}`;
-    const m = (perMember[key] ||= { key, user_id: r.user_id, name: r.member_name, score: 0, tickets: 0, runs: 0 });
+    const m = (perMember[key] ||= { key, user_id: r.user_id, name: r.member_name, score: 0, tickets: 0, runs: 0, excluded: false });
     m.score += r.score; m.tickets += r.tickets; m.runs++;
+    if (r.excluded) m.excluded = true;
     gymUsed += r.tickets;
-    if (!banned.has(r.user_id)) combined += r.score;
+    if (!banned.has(r.user_id) && !r.excluded) combined += r.score;
     maxRound = Math.max(maxRound, r.round);
   }
   // The first round where not every Gym Leader is at the cap is the one open for new runs
@@ -70,7 +73,7 @@ export const pointsIn = (st, round, leader) => st.pts[round]?.[leader] || 0;
 // ─── Run validation (mirror of check_run); returns a message or null ───
 export function validateRun(season, st, run, { editing = null, isStaff = false } = {}) {
   if (!Number.isInteger(run.tickets) || run.tickets < 1 || run.tickets > 3) return t('Tickets must be 1, 2 or 3.');
-  if (!Number.isInteger(run.score) || run.score <= 0) return t('Score must be a positive whole number.');
+  if (!Number.isInteger(run.score) || run.score < 0) return t('Score must be a whole number, 0 or more.');
   if (!st.leaders.includes(run.leader)) return t('Pick a Gym Leader.');
   const c = circuitAt(season, run.round);
   if (!c) return t('That round does not exist in this season.');

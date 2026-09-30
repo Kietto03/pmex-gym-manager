@@ -103,7 +103,7 @@ The member CSV (`username,display_name,facebook,role,create`) and the credential
 
 ```bash
 npm run serve            # http://localhost:8767/?demo
-npm run test:db          # 53 permission & rule tests on a throwaway Postgres (needs Docker)
+npm run test:db          # 55 permission & rule tests on a throwaway Postgres (needs Docker)
 # UI test: serve, then open http://localhost:8767/test/e2e.html
 ```
 

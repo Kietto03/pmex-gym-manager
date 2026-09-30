@@ -176,6 +176,9 @@ select pg_temp.check('clearing every leader opens round 2',         '00000000-00
      do $d$ begin assert public.season_active_round((select id from public.seasons)) = 2; end $d$ $$);
 select pg_temp.check('ticket budget: 18 granted after 3 days',      null,
   $$ do $d$ begin assert public.season_tickets_granted((select s from public.seasons s)) = 18; end $d$ $$);
+select pg_temp.check('the final day (and after) grants the full 30 tickets', null,
+  $$ do $d$ declare s public.seasons := (select s from public.seasons s);
+     begin assert public.season_tickets_granted(s, s.battle_end) = 30; assert public.season_tickets_granted(s, s.battle_end - interval '2 days') < 30; end $d$ $$);
 select pg_temp.check('running out of tickets is rejected',          '00000000-0000-0000-0000-00000000000c',
   $$ do $d$ declare sid bigint := (select id from public.seasons); begin
        for i in 1..6 loop insert into public.runs (season_id, user_id, leader, round, tickets, score) values (sid, '00000000-0000-0000-0000-00000000000c', 'Roark', 2, 3, 100); end loop; end $d$ $$, 'Not enough tickets');
@@ -185,6 +188,10 @@ select pg_temp.check('member cannot delete someone else''s run',    '00000000-00
   $$ do $d$ declare n int; begin delete from public.runs where user_id = '00000000-0000-0000-0000-00000000000b'; get diagnostics n = row_count; assert n = 0, 'deleted'; end $d$ $$);
 select pg_temp.check('member edits own run',                        '00000000-0000-0000-0000-00000000000c',
   $$ do $d$ declare n int; begin update public.runs set note = 'gg' where user_id = '00000000-0000-0000-0000-00000000000c'; get diagnostics n = row_count; assert n >= 1; end $d$ $$);
+select pg_temp.check('history run of a departed member can be stored', '00000000-0000-0000-0000-00000000000a',
+  $$ insert into public.runs (season_id, user_id, member_name, leader, round, tickets, score, team, excluded)
+     select id, null, 'adeo', 'Gardenia', 2, 3, 100, '[]', true from public.seasons;
+     do $d$ begin assert (select excluded from public.runs where member_name = 'adeo') and (select team from public.runs where member_name = 'adeo') = '[]'::jsonb; end $d$ $$);
 select pg_temp.check('activity log hidden from members',            null,
   $$ do $d$ begin assert pg_temp.visible('00000000-0000-0000-0000-00000000000c', 'select count(*) from public.activity') = 0;
                   assert pg_temp.visible('00000000-0000-0000-0000-00000000000b', 'select count(*) from public.activity') > 0; end $d$ $$);

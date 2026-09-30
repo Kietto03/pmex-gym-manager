@@ -286,9 +286,10 @@ create table public.runs (
   leader      text not null,
   round       smallint not null check (round >= 1),
   tickets     smallint not null check (tickets between 1 and 3),
-  score       integer  not null check (score > 0),
+  score       integer  not null check (score >= 0),      -- 0 = a ticket spent without scoring
   team        jsonb    not null default '[]' check (jsonb_typeof(team) = 'array' and jsonb_array_length(team) <= 3),
   note        text     not null default '',
+  excluded    boolean  not null default false,          -- counts for the round, not for the combined score (a locked member who has since left)
   created_by  uuid references public.profiles (id) on delete set null,
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()
@@ -311,9 +312,12 @@ create function public.season_tickets_granted(s public.seasons, at timestamptz d
   language sql stable
 as $$
   select case when at < s.battle_start then 0 else
+    -- +daily every 24 h, and the last daily allotment is in hand for the whole final day, so a full
+    -- 7-day Battle reaches 9 + 7×3 = 30 (the event log shows members using all 30)
     least(s.ticket_cap, s.tickets_day1 + s.tickets_daily *
-      least(floor(extract(epoch from (least(at, s.battle_end) - s.battle_start)) / 86400)::int,
-            greatest(ceil(extract(epoch from (s.battle_end - s.battle_start)) / 86400)::int - 1, 0)))
+      least(floor(extract(epoch from (least(at, s.battle_end) - s.battle_start)) / 86400)::int
+              + case when at >= s.battle_end - interval '1 day' then 1 else 0 end,
+            ceil(extract(epoch from (s.battle_end - s.battle_start)) / 86400)::int))
   end
 $$;
 

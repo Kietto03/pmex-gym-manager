@@ -246,8 +246,9 @@ function renderOverview() {
   const rows = Math.max(st.active || 0, st.maxRound, 1);
   const firstShown = showAllRounds ? 1 : Math.max(1, (st.active || rows) - 2);
   const board = Object.values(st.perMember).sort((a, b) => b.score - a.score);
-  for (const p of S.profiles) if (!st.perMember[p.id]) board.push({ key: p.id, user_id: p.id, name: nameOf(p), score: 0, tickets: 0, runs: 0 });
-  const left = S.profiles.filter(p => !st.banned.has(p.id)).map(p => ({ p, left: st.granted - (st.perMember[p.id]?.tickets || 0) }))
+  const over = st.phase === 'ended';   // a finished season lists only who played, and has no tickets left to spend
+  if (!over) for (const p of S.profiles) if (!st.perMember[p.id]) board.push({ key: p.id, user_id: p.id, name: nameOf(p), score: 0, tickets: 0, runs: 0 });
+  const left = over ? [] : S.profiles.filter(p => !st.banned.has(p.id)).map(p => ({ p, left: st.granted - (st.perMember[p.id]?.tickets || 0) }))
     .filter(x => x.left > 0).sort((a, b) => b.left - a.left);
   const phase = { upcoming: t('Starts soon'), battle: t('In progress'), ended: t('Finished') }[st.phase];
   const pct = s.target_score ? Math.min(100, st.combined / s.target_score * 100) : null;
@@ -321,17 +322,17 @@ function renderOverview() {
       <div class="card scroll"><table class="table">
         <thead><tr><th>#</th><th>${t('Member')}</th><th class="num">${t('Score')}</th><th class="num">${t('Tickets')}</th><th class="num">${t('Left')}</th><th class="num">${t('Avg / ticket')}</th><th class="num">${t('Runs')}</th></tr></thead>
         <tbody>${board.map((m, i) => {
-          const banned = st.banned.has(m.user_id), gone = !m.user_id || !profile(m.user_id);
+          const banned = st.banned.has(m.user_id) || m.excluded, gone = !m.user_id || !profile(m.user_id);
           return `<tr class="${banned ? 'dim' : ''}"><td class="rank r${i + 1}">${i + 1}</td>
             <td>${gone ? `<span class="muted">${esc(m.name)} (${t('left the gym')})</span>` : `<a class="who" href="#/member/${m.user_id}">${av(m.user_id, 'xs')}${esc(m.name)}</a>`}${banned ? ` <span class="badge bad">${t('locked')}</span>` : ''}</td>
             <td class="num"><b>${fmtN(m.score)}</b></td><td class="num">${m.tickets}</td>
-            <td class="num">${gone || banned ? '—' : Math.max(0, st.granted - m.tickets)}</td>
+            <td class="num">${over || gone || banned ? '—' : Math.max(0, st.granted - m.tickets)}</td>
             <td class="num">${m.tickets ? fmtN(Math.round(m.score / m.tickets)) : '—'}</td><td class="num">${m.runs}</td></tr>`;
         }).join('')}</tbody></table></div>
     </section>
     <section>
-      <h2>${t('Tickets left')} <small>${t('{n} unused', { n: left.reduce((a, x) => a + x.left, 0) })}</small></h2>
-      <div class="card chips">${left.length ? left.map(x => `<a class="pill" href="#/log//${st.active || ''}/${x.p.id}">${esc(nameOf(x.p))} <b>${x.left}</b></a>`).join('') : `<p class="muted">${t('Everyone has used the tickets handed out so far.')}</p>`}</div>
+      <h2>${over ? t('Tickets used') : t('Tickets left')} <small>${over ? t('{n} of {g}', { n: st.gymUsed, g: s.gym_ticket_cap }) : t('{n} unused', { n: left.reduce((a, x) => a + x.left, 0) })}</small></h2>
+      <div class="card chips">${over ? `<p class="muted">${t('This Gym Battle is over. The scores above are the final results.')}</p>` : left.length ? left.map(x => `<a class="pill" href="#/log//${st.active || ''}/${x.p.id}">${esc(nameOf(x.p))} <b>${x.left}</b></a>`).join('') : `<p class="muted">${t('Everyone has used the tickets handed out so far.')}</p>`}</div>
       <h2>${t('Recent runs')}</h2>
       <div class="card list">${S.runs.slice(0, 8).map(runLine).join('') || `<p class="muted">${t('No runs yet.')}</p>`}</div>
     </section>
@@ -339,7 +340,7 @@ function renderOverview() {
 }
 document.addEventListener('click', e => { if (e.target.closest('[data-all-rounds]')) { showAllRounds = true; route(); } });
 
-const teamIcons = team => (team || []).map(x => {
+const teamIcons = team => !(team || []).length ? `<span class="muted na" title="${t('The team was not recorded')}">n/a</span>` : (team || []).map(x => {
   const p = pairById(x.pair_id);
   return `<span title="${esc(pairName(p))} ${levelLabel(x.level || 1)}${x.ex ? ' EX' : ''}">${ownIcon(p, x, 'xs')}</span>`;
 }).join('');
@@ -412,7 +413,7 @@ function runForm() {
         <select name="round" ${isStaff() || form.id ? '' : 'disabled'}>${rounds.map(n => `<option value="${n}" ${n === form.round ? 'selected' : ''}>${esc(circuitAt(s, n).label)}${n === st.active ? ` · ${t('open')}` : ''}</option>`).join('')}</select>
       </label>
       <div class="field"><span>${t('Tickets')}</span><div class="seg">${[1, 2, 3].map(n => `<button type="button" data-f-tickets="${n}" class="${form.tickets === n ? 'on' : ''}" ${c?.fixed && n !== c.fixed ? 'disabled' : ''}>×${n}</button>`).join('')}</div></div>
-      <label>${t('Score')}<input name="score" type="number" min="1" step="1" inputmode="numeric" value="${esc(form.score)}" placeholder="${t('e.g. {n}', { n: 35000 })}">
+      <label>${t('Score')}<input name="score" type="number" min="0" step="1" inputmode="numeric" value="${esc(form.score)}" placeholder="${t('e.g. {n}', { n: 35000 })}">
         <small class="muted">${form.leader ? t('Cap {cap} · {n} to go', { cap: fmtN(c?.pts), n: fmtN(Math.max(0, (c?.pts || 0) - have)) }) : t('Pick a Gym Leader')}</small></label>
     </div>
     <div class="field"><span>${t('Team (1–3 sync pairs)')}</span>

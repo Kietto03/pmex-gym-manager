@@ -137,7 +137,7 @@ export default {
 
   // ─── Rules & server messages ───
   'Tickets must be 1, 2 or 3.': 'Số vé phải là 1, 2 hoặc 3.',
-  'Score must be a positive whole number.': 'Điểm phải là số nguyên dương.',
+  'Score must be a whole number, 0 or more.': 'Điểm phải là số nguyên từ 0 trở lên.',
   'Pick a Gym Leader.': 'Chọn Gym Leader.',
   'That round does not exist in this season.': 'Round này không có trong mùa.',
   '{round} always costs {n} tickets per run (1–3 tickets only from Extra Battles).': '{round} luôn tốn {n} vé mỗi lượt (chọn 1–3 vé chỉ có từ Extra Battle).',
@@ -323,4 +323,8 @@ export default {
   'Stay sharp.': 'Tập trung nhé.',
   'Victory awaits.': 'Chiến thắng đang chờ.',
   'Good form.': 'Phong độ tốt.',
+  'The team was not recorded': 'Chưa ghi lại team',
+  'Tickets used': 'Vé đã dùng',
+  '{n} of {g}': '{n} / {g}',
+  'This Gym Battle is over. The scores above are the final results.': 'Gym Battle này đã kết thúc. Điểm bên trái là kết quả cuối cùng.',
 };
