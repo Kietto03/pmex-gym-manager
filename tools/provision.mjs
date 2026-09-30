@@ -2,7 +2,7 @@
 //
 //   node tools/provision.mjs [--dry-run]
 //
-// Reads SUPABASE_ACCESS_TOKEN and SUPABASE_PROJECT_REF from ~/Code/Datamine/.env (or the
+// Reads SUPABASE_ACCESS_TOKEN and SUPABASE_PROJECT_REF from .env in the repo root (or the
 // environment; override the file with ENV_FILE). Then:
 //   1. turns off public sign-ups and email confirmation (accounts are only made by the admin)
 //   2. creates the tables, row-level security and triggers (supabase/migrations/*.sql) — skipped if present
@@ -16,14 +16,19 @@ import { join } from 'node:path';
 
 const dry = process.argv.includes('--dry-run');
 const root = join(import.meta.dirname, '..');
-const envFile = process.env.ENV_FILE || join(homedir(), 'Code/Datamine/.env');
+const envFile = process.env.ENV_FILE || join(import.meta.dirname, '../.env');
 const env = { ...process.env };
 if (existsSync(envFile)) for (const line of readFileSync(envFile, 'utf8').split('\n')) {
   const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*["']?(.*?)["']?\s*$/);
   if (m && !(m[1] in env)) env[m[1]] = m[2];
 }
-const token = env.SUPABASE_ACCESS_TOKEN, ref = env.SUPABASE_PROJECT_REF;
+// SUPABASE_PROJECT_REF may be the bare ref or the project URL
+const token = env.SUPABASE_ACCESS_TOKEN, ref = (env.SUPABASE_PROJECT_REF || '').replace(/^https?:\/\//, '').replace(/\.supabase\.co.*$/, '');
 if (!token || !ref) { console.error('Set SUPABASE_ACCESS_TOKEN and SUPABASE_PROJECT_REF in', envFile); process.exit(1); }
+if (!token.startsWith('sbp_')) {
+  console.error('SUPABASE_ACCESS_TOKEN must be a personal access token (starts with sbp_), made at\nhttps://supabase.com/dashboard/account/tokens — not a project API key (sb_secret_… / sb_publishable_…).');
+  process.exit(1);
+}
 
 const api = async (method, path, body) => {
   const res = await fetch(`https://api.supabase.com/v1/projects/${ref}${path}`, {

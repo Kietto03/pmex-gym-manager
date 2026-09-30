@@ -4,7 +4,7 @@
 //
 // CSV columns: username, display_name, facebook, note, role (member | mod | admin), create (yes | review | no)
 // Only rows with create=yes are made. Needs SUPABASE_PROJECT_REF and SUPABASE_SERVICE_ROLE_KEY (or
-// SUPABASE_ACCESS_TOKEN, used to fetch the service key) in ~/Code/Datamine/.env or the environment.
+// SUPABASE_ACCESS_TOKEN, used to fetch the service key) in .env in the repo root or the environment.
 // Existing usernames are skipped, so it is safe to run again.
 // Writes ~/.config/pmex/credentials.csv (mode 600) with each new account's temporary password;
 // the CSV and credentials never live in the repo. Members change the password after first sign-in.
@@ -15,13 +15,13 @@ import { join } from 'node:path';
 
 const args = process.argv.slice(2), dry = args.includes('--dry-run');
 const csvPath = args.find(a => !a.startsWith('--')) || join(homedir(), '.config/pmex/members.csv');
-const envFile = process.env.ENV_FILE || join(homedir(), 'Code/Datamine/.env');
+const envFile = process.env.ENV_FILE || join(import.meta.dirname, '../.env');
 const env = { ...process.env };
 if (existsSync(envFile)) for (const line of readFileSync(envFile, 'utf8').split('\n')) {
   const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*["']?(.*?)["']?\s*$/);
   if (m && !(m[1] in env)) env[m[1]] = m[2];
 }
-const ref = env.SUPABASE_PROJECT_REF;
+const ref = (env.SUPABASE_PROJECT_REF || '').replace(/^https?:\/\//, '').replace(/\.supabase\.co.*$/, '');
 const DOMAIN = (readFileSync(join(import.meta.dirname, '../config.js'), 'utf8').match(/usernameDomain:\s*'([^']+)'/) || [])[1] || 'members.pmex-gym.local';
 
 function parseCsv(text) {
@@ -49,8 +49,10 @@ console.log('  admin:', todo.filter(m => m.role === 'admin').map(m => m.username
 if (dry) { console.log('\nDry run: nothing created.'); process.exit(0); }
 
 if (!ref) { console.error('Set SUPABASE_PROJECT_REF in', envFile); process.exit(1); }
-let service = env.SUPABASE_SERVICE_ROLE_KEY;
-if (!service && env.SUPABASE_ACCESS_TOKEN) {
+// The service key can be given directly (SUPABASE_SERVICE_ROLE_KEY, or a new-style sb_secret_… key in SUPABASE_SECRET_KEY),
+// or fetched with a personal access token (sbp_…)
+let service = env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SECRET_KEY;
+if (!service && env.SUPABASE_ACCESS_TOKEN?.startsWith('sbp_')) {
   const r = await fetch(`https://api.supabase.com/v1/projects/${ref}/api-keys?reveal=true`, { headers: { Authorization: `Bearer ${env.SUPABASE_ACCESS_TOKEN}` } });
   service = (await r.json()).find(k => k.name === 'service_role')?.api_key;
 }
