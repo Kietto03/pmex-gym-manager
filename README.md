@@ -76,6 +76,19 @@ Same logic in `src/rules.js` (instant feedback) and the `check_run()` trigger (t
    - *Seasons* → create a season (pick a Gym Battle from the datamine to fill in leaders, circuits and Battle times).
    - *Accounts* → create an account for each member.
 
+## Going to production with scripts
+
+Instead of steps 2–6 above by hand: create the Supabase project, then put `SUPABASE_ACCESS_TOKEN` (an account access token) and `SUPABASE_PROJECT_REF` in an env file and run
+
+```bash
+node tools/provision.mjs --dry-run   # look first
+node tools/provision.mjs             # no public sign-ups, tables + security, admin-users function, config.js
+node tools/import-members.mjs --dry-run ~/.config/pmex/members.csv
+node tools/import-members.mjs        # creates the accounts, writes temporary passwords to ~/.config/pmex/credentials.csv
+```
+
+The member CSV (`username,display_name,facebook,role,create`) and the credentials file stay outside the repo — they hold real names. Accounts already there are skipped, so the import can be re-run.
+
 ## Day to day
 
 - **New member**: Admin → Accounts → username + nickname → *Create account* → send them the link / username / password text it shows. They sign in, change the password under *Account*, then add their pairs and tower floors (or a mod does it for them).
