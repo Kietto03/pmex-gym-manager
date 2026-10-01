@@ -284,8 +284,8 @@ f.onload = async () => {
     log(!!$('#nav a[href="#/roster"]'), 'Roster has its own menu entry');
     $('[data-rtype=Poison]').click(); await sleep(200);
     const heads = $$('.troster thead th').map(th => th.innerText.trim().replace(/\s+/g, ' '));
-    log(['Special', 'Physical', 'EX WTZ', 'Rebuff', 'Gloria', 'R96', 'Support', 'Other 1'].every(h => heads.some(x => x.includes(h))) && !$('[data-core-edit]') && !$('[data-col-edit]'),
-      'sheet columns: Special, Physical, EX WTZ, Rebuff, Gloria, R96, Support, Other — no core / column buttons', heads.slice(2).join(' | '));
+    log(['Special', 'Physical', 'EX WTZ', 'Rebuff', 'Sub-DPS', 'Extend WTZ', 'Support', 'Other 1'].every(h => heads.some(x => x.includes(h))) && !$('[data-core-edit]') && !$('[data-col-edit]'),
+      'sheet columns: Special, Physical, EX WTZ, Rebuff, Sub-DPS, Extend WTZ, Support, Other — no core / column buttons', heads.slice(2).join(' | '));
     log($$('.troster tbody tr').length >= 19 && $$('.troster tbody tr').every(tr => tr.querySelector('[data-sc]')), 'admin can edit every row');
     const cellKey = $$('[data-sc$="|support"]')[0].dataset.sc;
     const cell = () => $(`[data-sc="${cellKey}"]`);
@@ -333,6 +333,17 @@ f.onload = async () => {
     $('[data-sheet-fill]').click(); await sleep(300);
     log($$('.sc-add').length < $$('[data-sc]').length, 'auto-fill fills empty cells with matching pairs');
     W().document.body.click(); await sleep(100);
+
+    // 6d. A Gym Battle kept in a spreadsheet shows its final results
+    await go('#/');
+    await until(() => $('[data-season]'));
+    const arch = $$('[data-season]').find(b => /Archive/.test(b.innerText));
+    log(!!arch, 'an archived season is in the season bar');
+    arch.click(); await sleep(400);
+    log($$('.table tbody tr').length === 3 && !$('table.progress') && /1,214,000/.test($('.table').innerText), 'archived season lists final results only, no round grid', $$('.table tbody tr').length);
+    const row1 = $('[data-arch]'); row1.click(); await sleep(150);
+    log(/Red & Articuno/.test($('.arch-teams')?.innerText || ''), 'clicking a player shows the teams they used');
+    $$('[data-season]').find(b => !/Archive/.test(b.innerText) && b.querySelector('.dot'))?.click(); await sleep(300);
 
     // 7. Admin creates and deletes an account
     await go('#/admin');

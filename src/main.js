@@ -47,7 +47,7 @@ async function act(fn, okMsg) {
 
 // ─── State ──────────────────────────────────────────────────
 let api;
-const S = { me: null, profiles: [], mp: [], tower: [], seasons: [], sid: null, runs: [], sm: [], asg: [], notes: [], fac: [], sheet: [] };
+const S = { me: null, profiles: [], mp: [], tower: [], seasons: [], sid: null, runs: [], sm: [], asg: [], notes: [], fac: [], res: [], sheet: [] };
 const meP = () => S.profiles.find(p => p.id === S.me);
 const isStaff = () => ['admin', 'mod'].includes(meP()?.role);
 const isAdmin = () => meP()?.role === 'admin';
@@ -81,8 +81,8 @@ async function loadAll() {
   await loadSeason();
 }
 async function loadSeason() {
-  if (!S.sid) { S.runs = S.sm = S.asg = S.notes = S.fac = []; return; }
-  [S.runs, S.sm, S.asg, S.notes, S.fac] = await Promise.all([api.runs(S.sid), api.seasonMembers(S.sid), api.assignments(S.sid), api.notes(S.sid), api.facilitators(S.sid)]);
+  if (!S.sid) { S.runs = S.sm = S.asg = S.notes = S.fac = S.res = []; return; }
+  [S.runs, S.sm, S.asg, S.notes, S.fac, S.res] = await Promise.all([api.runs(S.sid), api.seasonMembers(S.sid), api.assignments(S.sid), api.notes(S.sid), api.facilitators(S.sid), api.results(S.sid)]);
 }
 const state = () => (season() ? seasonState(season(), S.runs, S.sm) : null);
 
@@ -259,6 +259,7 @@ function renderOverview() {
   const side = st.phase === 'battle' ? [t('Ends in'), fmtLeft(Date.parse(s.battle_end) - now)]
     : st.phase === 'upcoming' ? [t('Starts in'), fmtLeft(Date.parse(s.battle_start) - now)] : [t('Final score'), fmtK(st.combined)];
   const mine = S.asg.filter(a => a.user_id === S.me), myFac = S.fac.filter(f => f.user_id === S.me);
+  if (S.res.length && !S.runs.length) return seasonBar() + archiveView(s, phase);
 
   return `${seasonBar()}
   <section class="banner hero" style="--tc:${tc(s.leaders[0]?.type)}">
@@ -347,6 +348,35 @@ function renderOverview() {
     </section>
   </div>`;
 }
+// A Gym Battle kept in a spreadsheet: final results per player (points, tickets, the team used for each type)
+function archiveView(s, phase) {
+  const rows = S.res, total = rows.reduce((a, r) => a + (r.points || 0), 0), tk = rows.reduce((a, r) => a + r.tickets, 0);
+  const types = [...new Set(rows.flatMap(r => Object.keys(r.teams || {})))];
+  const open = archiveOpen;
+  return `<section class="banner hero" style="--tc:${tc(s.leaders[0]?.type)}">
+    <div><span class="kicker">${t('Gym Battle')}</span><h1>${esc(s.name)}</h1>
+      <div class="hero-meta"><span class="phase ended">${phase}</span><span>${ico('calendar')}${fmtDT(s.battle_start)} → ${fmtDT(s.battle_end)}</span></div></div>
+    <div class="hero-side"><small>${t('Final score')}</small><span class="big">${fmtK(total)}</span></div>
+    ${lineup(s.leaders.map(l => ({ name: l.name, type: l.type, src: leaderImage(s, l.name), done: false, label: '' })))}
+  </section>
+  <div class="kpis">
+    <div class="card kpi" style="--kc:var(--gold)"><span class="k-ico">${ico('trophy')}</span><small>${t('Combined score')}</small><b>${fmtN(total)}</b><span>${t('{n} players', { n: rows.length })}</span></div>
+    <div class="card kpi" style="--kc:#16a37a"><span class="k-ico">${ico('gym')}</span><small>${t('Gym tickets used')}</small><b>${tk}<em> / ${s.gym_ticket_cap}</em></b><span>${t('Kept from the spreadsheet: totals only, no run-by-run detail.')}</span></div>
+  </div>
+  <section class="section"><h2>${t('Final results')} <small>${t('click a player to see their teams')}</small></h2>
+    <div class="card scroll"><table class="table">
+      <thead><tr><th>#</th><th>${t('Member')}</th><th class="num">${t('Score')}</th><th class="num">${t('Tickets')}</th><th class="num">${t('Avg / ticket')}</th></tr></thead>
+      <tbody>${rows.map((r, i) => {
+        const p = r.user_id && profile(r.user_id), has = types.some(ty => r.teams?.[ty]), on = open === r.name;
+        return `<tr class="${has ? 'arch-row' : ''}" ${has ? `data-arch="${esc(r.name)}"` : ''}><td class="rank r${i + 1}">${i + 1}</td>
+          <td>${p ? `<a class="who" href="#/member/${p.id}">${av(p.id, 'xs')}${esc(r.name)}</a>` : `<span class="muted">${esc(r.name)}</span>`}</td>
+          <td class="num"><b>${r.points == null ? '—' : fmtN(r.points)}</b></td><td class="num">${r.tickets}</td>
+          <td class="num">${r.points && r.tickets ? fmtN(Math.round(r.points / r.tickets)) : '—'}</td></tr>
+          ${on ? `<tr class="arch-teams"><td></td><td colspan="4">${types.filter(ty => r.teams?.[ty]).map(ty => `<div class="arch-t"><b>${esc(t(ty[0] + ty.slice(1).toLowerCase()))}</b><span>${esc(r.teams[ty])}</span></div>`).join('')}</td></tr>` : ''}`;
+      }).join('')}</tbody></table></div></section>`;
+}
+let archiveOpen = null;
+document.addEventListener('click', e => { const a = e.target.closest('[data-arch]'); if (a) { archiveOpen = archiveOpen === a.dataset.arch ? null : a.dataset.arch; route(); } });
 document.addEventListener('click', e => { if (e.target.closest('[data-all-rounds]')) { showAllRounds = true; route(); } });
 
 const teamIcons = team => !(team || []).length ? `<span class="muted na" title="${t('The team was not recorded')}">n/a</span>` : (team || []).map(x => {
@@ -945,7 +975,7 @@ document.addEventListener('click', e => { const b = e.target.closest('[data-mvie
 
 // ─── Roster sheet (one per type) ───
 // Works like the gym's spreadsheet: every cell is one of the member's own pairs, picked by hand.
-// Members fill their own row; the admin and mods can fill anyone's. Gloria / R96 fill themselves.
+// Members fill their own row; the admin and mods can fill anyone's.
 let rosterType = null, rosterSort = 'fit', sheetPick = null;   // sheetPick = { uid, slot, q }
 function defaultRosterType() {
   const s = season();

@@ -58,6 +58,16 @@ function seedData() {
   let runId = 1;
   for (const s of seasons) simulate(s, profiles, memberPairs, seasonMembers.filter(m => m.season_id === s.id), runs, () => runId++);
 
+  // An older Gym Battle that was kept in a spreadsheet: only the final results are known
+  const results = [];
+  const arch = seasons.find(x => !x.is_active);
+  if (arch) {
+    const old = { ...JSON.parse(JSON.stringify(arch)), id: 3, name: 'Archive Gym Battle (demo)', is_active: false, battle_start: '2026-08-01T00:00:00Z', battle_end: '2026-08-08T00:00:00Z' };
+    seasons.push(old);
+    [[profiles[0], 30, 1214000, 'Red & Articuno (3/5 EXR)\nKieran & Furret (1/5 EXR)'], [profiles[1], 28, 902500, ''], [null, 25, 686502, 'Steven & Metagross (3/5 EXR)']]
+      .forEach(([p, tk, pts, ice], i) => results.push({ season_id: 3, name: p ? p.display_name : 'Former member', user_id: p ? p.id : null, tickets: tk, points: pts, teams: ice ? { ICE: ice } : {} }));
+  }
+
   const assignments = [], notes = [];
   const live2 = seasons.find(s => s.is_active);
   if (live2) {
@@ -82,7 +92,7 @@ function seedData() {
   }
   const activity = runs.slice(0, 30).map((r, i) => ({ id: i + 1, at: r.created_at, actor: r.created_by, actor_name: r.member_name,
     action: 'runs.insert', detail: { leader: r.leader, round: r.round, score: r.score } }));
-  return { profiles, catalog, memberPairs, tower, seasons, seasonMembers, runs, assignments, notes, activity, facilitators, sheet: seedSheet(profiles, memberPairs) };
+  return { profiles, catalog, memberPairs, tower, seasons, seasonMembers, runs, assignments, notes, activity, facilitators, results, sheet: seedSheet(profiles, memberPairs) };
 }
 
 const DEMO_STRATEGY = `# 1. General requirements for all sync pairs
@@ -340,6 +350,7 @@ export function createDemoApi() {
       db.sheet = db.sheet.filter(x => !(x.user_id === user_id && x.type === type && x.slot === slot));
     },
 
+    results: async sid => clone(db.results.filter(r => r.season_id === sid)),
     facilitators: async sid => clone(db.facilitators.filter(f => f.season_id === sid)),
     async saveFacilitator(row) {
       staff() || deny();

@@ -133,6 +133,8 @@ function supabaseApi(sb) {
     saveSheetCells: async rows => ok(await sb.from('roster_sheet').upsert(rows)),
     clearSheetCell: async (user_id, type, slot) => ok(await sb.from('roster_sheet').delete().match({ user_id, type, slot })),
 
+    results: sid => all(() => sb.from('season_results').select('*').eq('season_id', sid).order('points', { ascending: false, nullsFirst: false })),
+
     facilitators: sid => all(() => sb.from('facilitator_plans').select('*').eq('season_id', sid).order('leader').order('user_id')),
     saveFacilitator: async row => ok(await sb.from('facilitator_plans').upsert(row)),
     removeFacilitator: async (season_id, leader, user_id) => ok(await sb.from('facilitator_plans').delete().match({ season_id, leader, user_id })),

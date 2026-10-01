@@ -237,6 +237,20 @@ create trigger assignments_check before insert or update on public.assignments
 
 -- Facilitator planning: per Gym Leader, who sets up the fight (lowers the opponent's Type Rebuff or stats,
 -- applies status conditions) and with which of their own pairs. Same ownership rule as a squad.
+-- Final results of a season that was logged elsewhere (a spreadsheet): one row per player, no per-run detail.
+-- Players who are not in the gym app (any more) keep their in-game name only.
+create table public.season_results (
+  season_id bigint not null references public.seasons (id) on delete cascade,
+  name      text not null,
+  user_id   uuid references public.profiles (id) on delete set null,
+  tickets   int not null default 0 check (tickets >= 0),
+  points    bigint check (points >= 0),
+  teams     jsonb not null default '{}',          -- { "ICE": "Red & Articuno (3/5 EXR) ...", ... }
+  primary key (season_id, name));
+alter table public.season_results enable row level security;
+create policy "read: signed in" on public.season_results for select to authenticated using (true);
+create policy "write: staff" on public.season_results for all to authenticated using (public.is_staff()) with check (public.is_staff());
+
 create table public.facilitator_plans (
   season_id  bigint not null references public.seasons (id) on delete cascade,
   leader     text   not null,
@@ -273,7 +287,7 @@ create table public.roster_sheet (
   user_id    uuid not null references public.profiles (id) on delete cascade,
   type       text not null check (type in ('Normal', 'Fire', 'Water', 'Electric', 'Grass', 'Ice', 'Fighting', 'Poison',
                'Ground', 'Flying', 'Psychic', 'Bug', 'Rock', 'Ghost', 'Dragon', 'Dark', 'Steel', 'Fairy')),
-  slot       text not null check (slot in ('special', 'physical', 'wtz', 'rebuff', 'support', 'other1', 'other2', 'other3')),
+  slot       text not null check (slot in ('special', 'physical', 'wtz', 'rebuff', 'subdps', 'extwtz', 'support', 'other1', 'other2', 'other3')),
   pair_id    text references public.pair_catalog (id) on update cascade,
   updated_by uuid references public.profiles (id) on delete set null,
   updated_at timestamptz not null default now(),
