@@ -29,6 +29,19 @@ export function rankForSlot(mine, ty, slot) {
   return mine.filter(x => slot.fits(x.pair, ty)).sort((a, b) => rank(b) - rank(a) || pairWeight(b) - pairWeight(a));
 }
 
+// A starting facilitator team from one member's roster: pairs that lower the opponent's Type Rebuff for the
+// Gym Leader's weakness types first, then the strongest Support / Tech pairs (stat drops and status effects
+// are not tagged in the data, so those are a guess the staff adjust).
+export function suggestFacilitator(ownedRows, weakTypes) {
+  const all = ownedRows.map(x => ({ ...x, pair: x.pair || pairById(x.pair_id) })).filter(x => x.pair)
+    .sort((a, b) => pairWeight(b) - pairWeight(a));
+  const team = [];
+  const take = x => { if (x && team.length < 3 && !team.includes(x)) team.push(x); };
+  for (const ty of weakTypes) take(all.find(x => !team.includes(x) && rebuffs(x.pair, ty)));
+  for (const x of all) if (team.length < 3 && /Support|Tech/.test(x.pair.role)) take(x);
+  return team;
+}
+
 // Fill the empty slots of one member's row. `cells` maps slot → pair id (null = marked none).
 export function autoFill(ownedRows, ty, cells = {}) {
   const mine = ownedRows.map(x => ({ ...x, pair: x.pair || pairById(x.pair_id) })).filter(x => x.pair);

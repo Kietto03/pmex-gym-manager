@@ -9,8 +9,8 @@ import { MASCOTS, MASCOT_STYLES, mascotHead, mountCompanion } from './mascot.js'
 import { t, getLang, setLang, LANGS, locale } from './i18n.js';
 import { TOWER_TOP, circuitAt, roundShort, seasonState, pointsIn, validateRun, readiness, pairWeight, levelLabel, suggestTeam } from './rules.js';
 import { loadCatalog, loadGyms, PAIRS, pairById, pairName, pairImage, TYPES, TYPE_COLORS, typeIcon, roleIcon, roleKey,
-  PLACEHOLDER, catalogRows, catalogVersion, GYMS, seasonFromGym, leaderRule, leaderFocus, leaderImage, POMA, DEX, loadTags, wtzScore, pairByTrackerKey } from './catalog.js';
-import { SHEET_SLOTS, fixedIds, rankForSlot, autoFill } from './sheet.js';
+  PLACEHOLDER, catalogRows, catalogVersion, GYMS, seasonFromGym, leaderRule, leaderFocus, leaderImage, POMA, DEX, loadTags, wtzScore, rebuffs, pairByTrackerKey } from './catalog.js';
+import { SHEET_SLOTS, fixedIds, rankForSlot, autoFill, suggestFacilitator } from './sheet.js';
 import { parseTrackerBackup, trackerRows } from './tracker.js';
 
 // ─── Helpers ────────────────────────────────────────────────
@@ -47,7 +47,7 @@ async function act(fn, okMsg) {
 
 // ─── State ──────────────────────────────────────────────────
 let api;
-const S = { me: null, profiles: [], mp: [], tower: [], seasons: [], sid: null, runs: [], sm: [], asg: [], notes: [], sheet: [] };
+const S = { me: null, profiles: [], mp: [], tower: [], seasons: [], sid: null, runs: [], sm: [], asg: [], notes: [], fac: [], sheet: [] };
 const meP = () => S.profiles.find(p => p.id === S.me);
 const isStaff = () => ['admin', 'mod'].includes(meP()?.role);
 const isAdmin = () => meP()?.role === 'admin';
@@ -81,8 +81,8 @@ async function loadAll() {
   await loadSeason();
 }
 async function loadSeason() {
-  if (!S.sid) { S.runs = S.sm = S.asg = S.notes = []; return; }
-  [S.runs, S.sm, S.asg, S.notes] = await Promise.all([api.runs(S.sid), api.seasonMembers(S.sid), api.assignments(S.sid), api.notes(S.sid)]);
+  if (!S.sid) { S.runs = S.sm = S.asg = S.notes = S.fac = []; return; }
+  [S.runs, S.sm, S.asg, S.notes, S.fac] = await Promise.all([api.runs(S.sid), api.seasonMembers(S.sid), api.assignments(S.sid), api.notes(S.sid), api.facilitators(S.sid)]);
 }
 const state = () => (season() ? seasonState(season(), S.runs, S.sm) : null);
 
@@ -258,7 +258,7 @@ function renderOverview() {
   const now = Date.now();
   const side = st.phase === 'battle' ? [t('Ends in'), fmtLeft(Date.parse(s.battle_end) - now)]
     : st.phase === 'upcoming' ? [t('Starts in'), fmtLeft(Date.parse(s.battle_start) - now)] : [t('Final score'), fmtK(st.combined)];
-  const mine = S.asg.filter(a => a.user_id === S.me);
+  const mine = S.asg.filter(a => a.user_id === S.me), myFac = S.fac.filter(f => f.user_id === S.me);
 
   return `${seasonBar()}
   <section class="banner hero" style="--tc:${tc(s.leaders[0]?.type)}">
@@ -285,9 +285,15 @@ function renderOverview() {
     <div class="card kpi" style="--kc:#16a37a"><span class="k-ico">${ico('gym')}</span><small>${t('Gym tickets used')}</small><b>${st.gymUsed}<em> / ${s.gym_ticket_cap}</em></b><span>${t('{n} runs', { n: S.runs.length })}</span></div>
   </div>
 
-  ${mine.length ? `<section class="section">
+  ${mine.length || myFac.length ? `<section class="section">
     <h2>${t('Your battles')} <small>${t('planned by your admin and mods')}</small></h2>
-    <div class="mine">${mine.map(a => {
+    <div class="mine">${myFac.map(f => {
+      const l = leaderOf(s, f.leader);
+      return `<a class="card mb" href="#/plan" data-goto-fac style="--tc:${tc(l.type)}">${leaderImg(s, f.leader)}
+        <div><b>${esc(f.leader)}</b> <span class="badge gold">${t('Facilitator')}</span>
+          <div class="team">${teamIcons(planTeam(f)) || `<small class="muted">${t('Team not chosen yet')}</small>`}</div>
+          <small class="muted">${(f.does || []).map(k => t(DUTIES.find(x => x[0] === k)?.[1] || k)).join(' · ')}</small></div></a>`;
+    }).join('')}${mine.map(a => {
       const l = leaderOf(s, a.leader);
       return `<a class="card mb" href="#/log/${encodeURIComponent(a.leader)}" style="--tc:${tc(l.type)}">${leaderImg(s, a.leader)}
         <div><b>${esc(a.leader)}</b> ${(l.weakness || []).map(w => img(typeIcon(w), 'ti', w)).join('')}
@@ -552,16 +558,15 @@ function ruleShort(text) {
 const fitFor = (uid, types) => types.map(ty => readiness(owned(uid), towerFloor(uid, ty), ty, pairById)).sort((a, b) => b.score - a.score)[0]
   || { score: 0, pairs: [], floor: 0, count: 0 };
 
-function renderPlan() {
+function planLeaders() {
   const s = season();
-  if (!s) return seasonBar() + noSeason();
   const st = state();
   const types = [...new Set(s.leaders.flatMap(l => l.weakness || []))];
   const members = S.profiles.filter(p => !st.banned.has(p.id));
   const stages = Math.max(3, Math.min(s.gym_data?.stages?.length || 3, 6));
   const scoreMax = Math.max(1, ...members.flatMap(p => types.map(ty => readiness(owned(p.id), towerFloor(p.id, ty), ty, pairById).score)));
 
-  return `${seasonBar()}
+  return `
   <p class="lead">${t('Each Gym Leader: weakness, the rule in every circuit, strategy notes, and the squad — who fights them and with which sync pairs from their own roster. Best fit ranks members by their three strongest pairs of a weakness type (level + EX + EX Role) plus a quarter of that type’s tower floors.')}</p>
   <div class="plan-grid">${s.leaders.map(l => {
     const w = l.weakness || [];
@@ -603,6 +608,184 @@ function renderPlan() {
       }).join('')}</tr>`).join('')}</tbody></table></div>
   </section>`;
 }
+// ─── Plan page: Gym Leaders · Strategy · Facilitator ───
+let planView = 'leaders', strategyEdit = null;   // strategyEdit = the draft text while a staff member edits
+function renderPlan() {
+  const s = season();
+  if (!s) return seasonBar() + noSeason();
+  const tabs = [['leaders', 'Gym Leaders', 'swords'], ['strategy', 'Strategy', 'note'], ['facilitator', 'Facilitator', 'bolt']];
+  return `${seasonBar()}
+  <div class="toolbar"><h1>${t('Plan')}</h1><div class="seg">${tabs.map(([k, l, i]) => `<button class="${planView === k ? 'on' : ''}" data-pview="${k}">${ico(i)} ${t(l)}</button>`).join('')}</div></div>
+  ${planView === 'strategy' ? planStrategy(s) : planView === 'facilitator' ? planFacilitator(s) : planLeaders()}`;
+}
+document.addEventListener('click', e => { if (e.target.closest('[data-goto-fac]')) { planView = 'facilitator'; facEdit = null; } });   // the link itself navigates
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-pview]');
+  if (!b) return;
+  planView = b.dataset.pview; strategyEdit = null; facEdit = null; route();
+});
+
+// ── Strategy: the season's rules and requirements ──
+// Tiny markup: "# Heading", "- point", "  - sub point", **bold**, anything else is a paragraph.
+function renderRules(text) {
+  const inline = x => esc(x).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+  let html = '', depth = 0;
+  const close = to => { while (depth > to) { html += '</ul>'; depth--; } };
+  for (const raw of String(text || '').split('\n')) {
+    const line = raw.replace(/\s+$/, '');
+    if (!line.trim()) { close(0); continue; }
+    const h = line.match(/^#+\s*(.+)$/), li = line.match(/^(\s*)[-*•]\s+(.+)$/);
+    if (h) { close(0); html += `<h3 class="rule-h">${inline(h[1])}</h3>`; }
+    else if (li) { const want = li[1].length >= 2 ? 2 : 1; while (depth < want) { html += '<ul>'; depth++; } close(want); html += `<li>${inline(li[2])}</li>`; }
+    else { close(0); html += `<p>${inline(line.trim())}</p>`; }
+  }
+  close(0);
+  return html;
+}
+function planStrategy(s) {
+  const staff = isStaff(), others = S.seasons.filter(x => x.id !== s.id && (x.strategy || '').trim());
+  if (strategyEdit !== null && staff) {
+    return `<form class="card pad form" id="strategy-form">
+      <p class="muted" style="margin:0">${t('Write the rules and requirements for this Gym Battle. Start a section with “# ”, list points with “- ” (indent two spaces for a sub-point), wrap words in **double stars** for bold.')}</p>
+      <textarea name="strategy" rows="22" spellcheck="true" placeholder="# 1. General requirements&#10;- By default every sync pair has EX and EX Role unlocked&#10;- ...">${esc(strategyEdit)}</textarea>
+      <div class="row"><button class="btn primary">${t('Save')}</button><button type="button" class="btn ghost" data-strategy-cancel>${t('Cancel')}</button>
+        ${others.length ? `<select data-strategy-copy><option value="">${t('Copy the rules from…')}</option>${others.map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select>` : ''}</div>
+    </form>`;
+  }
+  const text = (s.strategy || '').trim();
+  return `<div class="strategy">
+    ${staff ? `<div class="toolbar"><span class="muted">${t('Visible to the whole gym · only the admin and mods can edit')}</span>
+      <button class="btn ${text ? '' : 'primary'}" data-strategy-edit>${ico('edit')} ${text ? t('Edit the rules') : t('Write the rules')}</button></div>` : ''}
+    ${text ? `<article class="card pad rules-doc">${renderRules(text)}</article>`
+      : `<div class="empty card">${img(`${POMA}images/icon_masterex.png`, 'pi lg')}<h2>${t('No rules written yet')}</h2><p class="muted">${staff ? t('Write the general requirements, ticket usage and timing rules for this Gym Battle.') : t('Your admin has not written the rules for this Gym Battle yet.')}</p></div>`}
+  </div>`;
+}
+document.addEventListener('click', e => {
+  if (e.target.closest('[data-strategy-edit]')) { strategyEdit = season().strategy || ''; route(); }
+  if (e.target.closest('[data-strategy-cancel]')) { strategyEdit = null; route(); }
+});
+document.addEventListener('change', e => {
+  if (!('strategyCopy' in e.target.dataset) || !e.target.value) return;
+  const from = S.seasons.find(x => x.id === +e.target.value);
+  if (from && confirm(t('Replace what is written with the rules of {s}?', { s: from.name }))) { strategyEdit = from.strategy; route(); }
+  else e.target.value = '';
+});
+document.addEventListener('submit', async e => {
+  if (e.target.id !== 'strategy-form') return;
+  e.preventDefault();
+  const strategy = new FormData(e.target).get('strategy');
+  if (await act(() => api.updateSeason(S.sid, { strategy }), t('Rules saved.'))) { S.seasons = await api.seasons(); strategyEdit = null; route(); }
+});
+
+// ── Facilitator planning ──
+// The facilitator spends a ticket before each battle to set it up for the others.
+const DUTIES = [['rebuff', 'Lower Type Rebuff'], ['stats', 'Lower stats'], ['status', 'Status effects']];
+let facEdit = null;   // { leader, user_id, q }
+const facOf = (leader, uid) => S.fac.find(f => f.leader === leader && f.user_id === uid);
+const facKey = f => `${f.leader}|${f.user_id}`;
+const facOpen = f => facEdit && facEdit.leader === f.leader && facEdit.user_id === f.user_id;
+function facRow(f) {
+  const edit = isStaff(), open = facOpen(f);
+  const slots = [0, 1, 2].map(i => {
+    const id = f.team?.[i];
+    if (!id) return `<span class="slot0">${edit ? '+' : ''}</span>`;
+    const mp = ownedPair(f.user_id, id), p = pairById(id);
+    return `<span title="${esc(pairName(p))} · ${levelLabel(mp?.level || 1)}${mp?.ex ? ' EX' : ''}">${ownIcon(p, mp, 'xs')}</span>`;
+  }).join('');
+  return `<div class="sq ${open ? 'open' : ''}"><a class="who" href="#/member/${f.user_id}/pairs">${av(f.user_id, 'xs')}<span>${esc(nameOf(profile(f.user_id)))}${f.note ? `<small>${esc(f.note)}</small>` : ''}</span></a>
+      <span class="slots3">${slots}</span>
+      ${edit ? `<button class="btn sm ${open ? 'primary' : 'ghost'}" data-fac-edit="${esc(facKey(f))}" title="${t('Choose sync pairs')}">${ico('edit')}</button><button class="x" data-fac-del="${esc(facKey(f))}" aria-label="${t('Remove')}">${ico('x')}</button>` : ''}</div>
+    <div class="duties">${DUTIES.map(([k, l]) => `<span class="duty ${(f.does || []).includes(k) ? 'on' : ''}">${t(l)}</span>`).join('')}</div>
+    ${open ? facEditor(f) : ''}`;
+}
+function facEditor(f) {
+  const s = season(), l = leaderOf(s, f.leader), w = l.weakness || [], who = nameOf(profile(f.user_id));
+  const q = facEdit.q.trim().toLowerCase();
+  const all = owned(f.user_id).map(mp => ({ ...mp, pair: pairById(mp.pair_id) })).filter(x => x.pair);
+  const lowers = x => w.some(ty => rebuffs(x.pair, ty));
+  const list = all.filter(x => f.team.includes(x.pair_id) || (q ? `${x.pair.trainer} ${x.pair.pokemon} ${x.pair.type}`.toLowerCase().includes(q) : lowers(x) || /Support|Tech/.test(x.pair.role)))
+    .sort((a, b) => lowers(b) - lowers(a) || pairWeight(b) - pairWeight(a)).slice(0, 80);
+  return `<div class="sq-edit">
+    <div class="duty-pick">${DUTIES.map(([k, lb]) => `<button type="button" class="btn sm ${(f.does || []).includes(k) ? 'primary' : 'ghost'}" data-fac-do="${k}">${t(lb)}</button>`).join('')}</div>
+    <div class="row"><input data-fac-q placeholder="${t('Search {n}’s roster…', { n: esc(who) })}" value="${esc(facEdit.q)}" autocomplete="off">
+      <button class="btn sm" data-fac-suggest>${ico('bolt')} ${t('Suggest')}</button>
+      <button class="btn sm primary" data-fac-done>${t('Done')}</button></div>
+    <p class="hint">${t('Pick up to 3 of {n}’s sync pairs to set up {l}: pairs that lower its Type Rebuff come first.', { n: esc(who), l: esc(f.leader) })}</p>
+    <div class="roster">${list.map(x => {
+      const i = f.team.indexOf(x.pair_id), tag = lowers(x);
+      return `<button type="button" class="rp ${i >= 0 ? 'on' : f.team.length >= 3 ? 'off' : ''} ${tag ? 'tagged' : ''}" data-fac-pair="${x.pair_id}" ${i >= 0 ? `data-n="${i + 1}"` : ''}
+        title="${esc(pairName(x.pair))} · ${esc(x.pair.role)} · ${levelLabel(x.level)}${x.ex ? ' EX' : ''}${tag ? ' · ' + t('lowers Type Rebuff') : ''}">${img(typeIcon(x.pair.type), 'ti')}${ownIcon(x.pair, x, 'sm')}<small>${levelLabel(x.level)}${x.ex ? ' EX' : ''}</small></button>`;
+    }).join('') || `<p class="hint">${t('Nothing found.')}</p>`}</div>
+    <input data-fac-note placeholder="${t('Note for {n} (optional)', { n: esc(who) })}" value="${esc(f.note)}">
+  </div>`;
+}
+function planFacilitator(s) {
+  const st = state(), staff = isStaff();
+  const members = S.profiles.filter(p => !st.banned.has(p.id));
+  return `<p class="lead">${t('The facilitator spends one ticket before each battle to set it up for everyone else: lower the opponent’s Type Rebuff, lower its stats and apply status conditions. Plan who does it for each Gym Leader and with which sync pairs.')}</p>
+  <div class="plan-grid">${s.leaders.map(l => {
+    const w = l.weakness || [], rows = S.fac.filter(f => f.leader === l.name);
+    const cand = members.filter(p => !rows.some(f => f.user_id === p.id))
+      .map(p => ({ p, n: owned(p.id).filter(x => w.some(ty => rebuffs(pairById(x.pair_id) || {}, ty))).length })).sort((a, b) => b.n - a.n);
+    return `<article class="card plan" style="--tc:${tc(l.type)}">
+      <div class="plan-head">${leaderImg(s, l.name)}<div><h3>${esc(l.name)}</h3>${typeTag(l.type)}
+        <div class="weak-line">${t('Weak to')} ${w.map(typeTag).join(' ') || '—'}</div></div></div>
+      <div class="body">
+        <div><div class="sub">${t('Facilitator')}</div>
+          <div class="squad">${rows.map(facRow).join('') || `<p class="muted" style="margin:0">${t('nobody yet')}</p>`}</div>
+          ${staff ? `<div class="assign-new" style="margin-top:8px"><select data-fac-add="${esc(l.name)}"><option value="">+ ${t('Assign a facilitator…')}</option>${cand.map(({ p, n }) => `<option value="${p.id}">${esc(nameOf(p))}${n ? ` · ${t('{n} Rebuff pairs', { n })}` : ''}</option>`).join('')}</select></div>` : ''}</div>
+      </div></article>`;
+  }).join('')}</div>`;
+}
+async function saveFac(f, patch, msg) {
+  const row = { season_id: S.sid, leader: f.leader, user_id: f.user_id, team: f.team || [], does: f.does || [], note: f.note || '', ...patch, updated_by: S.me };
+  const ok = await act(() => api.saveFacilitator(row), msg);
+  if (ok) S.fac = await api.facilitators(S.sid);
+  return ok;
+}
+async function addFacilitator(leader, uid) {
+  const team = suggestFacilitator(owned(uid), leaderOf(season(), leader).weakness || []).map(x => x.pair_id);
+  if (!await saveFac({ leader, user_id: uid }, { team, does: ['rebuff', 'stats', 'status'] }, t('{n} will set up {l}.', { n: nameOf(profile(uid)), l: leader }))) return;
+  facEdit = { leader, user_id: uid, q: '' };
+  route();
+}
+const saveFacNote = debounce((f, note) => saveFac(f, { note }, t('Note saved.')), 700);
+document.addEventListener('change', e => { if (e.target.dataset.facAdd && e.target.value) addFacilitator(e.target.dataset.facAdd, e.target.value); });
+document.addEventListener('click', async e => {
+  const el = e.target.closest('[data-fac-edit],[data-fac-del],[data-fac-pair],[data-fac-do],[data-fac-suggest],[data-fac-done]');
+  if (!el) return;
+  const d = el.dataset;
+  const key = d.facEdit || d.facDel;
+  if (d.facEdit) { const [leader, uid] = key.split('|'); facEdit = facEdit && facEdit.leader === leader && facEdit.user_id === uid ? null : { leader, user_id: uid, q: '' }; return route(); }
+  if (d.facDel) {
+    const [leader, uid] = key.split('|');
+    if (await act(() => api.removeFacilitator(S.sid, leader, uid))) { S.fac = await api.facilitators(S.sid); if (facEdit?.leader === leader) facEdit = null; route(); }
+    return;
+  }
+  const f = facEdit && facOf(facEdit.leader, facEdit.user_id);
+  if (!f) return;
+  if ('facDone' in d) { facEdit = null; return route(); }
+  if (d.facDo) { const does = f.does.includes(d.facDo) ? f.does.filter(x => x !== d.facDo) : [...f.does, d.facDo]; if (await saveFac(f, { does })) route(); return; }
+  if ('facSuggest' in d) {
+    const team = suggestFacilitator(owned(f.user_id), leaderOf(season(), f.leader).weakness || []).map(x => x.pair_id);
+    if (await saveFac(f, { team })) route();
+    return;
+  }
+  if (d.facPair) {
+    const has = f.team.includes(d.facPair);
+    if (!has && f.team.length >= 3) return toast(t('A team has at most 3 sync pairs.'), true);
+    if (await saveFac(f, { team: has ? f.team.filter(x => x !== d.facPair) : [...f.team, d.facPair] })) route();
+  }
+});
+document.addEventListener('input', e => {
+  if ('facQ' in e.target.dataset && facEdit) {
+    facEdit.q = e.target.value;
+    const pos = e.target.selectionStart; route();
+    const el = $('[data-fac-q]'); if (el) { el.focus(); el.setSelectionRange(pos, pos); }
+  }
+  if ('facNote' in e.target.dataset && facEdit) { const f = facOf(facEdit.leader, facEdit.user_id); if (f) { f.note = e.target.value; saveFacNote(f, e.target.value); } }
+});
+
 const saveNote = debounce(async (leader, note) => {
   await act(() => api.saveNote({ season_id: S.sid, leader, note, updated_by: S.me }), t('Note saved.'));
   S.notes = await api.notes(S.sid);
@@ -1478,7 +1661,8 @@ document.addEventListener('submit', async e => {
     Object.assign(row, { name: f.name,
       battle_start: new Date(f.battle_start).toISOString(), battle_end: new Date(f.battle_end).toISOString(),
       tickets_day1: +f.tickets_day1, tickets_daily: +f.tickets_daily, ticket_cap: +f.ticket_cap, gym_ticket_cap: +f.gym_ticket_cap,
-      target_score: f.target_score ? +f.target_score : null, created_by: S.me });
+      target_score: f.target_score ? +f.target_score : null, created_by: S.me,
+      strategy: S.seasons.find(x => (x.strategy || '').trim())?.strategy || '' });   // start from the latest written rules
     const created = await act(() => api.createSeason(row), t('Created season {s}.', { s: f.name }));
     if (!created) return;
     if (f.is_active) await act(() => api.setActiveSeason(created.id));

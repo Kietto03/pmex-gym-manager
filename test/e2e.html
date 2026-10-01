@@ -39,6 +39,14 @@ f.onload = async () => {
     log($$('.mb').length > 0 && $$('.mb .pi').length > 0, 'member sees their planned battles with the team', `${$$('.mb').length} leaders`);
     log($$('.hero .stand .spr').length > 0 && $$('.hero .stand .spr').every(i => /assets\/trainers\//.test(i.src)), 'Gym Leaders use their own trainer sprites');
 
+    // The rules and the facilitator plan are visible to members, editable only by staff
+    await go('#/plan'); await until(() => $('[data-pview=strategy]'));
+    $('[data-pview=strategy]').click(); await sleep(200);
+    log($$('.rules-doc .rule-h').length >= 3 && $$('.rules-doc li').length > 5 && !$('[data-strategy-edit]'), 'members read the season rules (no edit button)', `${$$('.rules-doc .rule-h').length} sections`);
+    $('[data-pview=facilitator]').click(); await sleep(200);
+    log($$('.plan').length >= 1 && $$('.plan .sq').length >= 1 && !$('[data-fac-add]'), 'members see the facilitator plan (no edit controls)', `${$$('.plan .sq').length} rows`);
+    $('[data-pview=leaders]').click(); await sleep(150);
+
     // 2. Member logs a run with a team
     await go('#/log');
     await until(() => $('#run-editor'));
@@ -246,6 +254,29 @@ f.onload = async () => {
     await go(`#/member/${who}/pairs`);
     await until(() => $('#own-search'));
     log(!!$('.manage') && !!$('#own-search') && !$('.owned select[disabled]'), 'admin can edit another member\'s roster');
+
+    // 6b2. Strategy tab: staff write the rules; Facilitator tab: staff plan who sets up each Gym Leader
+    await go('#/plan'); await until(() => $('[data-pview=strategy]'));
+    $('[data-pview=strategy]').click(); await sleep(200);
+    $('[data-strategy-edit]').click(); await sleep(200);
+    const ta = $('#strategy-form textarea'); setVal(ta, '# New rules\n- first point\n  - sub point\n- **bold** point\nplain line'); await sleep(100);
+    $('#strategy-form').requestSubmit(); await until(() => $('.rules-doc'), 8000); await sleep(300);
+    log($$('.rules-doc .rule-h').length === 1 && $$('.rules-doc li').length === 3 && !!$('.rules-doc li b') && /plain line/.test($('.rules-doc').textContent), 'staff write the rules; headings, nested points and bold render', $('.rules-doc').textContent.replace(/\s+/g, ' ').slice(0, 60));
+    $('[data-pview=facilitator]').click(); await sleep(250);
+    const facSel = $('[data-fac-add]'); const facRows0 = $$('.plan .sq').length;
+    setVal(facSel, [...facSel.options].find(o => o.value).value); await until(() => $$('.plan .sq').length === facRows0 + 1, 8000); await sleep(200);
+    log($$('.plan .sq').length === facRows0 + 1 && !!$('.sq-edit'), 'staff assign a facilitator to a Gym Leader; the pair picker opens');
+    const dutyBtn = $('[data-fac-do=stats]'), dutyWasOn = dutyBtn.classList.contains('primary');
+    dutyBtn.click(); await sleep(300);
+    log($('[data-fac-do=stats]').classList.contains('primary') !== dutyWasOn, 'staff toggle what the facilitator does (Lower stats)');
+    const facPairBtns = () => $$('[data-fac-pair]'); const facOn = () => facPairBtns().filter(b => b.classList.contains('on')).length;
+    const facPicked0 = facOn();
+    facPairBtns().find(b => b.classList.contains('on')).click(); await sleep(300);   // the suggestion filled all three: free one
+    const facFreed = facOn();
+    facPairBtns().find(b => !b.classList.contains('on')).click(); await sleep(300);
+    log(facFreed === facPicked0 - 1 && facOn() === facPicked0, 'staff swap the facilitator’s sync pairs from their own roster', `${facPicked0} → ${facFreed} → ${facOn()}`);
+    $('[data-fac-done]').click(); await sleep(200);
+    $('[data-pview=leaders]').click(); await sleep(150);
 
     // 6c. Roster sheet (admin can edit every row)
     await go('#/roster');

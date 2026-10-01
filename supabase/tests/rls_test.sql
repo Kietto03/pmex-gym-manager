@@ -160,6 +160,23 @@ select pg_temp.check('pair removed from roster clears its sheet cells', '0000000
      do $d$ begin assert not exists (select 1 from public.roster_sheet where pair_id = 'p-sa'); end $d$;
      insert into public.member_pairs (user_id, pair_id, level, ex, ex_role) values ('00000000-0000-0000-0000-00000000000c', 'p-sa', 10, true, true) $$);
 
+-- ─── Strategy text + facilitator plans (staff) ───
+select pg_temp.check('mod writes the season strategy',              '00000000-0000-0000-0000-00000000000b',
+  $$ update public.seasons set strategy = E'# Rules\n- be on time' $$);
+select pg_temp.check('member cannot edit the strategy',             '00000000-0000-0000-0000-00000000000c',
+  $$ do $d$ declare n int; begin update public.seasons set strategy = 'x'; get diagnostics n = row_count; assert n = 0, 'updated'; end $d$ $$);
+select pg_temp.check('mod plans a facilitator from their roster',   '00000000-0000-0000-0000-00000000000b',
+  $$ insert into public.facilitator_plans (season_id, leader, user_id, team, does) select id, 'Roark', '00000000-0000-0000-0000-00000000000d', '{p-5}', '{rebuff,status}' from public.seasons $$);
+select pg_temp.check('facilitator team with an unowned pair is rejected', '00000000-0000-0000-0000-00000000000b',
+  $$ update public.facilitator_plans set team = '{p-sa}' where user_id = '00000000-0000-0000-0000-00000000000d' $$, 'not in this member''s roster');
+select pg_temp.check('unknown facilitator duty is rejected',        '00000000-0000-0000-0000-00000000000b',
+  $$ update public.facilitator_plans set does = '{dance}' where user_id = '00000000-0000-0000-0000-00000000000d' $$, 'check constraint');
+select pg_temp.check('member cannot plan facilitators',             '00000000-0000-0000-0000-00000000000c',
+  $$ insert into public.facilitator_plans (season_id, leader, user_id) select id, 'Roark', '00000000-0000-0000-0000-00000000000c' from public.seasons $$, 'row-level security');
+select pg_temp.check('pair leaving the roster leaves the facilitator team', '00000000-0000-0000-0000-00000000000b',
+  $$ delete from public.member_pairs where user_id = '00000000-0000-0000-0000-00000000000d' and pair_id = 'p-5';
+     do $d$ begin assert (select team from public.facilitator_plans where user_id = '00000000-0000-0000-0000-00000000000d') = '{}'::text[]; end $d$ $$);
+
 -- ─── Runs: the Gym Battle rules ───
 select pg_temp.check('member logs a run in the open round',         '00000000-0000-0000-0000-00000000000c',
   $$ insert into public.runs (season_id, user_id, leader, round, tickets, score) select id, '00000000-0000-0000-0000-00000000000c', 'Roark', 1, 3, 10000 from public.seasons $$);

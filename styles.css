@@ -817,3 +817,20 @@ td .muted .ico { width: 14px; height: 14px; vertical-align: -2px; }
 .trk textarea { width: 100%; padding: 10px 12px; border-radius: var(--r-md); border: var(--bw) solid var(--line-2); background: var(--surface-2); font-family: var(--mono); font-size: 12px; resize: vertical; color: var(--text); }
 #trk-preview p { margin: 0; font-size: 13.5px; }
 #trk-preview .warn { color: var(--bad); font-weight: 700; }
+
+/* Plan tabs: strategy + facilitator */
+.rules-doc { max-width: 860px; line-height: 1.65; }
+.rules-doc .rule-h { font-size: 19px; margin: 22px 0 8px; }
+.rules-doc .rule-h:first-child { margin-top: 0; }
+.rules-doc ul { margin: 4px 0 10px; padding-left: 22px; }
+.rules-doc ul ul { margin: 2px 0; }
+.rules-doc li { margin: 3px 0; }
+.rules-doc p { margin: 6px 0; color: var(--text-2); }
+#strategy-form textarea { width: 100%; padding: 12px 14px; border-radius: var(--r-md); border: var(--bw) solid var(--line-2); background: var(--surface-2); font-family: var(--mono); font-size: 13px; line-height: 1.55; resize: vertical; color: var(--text); }
+#strategy-form select { padding: 8px 12px; border-radius: var(--r-pill); border: var(--bw) solid var(--line-2); background: var(--surface); }
+.duties { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 4px 6px; }
+.duty { padding: 2px 9px; border-radius: var(--r-pill); font-size: 11.5px; font-weight: 700; background: var(--surface-3); color: var(--muted); text-decoration: line-through; opacity: .55; }
+.duty.on { background: var(--accent-soft); color: var(--accent); text-decoration: none; opacity: 1; }
+.duty-pick { display: flex; flex-wrap: wrap; gap: 6px; }
+.rp.tagged { box-shadow: inset 0 0 0 1px var(--accent); }
+.rp.tagged::before { content: ''; position: absolute; right: 4px; bottom: 16px; width: 7px; height: 7px; border-radius: var(--r-round); background: var(--accent); }

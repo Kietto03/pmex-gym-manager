@@ -185,6 +185,7 @@ create table public.seasons (
   ticket_cap     smallint not null default 30,            -- per member
   gym_ticket_cap integer  not null default 600,           -- whole gym
   target_score   bigint,                                  -- e.g. last season's Top-100 line
+  strategy       text not null default '',                -- the season's rules and requirements (the Strategy tab of the Plan page)
   is_active      boolean not null default false,
   created_by     uuid references public.profiles (id) on delete set null,
   created_at     timestamptz not null default now()
@@ -234,12 +235,30 @@ end $$;
 create trigger assignments_check before insert or update on public.assignments
   for each row execute function public.check_assignment();
 
+-- Facilitator planning: per Gym Leader, who sets up the fight (lowers the opponent's Type Rebuff or stats,
+-- applies status conditions) and with which of their own pairs. Same ownership rule as a squad.
+create table public.facilitator_plans (
+  season_id  bigint not null references public.seasons (id) on delete cascade,
+  leader     text   not null,
+  user_id    uuid   not null references public.profiles (id) on delete cascade,
+  team       text[] not null default '{}' check (cardinality(team) <= 3),
+  does       text[] not null default '{}' check (does <@ array['rebuff', 'stats', 'status']),
+  note       text   not null default '',
+  updated_by uuid references public.profiles (id) on delete set null,
+  updated_at timestamptz not null default now(),
+  primary key (season_id, leader, user_id)
+);
+create trigger facilitator_plans_check before insert or update on public.facilitator_plans
+  for each row execute function public.check_assignment();
+
 -- A pair that leaves the roster leaves every planned team and roster sheet cell too (runs keep their own copy)
 create function public.drop_pair_from_teams() returns trigger
   language plpgsql security definer set search_path = public
 as $$
 begin
   update public.assignments set team = array_remove(team, old.pair_id)
+   where user_id = old.user_id and old.pair_id = any (team);
+  update public.facilitator_plans set team = array_remove(team, old.pair_id)
    where user_id = old.user_id and old.pair_id = any (team);
   delete from public.roster_sheet where user_id = old.user_id and pair_id = old.pair_id;
   return old;
@@ -455,6 +474,7 @@ alter table public.season_members enable row level security;
 alter table public.assignments    enable row level security;
 alter table public.leader_notes   enable row level security;
 alter table public.roster_sheet   enable row level security;
+alter table public.facilitator_plans enable row level security;
 alter table public.runs           enable row level security;
 alter table public.activity       enable row level security;
 
@@ -467,6 +487,8 @@ create policy "read: signed in" on public.season_members for select to authentic
 create policy "read: signed in" on public.assignments    for select to authenticated using (true);
 create policy "read: signed in" on public.leader_notes   for select to authenticated using (true);
 create policy "read: signed in" on public.roster_sheet   for select to authenticated using (true);
+create policy "read: signed in" on public.facilitator_plans for select to authenticated using (true);
+create policy "write: staff" on public.facilitator_plans for all to authenticated using (public.is_staff()) with check (public.is_staff());
 create policy "read: signed in" on public.runs           for select to authenticated using (true);
 create policy "read: staff"     on public.activity       for select to authenticated using (public.is_staff());
 

@@ -5,7 +5,7 @@
    that follow the real rules. Reloading the page resets everything.
    ═══════════════════════════════════════════════════════════════ */
 import { GYMS, catalogRows, seasonFromGym, TYPES, pairById } from './catalog.js';
-import { autoFill } from './sheet.js';
+import { autoFill, suggestFacilitator } from './sheet.js';
 import { circuitAt, seasonState, validateRun, suggestTeam } from './rules.js';
 import { t } from './i18n.js';
 
@@ -69,10 +69,39 @@ function seedData() {
     });
     notes.push({ season_id: live2.id, leader: live2.leaders[0].name, note: 'Open with the Field pair to set the zone, then bring in the DPS.', updated_by: uid(2) });
   }
+  // One facilitator (profiles[5]) sets up every fight; the rules text is the sample the Strategy tab shows
+  const facilitators = [];
+  if (live2) {
+    live2.strategy = DEMO_STRATEGY;
+    const fp = profiles[5];
+    for (const l of live2.leaders) {
+      const team = suggestFacilitator(memberPairs.filter(m => m.user_id === fp.id), l.weakness || []).map(x => x.pair_id);
+      facilitators.push({ season_id: live2.id, leader: l.name, user_id: fp.id, team, does: ['rebuff', 'stats', 'status'],
+        note: 'One ticket before each battle, from Circuit 4.', updated_by: uid(2), updated_at: live2.battle_start });
+    }
+  }
   const activity = runs.slice(0, 30).map((r, i) => ({ id: i + 1, at: r.created_at, actor: r.created_by, actor_name: r.member_name,
     action: 'runs.insert', detail: { leader: r.leader, round: r.round, score: r.score } }));
-  return { profiles, catalog, memberPairs, tower, seasons, seasonMembers, runs, assignments, notes, activity, sheet: seedSheet(profiles, memberPairs) };
+  return { profiles, catalog, memberPairs, tower, seasons, seasonMembers, runs, assignments, notes, activity, facilitators, sheet: seedSheet(profiles, memberPairs) };
 }
+
+const DEMO_STRATEGY = `# 1. General requirements for all sync pairs
+- By default, every sync pair has its **EX** and **EX Role** unlocked.
+- Move level at least 3/5; 5/5 or Superawakened is strongly preferred.
+- Ideally each team has:
+  - a way to lower the opponent's Type Rebuff
+  - one or two damage dealers
+  - a way to create and extend Zones or Weather (EX Zones first)
+  - a way to lower the opponent's stats, and to apply status conditions
+
+# 2. Ticket usage
+- Use your tickets efficiently.
+- Finished a battle at ~99% of the opponent's HP? Restart it instead of spending another ticket on the last 1%.
+- Spend all your tickets before the event ends.
+
+# 3. Team appointment
+- Each Type is mainly appointed to two members. When both are done and have tickets left, they may help other Types.
+- The remaining member is the **Facilitator**: from Circuit 4 they spend one ticket before each battle to make it easier for the others.`;
 
 // Every member's roster sheet, filled with the suggestions (as if each had done "Auto-fill")
 function seedSheet(profiles, memberPairs) {
@@ -167,6 +196,7 @@ export function createDemoApi() {
         db.memberPairs = db.memberPairs.filter(x => x.user_id !== body.user_id);
         db.tower = db.tower.filter(x => x.user_id !== body.user_id);
         db.assignments = db.assignments.filter(x => x.user_id !== body.user_id);
+        db.facilitators = db.facilitators.filter(x => x.user_id !== body.user_id);
         db.sheet = db.sheet.filter(x => x.user_id !== body.user_id);
         db.seasonMembers = db.seasonMembers.filter(x => x.user_id !== body.user_id);
         for (const r of db.runs) if (r.user_id === body.user_id) r.user_id = null;   // runs keep member_name
@@ -218,6 +248,7 @@ export function createDemoApi() {
       selfOrStaff(user_id);
       db.memberPairs = db.memberPairs.filter(x => !(x.user_id === user_id && x.pair_id === pair_id));
       for (const a of db.assignments) if (a.user_id === user_id) a.team = a.team.filter(x => x !== pair_id);
+      for (const f of db.facilitators) if (f.user_id === user_id) f.team = f.team.filter(x => x !== pair_id);
       db.sheet = db.sheet.filter(x => !(x.user_id === user_id && x.pair_id === pair_id));
     },
 
@@ -307,6 +338,22 @@ export function createDemoApi() {
     async clearSheetCell(user_id, type, slot) {
       selfOrStaff(user_id);
       db.sheet = db.sheet.filter(x => !(x.user_id === user_id && x.type === type && x.slot === slot));
+    },
+
+    facilitators: async sid => clone(db.facilitators.filter(f => f.season_id === sid)),
+    async saveFacilitator(row) {
+      staff() || deny();
+      const team = row.team || [];
+      if (team.length > 3) deny(t('A team has at most 3 sync pairs.'));
+      const missing = team.filter(id => !db.memberPairs.some(m => m.user_id === row.user_id && m.pair_id === id));
+      if (missing.length) deny(t('{pairs} is not in this member’s roster.', { pairs: missing.map(id => { const c = db.catalog.find(x => x.id === id); return c ? `${c.trainer} & ${c.pokemon}` : id; }).join(', ') }));
+      const f = db.facilitators.find(x => x.season_id === row.season_id && x.leader === row.leader && x.user_id === row.user_id);
+      const next = { team: [], does: [], note: '', ...(f || {}), ...row, updated_at: new Date().toISOString() };
+      if (f) Object.assign(f, next); else db.facilitators.push(next);
+    },
+    async removeFacilitator(season_id, leader, user_id) {
+      staff() || deny();
+      db.facilitators = db.facilitators.filter(f => !(f.season_id === season_id && f.leader === leader && f.user_id === user_id));
     },
 
     notes: async sid => clone(db.notes.filter(n => n.season_id === sid)),
