@@ -193,6 +193,16 @@ f.onload = async () => {
     const editable = $$('.troster tbody tr').filter(tr => tr.querySelector('[data-sc]'));
     log(editable.length === 1 && editable[0].classList.contains('me'), 'member can only edit their own row of the roster sheet');
 
+    // 4b. An ended Gym Battle is frozen for everyone but the admin
+    await go('#/');
+    await until(() => $('[data-season]'));
+    $$('[data-season]').find(b => !b.querySelector('.dot') && !/Archive/.test(b.innerText)).click(); await sleep(400);
+    await go('#/log');
+    await until(() => $('#log-table'));
+    log(!$('#run-editor') && !$('[data-run-edit]') && /over/i.test($('#run-form').innerText), 'ended season: members see no log form and no edit buttons');
+    await go('#/');
+    $$('[data-season]').find(b => b.querySelector('.dot'))?.click(); await sleep(300);
+
     // 5. Sign out → sign in as admin
     await go('#/account');
     $('[data-signout]').click();

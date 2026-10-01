@@ -226,6 +226,21 @@ select pg_temp.check('deleting an account keeps its runs',          null,
        assert exists (select 1 from public.runs where user_id is null and member_name = 'Ann!'); end $d$ $$);
 
 -- ─── Report ───
+-- ─── A Gym Battle that is over is frozen: only the admin changes it ───
+insert into public.seasons (name, battle_start, battle_end, leaders, circuits) values
+  ('SS-over', now() - interval '20 days', now() - interval '10 days',
+   '[{"name":"Roark","type":"Rock"}]', '[{"name":"Circuit 1","pts":10000,"kind":"Regular Battle"}]');
+select pg_temp.check('mod cannot log into an ended season',           '00000000-0000-0000-0000-00000000000b',
+  $$ insert into public.runs (season_id, user_id, member_name, leader, round, tickets, score) select id, null, 'x', 'Roark', 1, 3, 100 from public.seasons where name = 'SS-over' $$, 'over');
+select pg_temp.check('member cannot log into an ended season',        '00000000-0000-0000-0000-00000000000c',
+  $$ insert into public.runs (season_id, user_id, member_name, leader, round, tickets, score) select id, null, 'x', 'Roark', 1, 3, 100 from public.seasons where name = 'SS-over' $$, 'over');
+select pg_temp.check('admin can still log into an ended season',      '00000000-0000-0000-0000-00000000000a',
+  $$ insert into public.runs (season_id, user_id, member_name, leader, round, tickets, score) select id, null, 'x', 'Roark', 1, 3, 100 from public.seasons where name = 'SS-over' $$);
+select pg_temp.check('mod cannot delete a run of an ended season',    '00000000-0000-0000-0000-00000000000b',
+  $$ delete from public.runs where member_name = 'x' $$, 'over');
+select pg_temp.check('mod cannot plan an ended season',               '00000000-0000-0000-0000-00000000000b',
+  $$ insert into public.leader_notes (season_id, leader, note) select id, 'Roark', 'late' from public.seasons where name = 'SS-over' $$, 'over');
+
 select format('%s  %s%s', case when ok then 'PASS' else 'FAIL' end, name, case when ok then '' else '  → ' || info end) as result
   from results order by n;
 do $$ begin

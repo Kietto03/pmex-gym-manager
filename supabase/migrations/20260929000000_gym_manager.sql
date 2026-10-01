@@ -270,11 +270,13 @@ create function public.drop_pair_from_teams() returns trigger
   language plpgsql security definer set search_path = public
 as $$
 begin
+  perform set_config('app.skip_lock', '1', true);   -- tidying plans of an ended season is not an edit
   update public.assignments set team = array_remove(team, old.pair_id)
    where user_id = old.user_id and old.pair_id = any (team);
   update public.facilitator_plans set team = array_remove(team, old.pair_id)
    where user_id = old.user_id and old.pair_id = any (team);
   delete from public.roster_sheet where user_id = old.user_id and pair_id = old.pair_id;
+  perform set_config('app.skip_lock', '0', true);
   return old;
 end $$;
 
@@ -552,3 +554,21 @@ begin
       using (bucket_id = 'avatars' and ((storage.foldername(name))[1] = auth.uid()::text or public.is_staff())) $p$;
   end if;
 end $$;
+
+-- A Gym Battle that is over is frozen: only the admin can still change its log, plans and notes.
+create function public.lock_ended_season() returns trigger
+  language plpgsql security definer set search_path = public
+as $$
+declare sid bigint := coalesce(case when tg_op = 'DELETE' then old.season_id else new.season_id end, 0);
+begin
+  if coalesce(current_setting('app.skip_lock', true), '0') = '1' then return case when tg_op = 'DELETE' then old else new end; end if;
+  if exists (select 1 from public.seasons where id = sid and battle_end <= now())
+     and auth.uid() is not null and not public.is_admin() then
+    raise exception 'This Gym Battle is over. Only the admin can change it now.';
+  end if;
+  return case when tg_op = 'DELETE' then old else new end;
+end $$;
+create trigger runs_lock before insert or update or delete on public.runs for each row execute function public.lock_ended_season();
+create trigger assignments_lock before insert or update or delete on public.assignments for each row execute function public.lock_ended_season();
+create trigger leader_notes_lock before insert or update or delete on public.leader_notes for each row execute function public.lock_ended_season();
+create trigger facilitator_plans_lock before insert or update or delete on public.facilitator_plans for each row execute function public.lock_ended_season();

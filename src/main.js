@@ -49,7 +49,8 @@ async function act(fn, okMsg) {
 let api;
 const S = { me: null, profiles: [], mp: [], tower: [], seasons: [], sid: null, runs: [], sm: [], asg: [], notes: [], fac: [], res: [], sheet: [] };
 const meP = () => S.profiles.find(p => p.id === S.me);
-const isStaff = () => ['admin', 'mod'].includes(meP()?.role);
+let lockCtx = false;   // set while drawing a frozen page: staff controls disappear for everyone but the admin
+const isStaff = () => !lockCtx && ['admin', 'mod'].includes(meP()?.role);
 const isAdmin = () => meP()?.role === 'admin';
 const profile = id => S.profiles.find(p => p.id === id);
 const nameOf = p => (p ? p.display_name || p.username : '');
@@ -57,7 +58,9 @@ const season = () => S.seasons.find(s => s.id === S.sid);
 const owned = uid => S.mp.filter(x => x.user_id === uid);
 const ownedPair = (uid, pid) => S.mp.find(x => x.user_id === uid && x.pair_id === pid);
 const towerFloor = (uid, type) => S.tower.find(x => x.user_id === uid && x.type === type)?.floor || 0;
-const canEdit = uid => uid === S.me || isStaff();
+// A Gym Battle that is over is frozen: only the admin can still change its log and plans (the database enforces it too)
+const frozen = () => { const s = season(); return !!s && Date.parse(s.battle_end) <= Date.now() && !isAdmin(); };
+const canEdit = uid => !lockCtx && (uid === S.me || isStaff());
 const leaderImg = (s, name, cls = '') => img(leaderImage(s, name), `spr ${cls}`, name);
 const leaderOf = (s, name) => s?.leaders.find(l => l.name === name) || { name, weakness: [] };
 
@@ -414,9 +417,13 @@ function renderLog(leader = '', round = '', member = '') {
   const s = season();
   if (!s) return seasonBar() + noSeason();
   if (!form || leader || round || member) form = blankForm(leader, +round || null, member || null);
+  lockCtx = frozen();
+  try { return logPage(); } finally { lockCtx = false; }
+}
+function logPage() {
   return `${seasonBar()}
   <div class="log-layout">
-    <section class="card pad" id="run-form">${runForm()}</section>
+    <section class="card pad" id="run-form">${lockCtx ? `<h2 class="title">${t('Log a run')}</h2><p class="muted">${ico('lock')} ${t('This Gym Battle is over. Only the admin can change it now.')}</p>` : runForm()}</section>
     <section>
       <h2 class="title">${t('Run history')} <small>${t('{n} runs', { n: S.runs.length })}</small></h2>
       <div class="card filters" id="log-filters">${logFilters()}</div>
@@ -573,7 +580,8 @@ document.addEventListener('change', e => {
   const k = e.target.dataset.lf;
   if (!k) return;
   logFilter[k] = e.target.value;
-  $('#log-table').innerHTML = logTable();
+  lockCtx = frozen();
+  try { $('#log-table').innerHTML = logTable(); } finally { lockCtx = false; }
 });
 
 // ═══════════════════════════════════════════════════════════════
@@ -644,7 +652,11 @@ function renderPlan() {
   const s = season();
   if (!s) return seasonBar() + noSeason();
   const tabs = [['leaders', 'Gym Leaders', 'swords'], ['strategy', 'Strategy', 'note'], ['facilitator', 'Facilitator', 'bolt']];
-  return `${seasonBar()}
+  lockCtx = frozen() && planView !== 'strategy';
+  try { return planPage(s, tabs); } finally { lockCtx = false; }
+}
+function planPage(s, tabs) {
+  return `${seasonBar()}${lockCtx ? `<p class="notice">${ico('lock')} ${t('This Gym Battle is over. Only the admin can change it now.')}</p>` : ''}
   <div class="toolbar"><h1>${t('Plan')}</h1><div class="seg">${tabs.map(([k, l, i]) => `<button class="${planView === k ? 'on' : ''}" data-pview="${k}">${ico(i)} ${t(l)}</button>`).join('')}</div></div>
   ${planView === 'strategy' ? planStrategy(s) : planView === 'facilitator' ? planFacilitator(s) : planLeaders()}`;
 }

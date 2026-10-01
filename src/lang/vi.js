@@ -394,4 +394,5 @@ export default {
   'click a player to see their teams': 'bấm vào người chơi để xem team',
   '{n} players': '{n} người chơi',
   'Kept from the spreadsheet: totals only, no run-by-run detail.': 'Lấy từ bảng tính: chỉ có tổng, không có chi tiết từng lượt.',
+  'This Gym Battle is over. Only the admin can change it now.': 'Gym Battle này đã kết thúc. Chỉ admin mới được chỉnh sửa.',
 };
