@@ -32,7 +32,7 @@ export function ticketsGranted(season, now = Date.now()) {
   const start = Date.parse(season.battle_start), end = Date.parse(season.battle_end);
   if (!(now >= start)) return 0;
   // +daily every 24 h, and the last daily allotment is in hand for the whole final day, so a full
-  // 7-day Battle reaches 9 + 7×3 = 30 (the event log shows members using all 30)
+  // 7-day Battle hits the per-member cap of 30 (12 on day 1, +3 a day; the event log shows members using all 30)
   const days = Math.ceil((end - start) / DAY);
   const passed = Math.floor((Math.min(now, end) - start) / DAY) + (now >= end - DAY ? 1 : 0);
   return Math.min(season.ticket_cap, season.tickets_day1 + season.tickets_daily * Math.min(passed, days));

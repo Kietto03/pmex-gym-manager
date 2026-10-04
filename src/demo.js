@@ -50,7 +50,7 @@ function seedData() {
     battle_start: new Date(Date.now() - 40 * 864e5).toISOString(), battle_end: new Date(Date.now() - 33 * 864e5).toISOString() });
   if (live) seasons.push({ ...seasonFromGym(live), id: 2, name: `${live.name} (demo)`, is_active: true,
     battle_start: new Date(Date.now() - 3.2 * 864e5).toISOString(), battle_end: new Date(Date.now() + 3.8 * 864e5).toISOString() });
-  for (const s of seasons) Object.assign(s, { tickets_day1: 9, tickets_daily: 3, ticket_cap: 30, gym_ticket_cap: 600,
+  for (const s of seasons) Object.assign(s, { tickets_day1: 12, tickets_daily: 3, ticket_cap: 30, gym_ticket_cap: 600,
     target_score: s.is_active ? 18000000 : 15000000, created_by: uid(1), created_at: s.battle_start });
 
   const seasonMembers = [{ season_id: 2, user_id: uid(20), banned: true, note: 'Took a break mid-season' }];

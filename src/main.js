@@ -1589,7 +1589,7 @@ function adminSeasons() {
     <div class="grid3"><label>${t('Battle starts (your time)')}<input name="battle_start" type="datetime-local" required></label>
       <label>${t('Battle ends')}<input name="battle_end" type="datetime-local" required></label>
       <label>${t('Target score (e.g. Top 100)')}<input name="target_score" type="number" min="0"></label></div>
-    <div class="grid4"><label>${t('Tickets on day 1')}<input name="tickets_day1" type="number" value="9" min="0"></label>
+    <div class="grid4"><label>${t('Tickets on day 1')}<input name="tickets_day1" type="number" value="12" min="0"></label>
       <label>${t('+ per day')}<input name="tickets_daily" type="number" value="3" min="0"></label>
       <label>${t('Cap per member')}<input name="ticket_cap" type="number" value="30" min="1"></label>
       <label>${t('Cap for the gym')}<input name="gym_ticket_cap" type="number" value="600" min="1"></label></div>
