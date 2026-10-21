@@ -861,3 +861,22 @@ td .muted .ico { width: 14px; height: 14px; vertical-align: -2px; }
 .chip { padding: 2px 8px; border-radius: 99px; background: rgba(127,127,127,.15); font-size: 12px; }
 .chip.dim { opacity: .65; }
 .seg.wrap { flex-wrap: wrap; }
+
+.hpbar { height: 6px; border-radius: 99px; background: rgba(127,127,127,.18); overflow: hidden; }
+.hpbar i { display: block; height: 100%; background: linear-gradient(90deg, #3ddc84, #f2c230 60%, #ef5350); background-size: 400px 100%; border-radius: 99px; }
+.bars { display: flex; align-items: flex-end; gap: 6px; height: 190px; padding-top: 18px; }
+.bar { flex: 1; min-width: 0; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 3px; background: none; border: 0; padding: 0; cursor: pointer; color: inherit; position: relative; }
+.bar i { display: block; width: 100%; border-radius: 6px 6px 0 0; background: var(--accent); opacity: .45; transition: opacity .15s; }
+.bar:hover i, .bar.on i { opacity: 1; }
+.bar .bv { font-size: 10px; font-variant-numeric: tabular-nums; opacity: .7; }
+.bar .bl { font-size: 10px; font-weight: 700; }
+.bar.on .bl { color: var(--accent); }
+.matrix { border-collapse: collapse; width: 100%; font-size: 13px; }
+.matrix thead th { padding: 8px 6px; text-align: center; border-bottom: 3px solid var(--tc); font-size: 12px; }
+.matrix thead th .spr { display: block; margin: 0 auto 2px; width: 34px; height: 34px; object-fit: contain; }
+.matrix tbody th { text-align: left; font-weight: 600; padding: 5px 10px; white-space: nowrap; }
+.matrix td { text-align: center; padding: 4px; border-left: 1px solid rgba(127,127,127,.12); }
+.matrix tr:not(.mh):hover { background: rgba(127,127,127,.08); }
+.matrix tr.mh th { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; opacity: .6; padding-top: 12px; }
+.matrix tr.all th { opacity: .55; font-weight: 500; }
+.dot-on { display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: var(--tc, var(--accent)); }

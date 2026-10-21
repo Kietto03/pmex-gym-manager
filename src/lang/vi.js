@@ -424,4 +424,9 @@ export default {
   'Battle': 'Chiến đấu',
   'Ranking': 'Xếp hạng',
   'Reward': 'Nhận thưởng',
+  'Boss HP by circuit': 'HP boss theo circuit',
+  'click a bar to open that circuit': 'bấm cột để mở circuit đó',
+  'Conditions at a glance': 'Ma trận condition',
+  '{c}: what each leader brings': '{c}: mỗi leader mang gì',
+  'Every opponent': 'Chi tiết từng đối thủ',
 };

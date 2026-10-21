@@ -596,12 +596,31 @@ function renderInfo() {
   if (!g) return `${seasonBar()}<div class="card pad"><h2 class="title">${t('Battle info')}</h2><p class="muted">${t('The datamine has no details for this Gym Battle.')}</p></div>`;
   const tabs = [['bosses', 'Opponents'], ['schedule', 'Schedule and tickets'], ['rewards', 'Rewards']];
   const st = g.stages[Math.min(infoStage, g.stages.length - 1)], c = g.circuits[Math.min(infoStage, g.circuits.length - 1)];
+  const maxHp = Math.max(1, ...g.stages.flatMap(x => x.leaders.flatMap(l => (l.units || []).map(u => u.hp || 0))));
   const stat = (k, v) => `<span class="us"><small>${k}</small><b>${fmtN(v)}</b></span>`;
   const unit = u => `<div class="unit"><div class="unit-h"><b>${t(u.pos)}</b> ${u.weakness ? `<span class="weak">${t('Weak to')} ${img(typeIcon(u.weakness), 'ti', u.weakness)}</span>` : ''}</div>
+    <div class="hpbar" title="${fmtN(u.hp)} HP"><i style="width:${Math.max(1.5, u.hp / maxHp * 100)}%"></i></div>
     <div class="ustats">${stat('HP', u.hp)}${stat('ATK', u.atk)}${stat('DEF', u.def)}${stat('SP.ATK', u.spa)}${stat('SP.DEF', u.spd)}${stat('SPE', u.spe)}</div>
     ${(u.focus || []).length ? `<div class="chips-l"><small>${t('Focus')}</small>${u.focus.map(f => `<span class="chip">${esc(f)}</span>`).join('')}</div>` : ''}
     ${u.reduction ? `<div class="chips-l"><small>${t('Condition')}</small><span class="chip">${esc(u.reduction)}</span>${(u.reductionMods || []).map(f => `<span class="chip dim">${esc(f)}</span>`).join('')}</div>` : ''}
     ${(u.passives || []).length ? `<div class="chips-l"><small>${t('Passives')}</small>${u.passives.map(f => `<span class="chip">${esc(f)}</span>`).join('')}</div>` : ''}</div>`;
+
+  // HP of the centre boss through the circuits (the first leader of each circuit; every leader scales the same way)
+  const hpSeries = g.stages.map(x => Math.max(0, ...x.leaders.map(l => l.units?.[0]?.hp || 0)));
+  const hpTop = Math.max(1, ...hpSeries);
+  const hpChart = `<div class="card pad"><h2 class="title">${t('Boss HP by circuit')} <small>${t('click a bar to open that circuit')}</small></h2>
+    <div class="bars">${hpSeries.map((v, i) => `<button class="bar ${i === infoStage ? 'on' : ''}" data-istage="${i}" title="${esc(g.stages[i].name)}: ${fmtN(v)} HP"><span class="bv">${fmtK(v)}</span><i style="height:${Math.max(2, v / hpTop * 100)}%"></i><span class="bl">${esc(roundShort(g.stages[i].name))}</span></button>`).join('')}</div></div>`;
+  // Which leader brings which condition / passive / focus (any of their units): a matrix to compare the eight at a glance
+  const kinds = [['Focus', u => u.focus || []], ['Condition', u => [u.reduction, ...(u.reductionMods || [])].filter(Boolean)], ['Passives', u => u.passives || []]];
+  const has = (l, fn, name) => (l.units || []).some(u => fn(u).includes(name));
+  const matrix = `<div class="card scroll"><table class="matrix"><thead><tr><th></th>${st.leaders.map(l => `<th style="--tc:${tc(l.type)}">${leaderImg(s, l.name)}<b>${esc(l.name)}</b></th>`).join('')}</tr></thead>
+    <tbody>${kinds.map(([title, fn]) => {
+      const names = [...new Set(st.leaders.flatMap(l => (l.units || []).flatMap(fn)))];
+      return `<tr class="mh"><th colspan="${st.leaders.length + 1}">${t(title)}</th></tr>` + names.map(n => {
+        const n8 = st.leaders.filter(l => has(l, fn, n)).length;
+        return `<tr class="${n8 === st.leaders.length ? 'all' : ''}"><th>${esc(n)}</th>${st.leaders.map(l => `<td style="--tc:${tc(l.type)}">${has(l, fn, n) ? '<i class="dot-on"></i>' : ''}</td>`).join('')}</tr>`;
+      }).join('');
+    }).join('')}</tbody></table></div>`;
   const body = infoTab === 'schedule' ? `
     <div class="cols"><section><h2>${t('Schedule')}</h2><div class="card list">${g.phases.map(p => `<div class="run"><div><b>${esc(t(p.name))}</b><small class="muted">${fmtDT(p.start + 'Z')} → ${fmtDT(p.end + 'Z')}</small></div></div>`).join('')}</div></section>
     <section><h2>${t('Tickets and time')}</h2><div class="card scroll"><table class="table"><thead><tr><th class="num">${t('Tickets')}</th><th>${t('Time limit')}</th><th class="num">${t('Buff')}</th></tr></thead>
@@ -614,6 +633,9 @@ function renderInfo() {
     <section><h2>${t('Ranking rewards')}</h2><div class="card scroll"><table class="table"><tbody>${(g.ranking || []).map(x => `<tr><td><b>${esc(plain(x.label))}</b></td><td>${x.items.map(i => esc(plain(i))).join(', ')}</td></tr>`).join('')}</tbody></table></div></section></div>`
   : `<div class="seg wrap">${g.stages.map((x, i) => `<button class="${i === infoStage ? 'on' : ''}" data-istage="${i}">${esc(roundShort(x.name))}</button>`).join('')}</div>
     <p class="muted">${esc(c.name)} · ${esc(c.kind)} · ${esc(c.ball)} · ${t('{n} points per leader', { n: fmtN(c.pts) })}</p>
+    ${hpChart}
+    <h2 class="section">${t('Conditions at a glance')} <small>${t('{c}: what each leader brings', { c: roundShort(st.name) })}</small></h2>${matrix}
+    <h2 class="section">${t('Every opponent')}</h2>
     <div class="info-grid">${st.leaders.map(l => `<article class="card pad info-l" style="--tc:${tc(l.type)}">
       <header>${leaderImg(s, l.name)}<div><h3>${esc(l.name)}</h3><small class="muted">${img(typeIcon(l.type), 'ti', l.type)} ${esc(l.title || '')}</small></div></header>
       <div class="rules"><small>${t('Rules')}</small>${l.rules?.length ? l.rules.map((r, i) => `<p><b>${t('Rules')} ${i + 1}</b> ${esc(r)}</p>`).join('') : `<p>${esc(l.rule || l.theme || t('No rules'))}</p>`}
