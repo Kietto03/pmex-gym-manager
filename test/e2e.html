@@ -294,8 +294,8 @@ f.onload = async () => {
     log(!!$('#nav a[href="#/roster"]'), 'Roster has its own menu entry');
     $('[data-rtype=Poison]').click(); await sleep(200);
     const heads = $$('.troster thead th').map(th => th.innerText.trim().replace(/\s+/g, ' '));
-    log(['Special', 'Physical', 'EX WTZ', 'Rebuff', 'Sub-DPS', 'Extend WTZ', 'Support', 'Other 1'].every(h => heads.some(x => x.includes(h))) && !$('[data-core-edit]') && !$('[data-col-edit]'),
-      'sheet columns: Special, Physical, EX WTZ, Rebuff, Sub-DPS, Extend WTZ, Support, Other — no core / column buttons', heads.slice(2).join(' | '));
+    log(['Special', 'Physical', 'EX WTZ', 'Rebuff', 'Sub-DPS Physical', 'Sub-DPS Special', 'Extend WTZ', 'Support', 'Other 1'].every(h => heads.some(x => x.includes(h))) && !$('[data-core-edit]') && !$('[data-col-edit]'),
+      'sheet columns: Special, Physical, EX WTZ, Rebuff, Sub-DPS Physical/Special, Extend WTZ, Support, Other — no core / column buttons', heads.slice(2).join(' | '));
     log($$('.troster tbody tr').length >= 19 && $$('.troster tbody tr').every(tr => tr.querySelector('[data-sc]')), 'admin can edit every row');
     const cellKey = $$('[data-sc$="|support"]')[0].dataset.sc;
     const cell = () => $(`[data-sc="${cellKey}"]`);

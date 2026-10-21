@@ -289,7 +289,7 @@ create table public.roster_sheet (
   user_id    uuid not null references public.profiles (id) on delete cascade,
   type       text not null check (type in ('Normal', 'Fire', 'Water', 'Electric', 'Grass', 'Ice', 'Fighting', 'Poison',
                'Ground', 'Flying', 'Psychic', 'Bug', 'Rock', 'Ghost', 'Dragon', 'Dark', 'Steel', 'Fairy')),
-  slot       text not null check (slot in ('special', 'physical', 'wtz', 'rebuff', 'subdps', 'extwtz', 'support', 'other1', 'other2', 'other3')),
+  slot       text not null check (slot in ('special', 'physical', 'wtz', 'rebuff', 'subphys', 'subspec', 'extwtz', 'support', 'other1', 'other2', 'other3')),
   pair_id    text references public.pair_catalog (id) on update cascade,
   updated_by uuid references public.profiles (id) on delete set null,
   updated_at timestamptz not null default now(),
