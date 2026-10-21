@@ -360,7 +360,7 @@ f.onload = async () => {
     await until(() => $('.info-l'));
     log($$('.info-l').length === 8 && /HP/.test($('.info-l').innerText) && /Passives/.test($('.info-l').innerText) && /Condition/.test($('.info-l').innerText), 'battle info: 8 leader cards with HP, condition and passives');
     $$('[data-istage]')[5].click(); await sleep(200);
-    log(/Extra Battle|Circuit/.test($('.info-grid').previousElementSibling.innerText) && $$('.info-l').length === 8, 'battle info: pick another circuit');
+    log(/Extra Battle 3/.test($('.view, #view, main')?.innerText || document.body.innerText) && $$('.info-l').length === 8 && $$('.bar.on').length === 1 && $$('.matrix tbody tr').length > 10, 'battle info: pick another circuit');
     $('[data-itab=schedule]').click(); await sleep(150);
     log(/Battle/.test($('.cols').innerText) && /×3/.test($('.cols').innerText), 'battle info: schedule and ticket times');
     $('[data-itab=rewards]').click(); await sleep(150);
