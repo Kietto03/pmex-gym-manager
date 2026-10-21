@@ -843,3 +843,21 @@ td .muted .ico { width: 14px; height: 14px; vertical-align: -2px; }
 .arch-t span { white-space: pre-line; font-size: 13px; }
 .notice { display: flex; gap: 8px; align-items: center; margin: 0 0 14px; padding: 10px 14px; border-radius: var(--radius, 12px); background: rgba(127,127,127,.12); font-weight: 600; }
 .notice .ico, .notice svg { flex: none; }
+
+/* battle info */
+.info-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; margin-top: 12px; }
+.info-l { border-top: 4px solid var(--tc); display: grid; gap: 10px; align-content: start; }
+.info-l header { display: flex; gap: 10px; align-items: center; }
+.info-l header .spr { width: 52px; height: 52px; object-fit: contain; }
+.info-l h3 { margin: 0; }
+.info-l .rules p { margin: 2px 0; font-size: 13px; }
+.unit { border-top: 1px dashed rgba(127,127,127,.3); padding-top: 8px; display: grid; gap: 6px; }
+.unit-h { display: flex; justify-content: space-between; align-items: center; }
+.ustats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px 8px; }
+.us small { display: block; font-size: 10px; opacity: .65; }
+.us b { font-variant-numeric: tabular-nums; }
+.chips-l { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.chips-l small { font-size: 10px; opacity: .65; margin-right: 2px; }
+.chip { padding: 2px 8px; border-radius: 99px; background: rgba(127,127,127,.15); font-size: 12px; }
+.chip.dim { opacity: .65; }
+.seg.wrap { flex-wrap: wrap; }

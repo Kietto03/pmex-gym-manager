@@ -355,6 +355,18 @@ f.onload = async () => {
     log(/Red & Articuno/.test($('.arch-teams')?.innerText || ''), 'clicking a player shows the teams they used');
     $$('[data-season]').find(b => !/Archive/.test(b.innerText) && b.querySelector('.dot'))?.click(); await sleep(300);
 
+    // 6e. Battle info: bosses, schedule, rewards from the datamine
+    await go('#/info');
+    await until(() => $('.info-l'));
+    log($$('.info-l').length === 8 && /HP/.test($('.info-l').innerText) && /Passives/.test($('.info-l').innerText) && /Condition/.test($('.info-l').innerText), 'battle info: 8 leader cards with HP, condition and passives');
+    $$('[data-istage]')[5].click(); await sleep(200);
+    log(/Extra Battle|Circuit/.test($('.info-grid').previousElementSibling.innerText) && $$('.info-l').length === 8, 'battle info: pick another circuit');
+    $('[data-itab=schedule]').click(); await sleep(150);
+    log(/Battle/.test($('.cols').innerText) && /×3/.test($('.cols').innerText), 'battle info: schedule and ticket times');
+    $('[data-itab=rewards]').click(); await sleep(150);
+    log($$('.table tbody tr').length > 5, 'battle info: rewards');
+    $('[data-itab=bosses]').click(); await sleep(100);
+
     // 7. Admin creates and deletes an account
     await go('#/admin');
     await until(() => $('[data-atab=accounts]'));

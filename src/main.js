@@ -90,7 +90,7 @@ async function loadSeason() {
 const state = () => (season() ? seasonState(season(), S.runs, S.sm) : null);
 
 // ─── Chrome (header) ────────────────────────────────────────
-const NAV = [['', 'Overview', 'home'], ['log', 'Log a run', 'swords'], ['plan', 'Plan', 'plan'], ['roster', 'Roster', 'roster'],
+const NAV = [['', 'Overview', 'home'], ['log', 'Log a run', 'swords'], ['plan', 'Plan', 'plan'], ['info', 'Battle info', 'flag'], ['roster', 'Roster', 'roster'],
   ['members', 'Members', 'users'], ['admin', 'Admin', 'shield']];
 function renderHeader(active) {
   $('#nav').innerHTML = S.me ? NAV.filter(([k]) => k !== 'admin' || isStaff())
@@ -143,7 +143,7 @@ document.addEventListener('change', e => {
 
 // ─── Router ─────────────────────────────────────────────────
 const view = $('#view');
-const routes = { '': renderOverview, log: renderLog, plan: renderPlan, roster: renderRoster, members: renderMembers, member: renderMember,
+const routes = { '': renderOverview, log: renderLog, plan: renderPlan, info: renderInfo, roster: renderRoster, members: renderMembers, member: renderMember,
   settings: renderSettings, account: renderSettings, admin: renderAdmin };
 const after = {};
 
@@ -582,6 +582,50 @@ document.addEventListener('change', e => {
   logFilter[k] = e.target.value;
   lockCtx = frozen();
   try { $('#log-table').innerHTML = logTable(); } finally { lockCtx = false; }
+});
+
+// ═══════════════════════════════════════════════════════════════
+//  BATTLE INFO: everything the datamine says about the Gym Battle
+// ═══════════════════════════════════════════════════════════════
+let infoStage = 0, infoTab = 'bosses';
+const plain = x => String(x || '').replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu, '').replace(/\s+/g, ' ').trim();
+function renderInfo() {
+  const s = season();
+  if (!s) return seasonBar() + noSeason();
+  const g = GYMS().find(x => x.name === (s.gym_key || s.name)) || GYMS().find(x => s.name.startsWith(x.name));
+  if (!g) return `${seasonBar()}<div class="card pad"><h2 class="title">${t('Battle info')}</h2><p class="muted">${t('The datamine has no details for this Gym Battle.')}</p></div>`;
+  const tabs = [['bosses', 'Opponents'], ['schedule', 'Schedule and tickets'], ['rewards', 'Rewards']];
+  const st = g.stages[Math.min(infoStage, g.stages.length - 1)], c = g.circuits[Math.min(infoStage, g.circuits.length - 1)];
+  const stat = (k, v) => `<span class="us"><small>${k}</small><b>${fmtN(v)}</b></span>`;
+  const unit = u => `<div class="unit"><div class="unit-h"><b>${t(u.pos)}</b> ${u.weakness ? `<span class="weak">${t('Weak to')} ${img(typeIcon(u.weakness), 'ti', u.weakness)}</span>` : ''}</div>
+    <div class="ustats">${stat('HP', u.hp)}${stat('ATK', u.atk)}${stat('DEF', u.def)}${stat('SP.ATK', u.spa)}${stat('SP.DEF', u.spd)}${stat('SPE', u.spe)}</div>
+    ${(u.focus || []).length ? `<div class="chips-l"><small>${t('Focus')}</small>${u.focus.map(f => `<span class="chip">${esc(f)}</span>`).join('')}</div>` : ''}
+    ${u.reduction ? `<div class="chips-l"><small>${t('Condition')}</small><span class="chip">${esc(u.reduction)}</span>${(u.reductionMods || []).map(f => `<span class="chip dim">${esc(f)}</span>`).join('')}</div>` : ''}
+    ${(u.passives || []).length ? `<div class="chips-l"><small>${t('Passives')}</small>${u.passives.map(f => `<span class="chip">${esc(f)}</span>`).join('')}</div>` : ''}</div>`;
+  const body = infoTab === 'schedule' ? `
+    <div class="cols"><section><h2>${t('Schedule')}</h2><div class="card list">${g.phases.map(p => `<div class="run"><div><b>${esc(t(p.name))}</b><small class="muted">${fmtDT(p.start + 'Z')} → ${fmtDT(p.end + 'Z')}</small></div></div>`).join('')}</div></section>
+    <section><h2>${t('Tickets and time')}</h2><div class="card scroll"><table class="table"><thead><tr><th class="num">${t('Tickets')}</th><th>${t('Time limit')}</th><th class="num">${t('Buff')}</th></tr></thead>
+      <tbody>${g.tickets.map(x => `<tr><td class="num">×${x.tickets}</td><td>${esc(x.time)}</td><td class="num">${x.buff ? '+' + x.buff : '—'}</td></tr>`).join('')}</tbody></table></div></section></div>
+    <h2 class="section">${t('Circuits')}</h2><div class="card scroll"><table class="table"><thead><tr><th>${t('Circuit')}</th><th>${t('Kind')}</th><th>${t('Ball')}</th><th class="num">${t('Points per leader')}</th></tr></thead>
+      <tbody>${g.circuits.map(x => `<tr><td>${esc(x.name)}</td><td>${esc(x.kind)}</td><td>${esc(x.ball)}</td><td class="num">${fmtN(x.pts)}</td></tr>`).join('')}</tbody></table></div>
+    ${g.rotateNote ? `<p class="muted">${esc(g.rotateNote)}</p>` : ''}`
+  : infoTab === 'rewards' ? `
+    <div class="cols"><section><h2>${t('Score rewards')}</h2><div class="card scroll"><table class="table"><tbody>${(g.score || []).map(x => `<tr><td class="num"><b>${fmtN(x.pts)}</b></td><td>${x.tag ? `<span class="badge gold">${esc(plain(x.tag))}</span> ` : ''}${x.items.map(i => esc(plain(i))).join(', ')}</td></tr>`).join('')}</tbody></table></div></section>
+    <section><h2>${t('Ranking rewards')}</h2><div class="card scroll"><table class="table"><tbody>${(g.ranking || []).map(x => `<tr><td><b>${esc(plain(x.label))}</b></td><td>${x.items.map(i => esc(plain(i))).join(', ')}</td></tr>`).join('')}</tbody></table></div></section></div>`
+  : `<div class="seg wrap">${g.stages.map((x, i) => `<button class="${i === infoStage ? 'on' : ''}" data-istage="${i}">${esc(roundShort(x.name))}</button>`).join('')}</div>
+    <p class="muted">${esc(c.name)} · ${esc(c.kind)} · ${esc(c.ball)} · ${t('{n} points per leader', { n: fmtN(c.pts) })}</p>
+    <div class="info-grid">${st.leaders.map(l => `<article class="card pad info-l" style="--tc:${tc(l.type)}">
+      <header>${leaderImg(s, l.name)}<div><h3>${esc(l.name)}</h3><small class="muted">${img(typeIcon(l.type), 'ti', l.type)} ${esc(l.title || '')}</small></div></header>
+      <div class="rules"><small>${t('Rules')}</small>${l.rules?.length ? l.rules.map((r, i) => `<p><b>${t('Rules')} ${i + 1}</b> ${esc(r)}</p>`).join('') : `<p>${esc(l.rule || l.theme || t('No rules'))}</p>`}
+        ${l.rule && l.theme && l.theme !== l.rule && !l.rules?.length ? `<p class="muted">${esc(l.theme)}</p>` : ''}</div>
+      ${(l.units || []).map(unit).join('')}</article>`).join('')}</div>`;
+  return `${seasonBar()}
+  <div class="toolbar"><h1>${t('Battle info')} <small class="muted">${esc(g.name)}${g.version ? ` · v${esc(g.version)}` : ''}</small></h1>
+    <div class="seg">${tabs.map(([k, l]) => `<button class="${infoTab === k ? 'on' : ''}" data-itab="${k}">${t(l)}</button>`).join('')}</div></div>${body}`;
+}
+document.addEventListener('click', e => {
+  const a = e.target.closest('[data-istage]'), b = e.target.closest('[data-itab]');
+  if (a) { infoStage = +a.dataset.istage; route(); } else if (b) { infoTab = b.dataset.itab; route(); }
 });
 
 // ═══════════════════════════════════════════════════════════════
