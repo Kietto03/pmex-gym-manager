@@ -8,11 +8,11 @@ import { pairWeight } from './rules.js';
 
 export const SHEET_SLOTS = [
   { k: 'special', label: 'Special', hint: 'Special striker of this type', fits: (p, ty) => p.type === ty && p.role === 'Strike (Special)' },
+  { k: 'subspec', label: 'Sub-DPS Special', hint: 'A second Special striker of this type', fits: (p, ty) => p.type === ty && p.role === 'Strike (Special)' },
   { k: 'physical', label: 'Physical', hint: 'Physical striker of this type', fits: (p, ty) => p.type === ty && p.role === 'Strike (Physical)' },
+  { k: 'subphys', label: 'Sub-DPS Physical', hint: 'A second Physical striker of this type', fits: (p, ty) => p.type === ty && p.role === 'Strike (Physical)' },
   { k: 'wtz', label: 'EX WTZ', hint: 'Sets the (EX) weather, terrain or zone for this type', fits: (p, ty) => wtzScore(p, ty) >= 2, rank: (p, ty) => wtzScore(p, ty) },
   { k: 'rebuff', label: 'Rebuff', hint: 'Lowers the opponents’ Type Rebuff for this type', fits: (p, ty) => rebuffs(p, ty) },
-  { k: 'subphys', label: 'Sub-DPS Physical', hint: 'A second Physical striker of this type', fits: (p, ty) => p.type === ty && p.role === 'Strike (Physical)' },
-  { k: 'subspec', label: 'Sub-DPS Special', hint: 'A second Special striker of this type', fits: (p, ty) => p.type === ty && p.role === 'Strike (Special)' },
   { k: 'extwtz', label: 'Extend WTZ', hint: 'Extends the weather, terrain or zone this type relies on', fits: (p, ty) => wtzScore(p, ty) >= 1, rank: (p, ty) => wtzScore(p, ty) },
   { k: 'support', label: 'Support', hint: 'Support of this type', fits: (p, ty) => p.type === ty && p.role === 'Support' },
   { k: 'other1', label: 'Other 1', hint: 'Any other pair of this type', fits: (p, ty) => p.type === ty },
