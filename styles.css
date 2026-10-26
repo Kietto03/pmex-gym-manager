@@ -880,3 +880,15 @@ td .muted .ico { width: 14px; height: 14px; vertical-align: -2px; }
 .matrix tr.mh th { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; opacity: .6; padding-top: 12px; }
 .matrix tr.all th { opacity: .55; font-weight: 500; }
 .dot-on { display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: var(--tc, var(--accent)); }
+
+.clock-row { margin: -2px 0 8px; }
+.clock { font-variant-numeric: tabular-nums; }
+.clock em { font-style: normal; font-size: 11px; opacity: .7; padding: 0 4px; border-radius: 6px; background: rgba(127,127,127,.18); }
+
+.filters-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+.filters-row .spacer { flex: 1; }
+.roles select { max-width: 160px; }
+
+.heat.nil { opacity: .45; }
+.heatmap tfoot th { font-size: 12px; }
+#dash-q { min-width: 200px; }

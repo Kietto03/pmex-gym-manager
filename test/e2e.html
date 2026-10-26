@@ -367,6 +367,37 @@ f.onload = async () => {
     log($$('.table tbody tr').length > 5, 'battle info: rewards');
     $('[data-itab=bosses]').click(); await sleep(100);
 
+    // 6f. Version 2.0: roles, report, battle time, time zone
+    await go('#/plan');
+    await until(() => $('[data-pview=roles]'));
+    $('[data-pview=roles]').click(); await sleep(200);
+    log($$('select[data-role-of]').length >= 20 && !!$('#roles-copy-from'), 'roles tab: staff can set role and main type for everyone');
+    const firstRole = $('select[data-role-of][data-field=battle_role]');
+    const roleUid = firstRole.dataset.roleOf;
+    setVal(firstRole, 'Finisher'); await sleep(300);
+    log($(`select[data-role-of="${roleUid}"][data-field=battle_role]`)?.value === 'Finisher', 'role saved and shown again');
+    setVal($('[data-rf=stageType]'), $('[data-rf=stageType] option:nth-child(2)').value); await sleep(250);
+    log(/Filtered stages/.test($('.roles thead').innerText) && $$('.roles tbody tr').length > 3, 'roles tab: stage filter adds a stage column');
+    setVal($('[data-rf=role]'), 'none'); await sleep(250);
+    log(!$$('.roles tbody tr').some(tr => tr.querySelector('select[data-field=battle_role]')?.value), 'roles tab: "not assigned" filter lists only unassigned members');
+    setVal($('[data-rf=role]'), ''); setVal($('[data-rf=stageType]'), ''); await sleep(150);
+    await go('#/log');
+    await until(() => $('#run-editor'));
+    log(!!$('input[name=occurred]') && /T\d\d:\d\d/.test($('input[name=occurred]').value), 'log form has a battle-time field');
+    await go('#/members');
+    await until(() => $('.mcard'));
+    log(!!$('.clock'), 'member cards show a local clock or "not set"');
+    $('[data-mview=dash]').click(); await sleep(250);
+    log($$('.heatmap tbody tr').length >= 19 && !!$('.heatmap tfoot') && /Updated/.test($('.heatmap thead').innerText), 'staff tower dashboard: members x types, totals, average, last update');
+    $('[data-dash-type]').click(); await sleep(250);
+    log($$('.heatmap thead th').length === 4, 'staff tower dashboard: type filter narrows the columns', $$('.heatmap thead th').length);
+    $('.heatmap .who').click(); await until(() => $('[data-mtab=tower]'));
+    $('[data-mtab=tower]').click(); await sleep(250);
+    const saveBtn = $('[data-tower-img][data-mode=save]');
+    log(!!saveBtn && !!$('[data-tower-img][data-mode=copy]'), 'tower tab: save and copy image buttons');
+    saveBtn.click(); await sleep(400);
+    log(!$('.toast.bad, .toast.err'), 'tower image renders without an error');
+
     // 7. Admin creates and deletes an account
     await go('#/admin');
     await until(() => $('[data-atab=accounts]'));

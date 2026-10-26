@@ -117,9 +117,11 @@ function supabaseApi(sb) {
     deleteSeason: async id => ok(await sb.from('seasons').delete().eq('id', id)),
 
     seasonMembers: async sid => ok(await sb.from('season_members').select('*').eq('season_id', sid)),
+    setSeasonRole: async (season_id, user_id, patch) => ok(await sb.from('season_members').upsert({ season_id, user_id, ...patch })),
+    setSeasonRoles: async rows => ok(await sb.from('season_members').upsert(rows)),
     setBanned: async (season_id, user_id, banned) => ok(await sb.from('season_members').upsert({ season_id, user_id, banned })),
 
-    runs: sid => all(() => sb.from('runs').select('*').eq('season_id', sid).order('created_at', { ascending: false }).order('id', { ascending: false })),
+    runs: sid => all(() => sb.from('runs').select('*').eq('season_id', sid).order('occurred_at', { ascending: false }).order('id', { ascending: false })),
     createRun: async row => ok(await sb.from('runs').insert(row).select().single()),
     updateRun: async (id, patch) => ok(await sb.from('runs').update(patch).eq('id', id).select().single()),
     deleteRun: async id => ok(await sb.from('runs').delete().eq('id', id)),

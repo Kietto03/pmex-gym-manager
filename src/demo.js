@@ -4,6 +4,7 @@
    pairs and towers, a finished season and a live one filled with runs
    that follow the real rules. Reloading the page resets everything.
    ═══════════════════════════════════════════════════════════════ */
+import { validTz } from './time.js';
 import { GYMS, catalogRows, seasonFromGym, TYPES, pairById } from './catalog.js';
 import { autoFill, suggestFacilitator } from './sheet.js';
 import { circuitAt, seasonState, validateRun, suggestTeam } from './rules.js';
@@ -54,6 +55,9 @@ function seedData() {
     target_score: s.is_active ? 18000000 : 15000000, created_by: uid(1), created_at: s.battle_start });
 
   const seasonMembers = [{ season_id: 2, user_id: uid(20), banned: true, note: 'Took a break mid-season' }];
+  // Battle roles for the running season: a few members with a role and main type, the rest not assigned yet
+  const ROLES = ['DDs', 'HHs', 'Facilitator', 'Finisher', 'Helper'], MAINS = ['Fire', 'Water', 'Grass', 'Electric', 'Ice', 'Dragon'];
+  profiles.slice(0, 8).forEach((p, i) => { const m = seasonMembers.find(x => x.season_id === 2 && x.user_id === p.id); const r = { battle_role: ROLES[i % 5], main_type: MAINS[i % 6] }; if (m) Object.assign(m, r); else seasonMembers.push({ season_id: 2, user_id: p.id, banned: false, note: '', ...r }); });
   const runs = [];
   let runId = 1;
   for (const s of seasons) simulate(s, profiles, memberPairs, seasonMembers.filter(m => m.season_id === s.id), runs, () => runId++);
@@ -153,9 +157,10 @@ function simulate(season, profiles, memberPairs, seasonMembers, runs, nextId) {
       if (validateRun(season, now, run, { isStaff: false })) continue;
       runs.push({ id: nextId(), season_id: season.id, member_name: p.display_name, note: '', created_by: p.id,
         created_at: new Date(t + rnd() * 36e5).toISOString(), updated_at: new Date(t).toISOString(), ...run });
+      runs.at(-1).occurred_at = new Date(Math.min(Date.parse(runs.at(-1).created_at), Date.now() - 120000)).toISOString(); runs.at(-1).occurred_inferred = false;
     }
   }
-  runs.sort((a, b) => b.created_at.localeCompare(a.created_at));
+  runs.sort((a, b) => b.occurred_at.localeCompare(a.occurred_at));
 }
 
 export function createDemoApi() {
@@ -169,6 +174,12 @@ export function createDemoApi() {
   const seasonRuns = sid => db.runs.filter(r => r.season_id === sid);
   let nextRun = Math.max(0, ...db.runs.map(r => r.id)) + 1;
 
+  // The battle time must sit inside the Gym Battle and not in the future; it never moves the run to another round
+  function checkTime(s, iso) {
+    const at = Date.parse(iso);
+    if (!(at >= Date.parse(s.battle_start) && at <= Date.parse(s.battle_end) && at <= Date.now() + 3e5)) throw new Error(t('The battle time must be inside the Gym Battle (and not in the future).'));
+    return new Date(at).toISOString();
+  }
   function checkRun(row, editing) {
     const s = db.seasons.find(x => x.id === row.season_id);
     const st = seasonState(s, seasonRuns(s.id).filter(r => r !== editing), db.seasonMembers.filter(m => m.season_id === s.id));
@@ -224,6 +235,7 @@ export function createDemoApi() {
     async updateProfile(id, patch) {
       selfOrStaff(id);
       if (('role' in patch || 'username' in patch) && role() !== 'admin') deny(t('Only the admin can change roles.'));
+      if (patch.timezone && !validTz(patch.timezone)) deny(t('“{z}” is not a valid time zone.', { z: patch.timezone }));
       Object.assign(db.profiles.find(p => p.id === id), patch);
     },
 
@@ -286,16 +298,25 @@ export function createDemoApi() {
     },
 
     seasonMembers: async sid => clone(db.seasonMembers.filter(m => m.season_id === sid)),
+    async setSeasonRole(season_id, user_id, patch) {
+      staff() || deny();
+      let m = db.seasonMembers.find(x => x.season_id === season_id && x.user_id === user_id);
+      if (!m) db.seasonMembers.push(m = { season_id, user_id, banned: false, note: '' });
+      Object.assign(m, patch);
+    },
+    async setSeasonRoles(rows) { for (const r of rows) await this.setSeasonRole(r.season_id, r.user_id, { battle_role: r.battle_role, main_type: r.main_type }); },
     async setBanned(season_id, user_id, banned) {
       staff() || deny();
       const m = db.seasonMembers.find(x => x.season_id === season_id && x.user_id === user_id);
       if (m) m.banned = banned; else db.seasonMembers.push({ season_id, user_id, banned, note: '' });
     },
 
-    runs: async sid => clone(seasonRuns(sid)),
+    runs: async sid => clone(seasonRuns(sid)).sort((a, b) => b.occurred_at.localeCompare(a.occurred_at) || b.id - a.id),
     async createRun(row) {
       if (row.user_id !== me && !staff()) deny();
       checkRun(row, null);
+      const s = db.seasons.find(x => x.id === row.season_id);
+      row = { ...row, occurred_at: checkTime(s, row.occurred_at || new Date(Math.min(Math.max(Date.now(), Date.parse(s.battle_start)), Date.parse(s.battle_end))).toISOString()) };
       const p = db.profiles.find(x => x.id === row.user_id);
       const r = { id: nextRun++, member_name: p?.display_name || p?.username || '', note: '', created_by: me,
         created_at: new Date().toISOString(), updated_at: new Date().toISOString(), ...row };
@@ -308,6 +329,10 @@ export function createDemoApi() {
       const r = db.runs.find(x => x.id === id);
       if (r.user_id !== me && !staff()) deny();
       checkRun({ ...r, ...patch }, r);
+      if (patch.occurred_at && patch.occurred_at !== r.occurred_at) {
+        checkTime(db.seasons.find(x => x.id === r.season_id), patch.occurred_at);
+        patch = { ...patch, occurred_inferred: false };
+      }
       Object.assign(r, patch, { updated_at: new Date().toISOString() });
     },
     async deleteRun(id) {

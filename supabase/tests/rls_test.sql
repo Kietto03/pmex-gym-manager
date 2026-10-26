@@ -241,6 +241,33 @@ select pg_temp.check('mod cannot delete a run of an ended season',    '00000000-
 select pg_temp.check('mod cannot plan an ended season',               '00000000-0000-0000-0000-00000000000b',
   $$ insert into public.leader_notes (season_id, leader, note) select id, 'Roark', 'late' from public.seasons where name = 'SS-over' $$, 'over');
 
+-- ─── Version 2.0 (package A): timezone, battle role + main type, battle time ───
+select pg_temp.check('member sets a valid timezone',                '00000000-0000-0000-0000-00000000000d',
+  $$ update public.profiles set timezone = 'Asia/Ho_Chi_Minh' where id = '00000000-0000-0000-0000-00000000000d' $$);
+select pg_temp.check('an unknown timezone is rejected',             '00000000-0000-0000-0000-00000000000d',
+  $$ update public.profiles set timezone = 'Mars/Base' where id = '00000000-0000-0000-0000-00000000000d' $$, 'not a valid timezone');
+select pg_temp.check('member cannot assign a battle role',          '00000000-0000-0000-0000-00000000000d',
+  $$ insert into public.season_members (season_id, user_id, battle_role) select id, '00000000-0000-0000-0000-00000000000d', 'DDs' from public.seasons where name = 'SS-test' $$, 'row-level security');
+select pg_temp.check('mod assigns role and main type',              '00000000-0000-0000-0000-00000000000b',
+  $$ update public.season_members set battle_role = 'DDs', main_type = 'Fire', banned = false where user_id = '00000000-0000-0000-0000-00000000000d' $$);
+select pg_temp.check('an unknown battle role is rejected',          '00000000-0000-0000-0000-00000000000b',
+  $$ update public.season_members set battle_role = 'Boss' where user_id = '00000000-0000-0000-0000-00000000000d' $$, 'check');
+select pg_temp.check('member logs a run with its battle time',      '00000000-0000-0000-0000-00000000000d',
+  $$ insert into public.runs (season_id, user_id, leader, round, tickets, score, occurred_at) select id, '00000000-0000-0000-0000-00000000000d', 'Gardenia', 2, 3, 100, now() - interval '2 hours' from public.seasons where name = 'SS-test' $$);
+select pg_temp.check('battle time before the Gym Battle is rejected', '00000000-0000-0000-0000-00000000000d',
+  $$ update public.runs set occurred_at = now() - interval '9 days' where user_id = '00000000-0000-0000-0000-00000000000d' and leader = 'Gardenia' $$, 'battle time');
+select pg_temp.check('battle time in the future is rejected',       '00000000-0000-0000-0000-00000000000d',
+  $$ update public.runs set occurred_at = now() + interval '1 day' where user_id = '00000000-0000-0000-0000-00000000000d' and leader = 'Gardenia' $$, 'battle time');
+select pg_temp.check('member moves the time of their own run',      '00000000-0000-0000-0000-00000000000d',
+  $$ update public.runs set occurred_at = now() - interval '1 hour' where user_id = '00000000-0000-0000-0000-00000000000d' and leader = 'Gardenia';
+     do $d$ begin if (select count(*) from public.run_time_edits) <> 1 or (select occurred_inferred from public.runs where leader = 'Gardenia' and user_id = '00000000-0000-0000-0000-00000000000d') then raise exception 'time edit not audited'; end if; end $d$ $$);
+select pg_temp.check('mod cannot change the time after the season', '00000000-0000-0000-0000-00000000000b',
+  $$ update public.runs set occurred_at = now() - interval '15 days' where member_name = 'x' $$, 'over');
+select pg_temp.check('admin changes the time after the season',     '00000000-0000-0000-0000-00000000000a',
+  $$ update public.runs set occurred_at = now() - interval '15 days' where member_name = 'x' $$);
+select pg_temp.check('the round and tickets stay when the time moves', '00000000-0000-0000-0000-00000000000a',
+  $$ do $d$ begin if not ((select round from public.runs where member_name = 'x') = 1 and (select tickets from public.runs where member_name = 'x') = 3) then raise exception 'round or tickets changed'; end if; end $d$ $$);
+
 select format('%s  %s%s', case when ok then 'PASS' else 'FAIL' end, name, case when ok then '' else '  → ' || info end) as result
   from results order by n;
 do $$ begin

@@ -8,6 +8,7 @@ import { STYLES, ACCENTS, MODES, getAppearance, applyAppearance } from './appear
 import { MASCOTS, MASCOT_STYLES, mascotHead, mountCompanion } from './mascot.js';
 import { t, getLang, setLang, LANGS, locale } from './i18n.js';
 import { TOWER_TOP, circuitAt, roundShort, seasonState, pointsIn, validateRun, readiness, pairWeight, levelLabel, suggestTeam } from './rules.js';
+import { browserTz, allTimezones, validTz, toLocalInput, fromLocalInput, clockIn } from './time.js';
 import { loadCatalog, loadGyms, PAIRS, pairById, pairName, pairImage, TYPES, TYPE_COLORS, typeIcon, roleIcon, roleKey,
   PLACEHOLDER, catalogRows, catalogVersion, GYMS, seasonFromGym, leaderRule, leaderFocus, leaderImage, POMA, DEX, loadTags, wtzScore, rebuffs, pairByTrackerKey } from './catalog.js';
 import { SHEET_SLOTS, fixedIds, rankForSlot, autoFill, suggestFacilitator } from './sheet.js';
@@ -18,8 +19,10 @@ const $ = (s, el = document) => el.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmtN = n => (n ?? 0).toLocaleString('en-US');
 const fmtK = n => n >= 1e6 ? `${(n / 1e6).toFixed(n >= 1e7 ? 1 : 2)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}K` : String(n);
-const fmtDT = iso => iso ? new Date(iso).toLocaleString(locale(), { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
-const fmtD = iso => iso ? new Date(iso).toLocaleDateString(locale(), { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+// Times are shown in the viewer's chosen zone (profile), else the device's
+const viewTz = () => { const z = S.profiles.find(p => p.id === S.me)?.timezone; return validTz(z) ? z : browserTz(); };
+const fmtDT = iso => iso ? new Date(iso).toLocaleString(locale(), { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: viewTz() }) : '—';
+const fmtD = iso => iso ? new Date(iso).toLocaleDateString(locale(), { day: '2-digit', month: 'short', year: 'numeric', timeZone: viewTz() }) : '—';
 const fmtLeft = ms => {
   const m = Math.max(0, Math.round(ms / 6e4)), d = Math.floor(m / 1440), h = Math.floor(m % 1440 / 60);
   return d ? `${d}d ${h}h` : h ? `${h}h ${m % 60}m` : `${m % 60}m`;
@@ -388,7 +391,7 @@ const teamIcons = team => !(team || []).length ? `<span class="muted na" title="
 }).join('');
 function runLine(r) {
   const c = circuitAt(season(), r.round);
-  return `<div class="run">${r.user_id && profile(r.user_id) ? av(r.user_id, 'xs') : ''}<div><b>${esc(r.member_name)}</b><small class="muted">${esc(r.leader)} · ${esc(c?.label || r.round)} · ${fmtDT(r.created_at)}</small></div>
+  return `<div class="run">${r.user_id && profile(r.user_id) ? av(r.user_id, 'xs') : ''}<div><b>${esc(r.member_name)}</b><small class="muted">${esc(r.leader)} · ${esc(c?.label || r.round)} · ${fmtDT(r.occurred_at || r.created_at)}${r.occurred_inferred ? '*' : ''}</small></div>
     <span class="team">${teamIcons(r.team)}</span><b class="num">${fmtN(r.score)}</b></div>`;
 }
 
@@ -406,11 +409,17 @@ function autoTeam(uid, leader) {
   const last = S.runs.find(r => r.user_id === uid);
   return { team: last ? last.team.map(x => ({ ...x })) : [], planned: false };
 }
+// "Now" for the battle-time field, kept inside the Gym Battle (an admin may log after it ended)
+function nowInput() {
+  const s = season(), now = Date.now();
+  const t0 = s ? Math.min(Math.max(now, Date.parse(s.battle_start)), Date.parse(s.battle_end)) : now;
+  return toLocalInput(new Date(t0).toISOString(), viewTz());
+}
 function blankForm(leader = '', round = null, member = null) {
   const st = state();
   const c = circuitAt(season(), round || st.active || 1);
   const uid = member || S.me;
-  return { id: null, user_id: uid, leader, round: round || st.active || 1, tickets: c?.fixed || 3, score: '', note: '', auto: true, ...autoTeam(uid, leader) };
+  return { id: null, user_id: uid, leader, round: round || st.active || 1, tickets: c?.fixed || 3, score: '', note: '', occurred: nowInput(), auto: true, ...autoTeam(uid, leader) };
 }
 
 function renderLog(leader = '', round = '', member = '') {
@@ -473,6 +482,8 @@ function runForm() {
       }).join('')}
       ${form.team.length < 3 ? `<div class="search-box"><input id="team-search" placeholder="${t('Search sync pairs — this member’s own pairs come first…')}" autocomplete="off"><div class="results" id="team-results"></div></div>` : ''}
       </div></div>
+    <label>${t('Battle ended at')}<input name="occurred" type="datetime-local" value="${esc(form.occurred || '')}" required>
+      <small class="muted">${t('Your time zone: {z}. Only changes the order of the history — not the round or tickets.', { z: viewTz() })}</small></label>
     <label>${t('Note')}<input name="note" value="${esc(form.note)}" placeholder="${t('e.g. used 2 sync moves, buff failed…')}"></label>
     <div class="row">
       <button class="btn primary">${ico('swords')} ${form.id ? t('Save changes') : t('Log run')}</button>
@@ -499,7 +510,7 @@ document.addEventListener('input', e => {
       ${pairIcon(p, 'xs')}<span>${esc(pairName(p))}</span>${typeTag(p.type)}<small>${mp ? `${levelLabel(mp.level)}${mp.ex ? ' EX' : ''}` : t('not owned')}</small></button>`).join('')
       || `<p class="muted">${t('No sync pair found.')}</p>`;
   }
-  if (e.target.form?.id === 'run-editor' && ['score', 'note'].includes(e.target.name)) form[e.target.name] = e.target.value;
+  if (e.target.form?.id === 'run-editor' && ['score', 'note', 'occurred'].includes(e.target.name)) form[e.target.name] = e.target.value;
 });
 document.addEventListener('focusin', e => { if (e.target.id === 'team-search') e.target.dispatchEvent(new Event('input', { bubbles: true })); });
 document.addEventListener('change', e => {
@@ -528,7 +539,7 @@ document.addEventListener('click', async e => {
   if ('fCancel' in el.dataset) { form = blankForm(); redrawForm(); }
   if (el.dataset.runEdit) {
     const r = S.runs.find(x => x.id === +el.dataset.runEdit);
-    form = { ...r, team: r.team.map(x => ({ ...x })), score: String(r.score), orig: r, auto: false, planned: false };
+    form = { ...r, team: r.team.map(x => ({ ...x })), score: String(r.score), occurred: toLocalInput(r.occurred_at || r.created_at, viewTz()), orig: r, auto: false, planned: false };
     redrawForm();
     $('#run-form').scrollIntoView({ behavior: 'smooth' });
   }
@@ -543,7 +554,8 @@ document.addEventListener('submit', async e => {
   e.preventDefault();
   const s = season();
   const run = { season_id: s.id, user_id: form.user_id, leader: form.leader, round: form.round, tickets: form.tickets,
-    score: Number(form.score), team: form.team, note: form.note || '' };
+    score: Number(form.score), team: form.team, note: form.note || '', occurred_at: fromLocalInput(form.occurred, viewTz()) };
+  if (!run.occurred_at) { $('#run-err').textContent = t('Pick when the battle ended.'); return; }
   const st = seasonState(s, S.runs.filter(r => r.id !== form.id), S.sm);   // as the database sees it
   const err = validateRun(s, st, run, { isStaff: isStaff() || !!form.id });
   if (err) { $('#run-err').textContent = err; return; }
@@ -570,7 +582,7 @@ function logTable() {
   return `<table class="table">
     <thead><tr><th>${t('When')}</th><th>${t('Member')}</th><th>${t('Gym Leader')}</th><th>${t('Round')}</th><th class="num">${t('Tickets')}</th><th class="num">${t('Score')}</th><th>${t('Team')}</th><th></th></tr></thead>
     <tbody>${list.map(r => `<tr>
-      <td class="muted nowrap">${fmtDT(r.created_at)}</td><td>${esc(r.member_name)}</td><td>${esc(r.leader)}</td>
+      <td class="muted nowrap" title="${r.occurred_inferred ? t('Time estimated from when the run was entered') : ''}">${fmtDT(r.occurred_at || r.created_at)}${r.occurred_inferred ? '*' : ''}</td><td>${esc(r.member_name)}</td><td>${esc(r.leader)}</td>
       <td class="nowrap">${esc(roundShort(circuitAt(season(), r.round)?.label || r.round))}</td><td class="num">${r.tickets}</td>
       <td class="num"><b>${fmtN(r.score)}</b></td><td class="team">${teamIcons(r.team)}${r.note ? ` <span class="muted" title="${esc(r.note)}">${ico('note')}</span>` : ''}</td>
       <td class="acts">${canEdit(r.user_id) ? `<button class="btn sm ghost" data-run-edit="${r.id}">${t('Edit')}</button><button class="btn sm ghost" data-run-del="${r.id}" aria-label="${t('Delete')}">${ico('x')}</button>` : ''}</td></tr>`).join('')}
@@ -717,20 +729,72 @@ let planView = 'leaders', strategyEdit = null;   // strategyEdit = the draft tex
 function renderPlan() {
   const s = season();
   if (!s) return seasonBar() + noSeason();
-  const tabs = [['leaders', 'Gym Leaders', 'swords'], ['strategy', 'Strategy', 'note'], ['facilitator', 'Facilitator', 'bolt']];
-  lockCtx = frozen() && planView !== 'strategy';
+  const tabs = [['leaders', 'Gym Leaders', 'swords'], ['strategy', 'Strategy', 'note'], ['facilitator', 'Facilitator', 'bolt'], ['roles', 'Roles', 'users']];
+  lockCtx = frozen() && !['strategy', 'roles'].includes(planView);
   try { return planPage(s, tabs); } finally { lockCtx = false; }
 }
 function planPage(s, tabs) {
   return `${seasonBar()}${lockCtx ? `<p class="notice">${ico('lock')} ${t('This Gym Battle is over. Only the admin can change it now.')}</p>` : ''}
   <div class="toolbar"><h1>${t('Plan')}</h1><div class="seg">${tabs.map(([k, l, i]) => `<button class="${planView === k ? 'on' : ''}" data-pview="${k}">${ico(i)} ${t(l)}</button>`).join('')}</div></div>
-  ${planView === 'strategy' ? planStrategy(s) : planView === 'facilitator' ? planFacilitator(s) : planLeaders()}`;
+  ${planView === 'strategy' ? planStrategy(s) : planView === 'facilitator' ? planFacilitator(s) : planView === 'roles' ? planRoles(s) : planLeaders()}`;
 }
 document.addEventListener('click', e => { if (e.target.closest('[data-goto-fac]')) { planView = 'facilitator'; facEdit = null; } });   // the link itself navigates
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-pview]');
   if (!b) return;
   planView = b.dataset.pview; strategyEdit = null; facEdit = null; route();
+});
+
+// ── Roles: one battle role and one main type per member and season, and the scores by them ──
+const BATTLE_ROLES = [['DDs', 'Main damage dealers'], ['HHs', 'Heavy hitters'], ['Facilitator', 'Sets the fight up'], ['Finisher', 'Closes the fight'], ['Helper', 'Helps wherever needed']];
+const rolesFilter = { role: '', type: '', stageType: '', leader: '' };
+const stageTypeOf = (s, leader) => (s.leaders.find(l => l.name === leader)?.weakness || [])[0] || '';
+function planRoles(s) {
+  const st = state(), sm = uid => S.sm.find(m => m.user_id === uid) || {};
+  const f = rolesFilter, staff = isStaff();
+  const stageTypes = [...new Set(s.leaders.map(l => stageTypeOf(s, l.name)).filter(Boolean))];
+  const rows = S.profiles.map(p => {
+    const m = sm(p.id), mine = S.runs.filter(r => r.user_id === p.id);
+    const stage = mine.filter(r => (!f.leader || r.leader === f.leader) && (!f.stageType || stageTypeOf(s, r.leader) === f.stageType));
+    return { p, role: m.battle_role || '', type: m.main_type || '', total: st.perMember[p.id]?.score || 0, banned: st.banned.has(p.id),
+      stage: stage.reduce((a, r) => a + r.score, 0), stageRuns: stage.length };
+  }).filter(r => (!f.role || (f.role === 'none' ? !r.role : r.role === f.role)) && (!f.type || (f.type === 'none' ? !r.type : r.type === f.type)))
+    .sort((a, b) => (f.stageType || f.leader ? b.stage - a.stage : b.total - a.total));
+  const stageOn = !!(f.stageType || f.leader);
+  const sel = (name, val, opts, any) => `<select data-rf="${name}"><option value="">${t(any)}</option>${opts.map(([v, l]) => `<option value="${esc(v)}" ${val === v ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
+  const typeOpts = TYPES.map(ty => [ty, t(ty)]);
+  const others = S.seasons.filter(x => x.id !== s.id);
+  return `<section class="section"><h2>${t('Battle roles')} <small>${t('one role and one main type per member in each Gym Battle')}</small></h2>
+    <div class="card pad filters-row">
+      ${sel('role', f.role, [['none', t('Not assigned')], ...BATTLE_ROLES.map(([k]) => [k, k])], 'All roles')}
+      ${sel('type', f.type, [['none', t('Not assigned')], ...typeOpts], 'All main types')}
+      ${sel('stageType', f.stageType, stageTypes.map(ty => [ty, t(ty)]), 'Any stage type')}
+      ${sel('leader', f.leader, s.leaders.map(l => [l.name, l.name]), 'Any Gym Leader')}
+      ${staff && others.length ? `<span class="spacer"></span><select id="roles-copy-from"><option value="">${t('Copy roles from…')}</option>${others.map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select>` : ''}
+    </div>
+    <div class="card scroll"><table class="table roles">
+      <thead><tr><th>${t('Member')}</th><th>${t('Role')}</th><th>${t('Main type')}</th><th class="num">${t('Season total')}</th>${stageOn ? `<th class="num">${t('Filtered stages')}</th>` : ''}</tr></thead>
+      <tbody>${rows.map(r => `<tr class="${r.banned ? 'dim' : ''}"><td><a class="who" href="#/member/${r.p.id}">${av(r.p.id, 'xs')}${esc(nameOf(r.p))}</a>${r.banned ? ` <span class="badge bad">${t('locked')}</span>` : ''}</td>
+        <td>${staff ? `<select data-role-of="${r.p.id}" data-field="battle_role"><option value="">${t('Not assigned')}</option>${BATTLE_ROLES.map(([k]) => `<option ${r.role === k ? 'selected' : ''}>${k}</option>`).join('')}</select>` : r.role ? `<span class="badge">${r.role}</span>` : `<span class="muted">${t('Not assigned')}</span>`}</td>
+        <td>${staff ? `<select data-role-of="${r.p.id}" data-field="main_type"><option value="">${t('Not assigned')}</option>${TYPES.map(ty => `<option value="${ty}" ${r.type === ty ? 'selected' : ''}>${t(ty)}</option>`).join('')}</select>` : r.type ? typeTag(r.type) : `<span class="muted">${t('Not assigned')}</span>`}</td>
+        <td class="num"><b>${fmtN(r.total)}</b></td>${stageOn ? `<td class="num"><b>${fmtN(r.stage)}</b> <small class="muted">${t('{n} runs', { n: r.stageRuns })}</small></td>` : ''}</tr>`).join('') || `<tr><td colspan="5" class="muted pad">${t('Nobody matches these filters.')}</td></tr>`}</tbody></table></div>
+    <p class="muted">${t('Points come from the run log as it is: the season total never changes with the filters, the stage column only adds up the matching stages. A stage’s type is the weakness of its Gym Leader.')}</p></section>`;
+}
+document.addEventListener('change', async e => {
+  const rf = e.target.dataset?.rf;
+  if (rf) { rolesFilter[rf] = e.target.value; route(); return; }
+  const of = e.target.dataset?.roleOf;
+  if (of) {
+    if (await act(() => api.setSeasonRole(S.sid, of, { [e.target.dataset.field]: e.target.value || null }), t('Saved.'))) { S.sm = await api.seasonMembers(S.sid); route(); }
+    return;
+  }
+  if (e.target.id === 'roles-copy-from' && e.target.value) {
+    const from = +e.target.value, src = await api.seasonMembers(from);
+    const rows = src.filter(m => m.battle_role || m.main_type).map(m => ({ season_id: S.sid, user_id: m.user_id, battle_role: m.battle_role || null, main_type: m.main_type || null }));
+    if (!rows.length) { toast(t('That Gym Battle has no roles to copy.')); e.target.value = ''; return; }
+    if (!confirm(t('Copy {n} roles into this Gym Battle? Existing roles of those members are replaced; review them afterwards.', { n: rows.length }))) { e.target.value = ''; return; }
+    if (await act(() => api.setSeasonRoles(rows), t('Roles copied.'))) { S.sm = await api.seasonMembers(S.sid); route(); }
+  }
 });
 
 // ── Strategy: the season's rules and requirements ──
@@ -1030,17 +1094,24 @@ function memberRows() {
       tower: floors.reduce((a, b) => a + b, 0), top: floors.filter(f => f >= TOWER_TOP).length, season: st?.perMember[p.id], banned: st?.banned.has(p.id) };
   }).sort((a, b) => (b.season?.score || 0) - (a.season?.score || 0) || nameOf(a.p).localeCompare(nameOf(b.p)));
 }
+// A member's local clock: shown on their card, refreshed by one shared timer (and when the tab comes back)
+const clockText = tz => { const c = clockIn(tz, viewTz(), Date.now(), locale()); return `<b>${esc(c.time)}</b>${c.day ? ` <em>${c.day > 0 ? '+' : ''}${c.day}d</em>` : ''} · ${esc(tz)}`; };
+const clockHtml = p => validTz(p.timezone) ? `<small class="clock" data-clock="${esc(p.timezone)}">${clockText(p.timezone)}</small>` : `<small class="clock muted">${t('Time zone not set')}</small>`;
+const tickClocks = () => document.querySelectorAll('[data-clock]').forEach(el => { el.innerHTML = clockText(el.dataset.clock); });
+setInterval(tickClocks, 20000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) tickClocks(); });
 function renderMembers() {
   if (memberView === 'types') memberView = 'list';
   const rows = memberRows();
   const heat = (v, max, ty) => `<td class="heat" style="--h:${Math.min(1, v / max).toFixed(2)};--tc:${TYPE_COLORS[ty]}"><b>${v || '·'}</b></td>`;
 
   return `<div class="toolbar"><h1>${t('Members')} <small>${t('{n} people', { n: S.profiles.length })}</small></h1>
-    <div class="seg">${[['list', 'Cards'], ['tower', 'Tower by type']].map(([k, l]) => `<button class="${memberView === k ? 'on' : ''}" data-mview="${k}">${t(l)}</button>`).join('')}</div></div>
-  ${memberView === 'list' ? `<div class="mgrid">${rows.map(r => `
+    <div class="seg">${[['list', 'Cards'], ['tower', 'Tower by type'], ...(isStaff() ? [['dash', 'Tower dashboard']] : [])].map(([k, l]) => `<button class="${memberView === k ? 'on' : ''}" data-mview="${k}">${t(l)}</button>`).join('')}</div></div>
+  ${memberView === 'dash' && isStaff() ? towerDashboard(rows) : memberView === 'list' ? `<div class="mgrid">${rows.map(r => `
     <article class="card mcard ${r.banned ? 'dim' : ''}">
       <div class="mtop">${av(r.p.id)}<div><a class="mname" href="#/member/${r.p.id}">${esc(nameOf(r.p))}</a>
         <small class="muted">@${esc(r.p.username)}</small> ${rankTag(r.p.role)}${r.banned ? ` <span class="badge bad">${t('locked')}</span>` : ''}</div></div>
+      <div class="clock-row">${clockHtml(r.p)}</div>
       <div class="mstats"><div><b>${r.pairs}</b>${t('pairs')}</div><div><b>${r.ex}</b>EX</div><div><b>${r.tower}</b>${t('floors')}</div><div><b>${fmtK(r.season?.score || 0)}</b>${t('score')}</div></div>
       <div class="mtypes">${r.byType.slice(0, 6).map(([ty, n]) => `<span style="--tc:${TYPE_COLORS[ty]}" title="${t(ty)}">${img(typeIcon(ty), 'ti', ty)}${n}</span>`).join('')}</div>
       ${isStaff() ? `<div class="mlinks"><a class="btn sm" href="#/member/${r.p.id}/pairs">${t('Roster')}</a><a class="btn sm" href="#/member/${r.p.id}/tower">${t('Tower')}</a><a class="btn sm" href="#/member/${r.p.id}/plan">${t('Battle plan')}</a></div>` : ''}
@@ -1049,6 +1120,32 @@ function renderMembers() {
     <thead><tr><th>${t('Member')}</th>${TYPES.map(ty => `<th title="${t(ty)}">${img(typeIcon(ty), 'ti', ty)}</th>`).join('')}</tr></thead>
     <tbody>${rows.map(r => `<tr><td><a class="who" href="#/member/${r.p.id}">${av(r.p.id, 'xs')}${esc(nameOf(r.p))}</a></td>${TYPES.map(ty => heat(towerFloor(r.p.id, ty), TOWER_TOP, ty)).join('')}</tr>`).join('')}</tbody></table></div>`}`;
 }
+// Staff only: members × types with totals, a member search, a type filter and when each row was last updated.
+// A missing record shows as "not updated" instead of 0.
+const dashFilter = { q: '', types: new Set() };
+function towerDashboard(rows) {
+  const types = dashFilter.types.size ? TYPES.filter(ty => dashFilter.types.has(ty)) : TYPES;
+  const q = dashFilter.q.trim().toLowerCase();
+  const list = rows.filter(r => !q || `${nameOf(r.p)} ${r.p.username}`.toLowerCase().includes(q))
+    .map(r => ({ r, rec: S.tower.filter(x => x.user_id === r.p.id), sum: types.reduce((a, ty) => a + towerFloor(r.p.id, ty), 0) })).sort((a, b) => b.sum - a.sum);
+  const avg = ty => { const v = list.filter(x => x.rec.some(z => z.type === ty)).map(x => towerFloor(x.r.p.id, ty)); return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length * 10) / 10 : null; };
+  const last = recs => recs.map(x => x.updated_at).filter(Boolean).sort().at(-1);
+  return `<div class="card pad filters-row"><input id="dash-q" placeholder="${t('Search members…')}" value="${esc(dashFilter.q)}">
+    ${TYPES.map(ty => `<button class="pill ${dashFilter.types.has(ty) ? 'on' : ''}" data-dash-type="${ty}" title="${t(ty)}">${img(typeIcon(ty), 'ti', ty)}</button>`).join('')}
+    ${dashFilter.types.size ? `<button class="btn sm ghost" data-dash-clear>${t('All types')}</button>` : ''}</div>
+  <div class="card scroll"><table class="table heatmap"><thead><tr><th>${t('Member')}</th>${types.map(ty => `<th title="${t(ty)}">${img(typeIcon(ty), 'ti', ty)}</th>`).join('')}<th class="num">${t('Total')}</th><th>${t('Updated')}</th></tr></thead>
+    <tbody>${list.map(({ r, rec, sum }) => `<tr><td><a class="who" href="#/member/${r.p.id}">${av(r.p.id, 'xs')}${esc(nameOf(r.p))}</a></td>
+      ${types.map(ty => rec.some(z => z.type === ty) ? `<td class="heat" style="--h:${(towerFloor(r.p.id, ty) / TOWER_TOP).toFixed(2)};--tc:${TYPE_COLORS[ty]}"><b>${towerFloor(r.p.id, ty) || '·'}</b></td>` : `<td class="heat nil" title="${t('not updated')}"><b>—</b></td>`).join('')}
+      <td class="num"><b>${sum}</b></td><td class="muted nowrap">${rec.length ? fmtD(last(rec)) : t('not updated')}</td></tr>`).join('')}</tbody>
+    <tfoot><tr><th>${t('Average')}</th>${types.map(ty => `<th class="num">${avg(ty) ?? '—'}</th>`).join('')}<th></th><th></th></tr></tfoot></table></div>
+  <p class="muted">${t('"—" means the member has not entered that tower yet; it is not counted as 0 in the average.')}</p>`;
+}
+document.addEventListener('input', e => { if (e.target.id === 'dash-q') { dashFilter.q = e.target.value; const pos = e.target.selectionStart; route(); const el = $('#dash-q'); el?.focus(); el?.setSelectionRange(pos, pos); } });
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-dash-type]');
+  if (b) { const ty = b.dataset.dashType; dashFilter.types.has(ty) ? dashFilter.types.delete(ty) : dashFilter.types.add(ty); route(); }
+  if (e.target.closest('[data-dash-clear]')) { dashFilter.types.clear(); route(); }
+});
 document.addEventListener('click', e => { const b = e.target.closest('[data-mview]'); if (b) { memberView = b.dataset.mview; route(); } });
 
 // ─── Roster sheet (one per type) ───
@@ -1250,6 +1347,7 @@ function renderMember(id = S.me, tab = '') {
         ${p.avatar_url ? `<button type="button" class="btn ghost" data-avatar-remove>${t('Remove photo')}</button>` : ''}</div>
       <small class="muted">${t('Cropped to a square and saved straight away. Without a photo, a sync pair is used.')}</small></div></div>
     <label>${t('Sync pair as the picture (when there is no photo)')}<select name="avatar"><option value="">${t('Strongest sync pair (automatic)')}</option>${[...mine].sort((a, b) => pairWeight(b) - pairWeight(a)).map(x => `<option value="${x.pair_id}" ${x.pair_id === p.avatar ? 'selected' : ''}>${esc(pairName(pairById(x.pair_id)))}</option>`).join('')}</select></label>
+    <label>${t('Time zone')}<select name="timezone"><option value="">${t('Not set (use this device: {z})', { z: browserTz() })}</option>${[...new Set([p.timezone, ...allTimezones()].filter(Boolean))].map(z => `<option value="${esc(z)}" ${z === p.timezone ? 'selected' : ''}>${esc(z)}</option>`).join('')}</select></label>
     <label>${t('Note')}<textarea name="note" rows="2">${esc(p.note)}</textarea></label>
     <div><button class="btn primary">${t('Save')}</button></div></form>` : ''}
   <div class="toolbar tabs">
@@ -1416,9 +1514,51 @@ document.addEventListener('click', async e => {
   }
 });
 
+// The tower overview as a PNG (drawn on a canvas, no outside images so it can always be saved or copied)
+function towerCanvas(id) {
+  const p = profile(id), W = 960, rowH = 58, top = 150, rows = Math.ceil(TYPES.length / 2), H = top + rows * rowH + 56;
+  const dpr = 2, cv = document.createElement('canvas');
+  cv.width = W * dpr; cv.height = H * dpr;
+  const g = cv.getContext('2d'); g.scale(dpr, dpr);
+  const css = getComputedStyle(document.documentElement), acc = css.getPropertyValue('--accent').trim() || '#e83a2a';
+  g.fillStyle = '#12151f'; g.fillRect(0, 0, W, H);
+  g.fillStyle = acc; g.fillRect(0, 0, W, 8);
+  const font = (w, px) => { g.font = `${w} ${px}px system-ui, -apple-system, "Segoe UI", sans-serif`; };
+  const total = TYPES.reduce((a, ty) => a + towerFloor(id, ty), 0);
+  g.fillStyle = '#fff'; font(800, 40); g.fillText(nameOf(p).slice(0, 28), 40, 70);
+  g.fillStyle = '#9aa3b8'; font(600, 18); g.fillText(`${(window.GYM_CONFIG || {}).gymName || ''} · Pasio Tower`, 40, 100);
+  g.fillStyle = '#fff'; font(800, 44); g.textAlign = 'right'; g.fillText(`${total}`, W - 40, 70);
+  g.fillStyle = '#9aa3b8'; font(600, 16); g.fillText(`/ ${TYPES.length * TOWER_TOP} ${t('floors')}`, W - 40, 98); g.textAlign = 'left';
+  TYPES.forEach((ty, i) => {
+    const col = i < rows ? 0 : 1, row = i % rows, x = 40 + col * 440, y = top + row * rowH;
+    const rec = S.tower.find(r => r.user_id === id && r.type === ty), f = rec?.floor || 0, c = TYPE_COLORS[ty] || '#888';
+    g.fillStyle = c; g.beginPath(); g.arc(x + 12, y + 14, 10, 0, 7); g.fill();
+    g.fillStyle = '#fff'; font(700, 18); g.fillText(t(ty), x + 32, y + 20);
+    g.textAlign = 'right'; font(800, 18); g.fillStyle = rec ? '#fff' : '#6c7590'; g.fillText(rec ? `${f} / ${TOWER_TOP}` : t('not updated'), x + 400, y + 20); g.textAlign = 'left';
+    g.fillStyle = '#242a3b'; g.beginPath(); g.roundRect(x, y + 30, 400, 10, 5); g.fill();
+    if (f) { g.fillStyle = c; g.beginPath(); g.roundRect(x, y + 30, Math.max(10, 400 * f / TOWER_TOP), 10, 5); g.fill(); }
+  });
+  g.fillStyle = '#6c7590'; font(500, 14);
+  g.fillText(`${t('Exported')} ${new Date().toLocaleString(locale(), { dateStyle: 'medium', timeStyle: 'short', timeZone: viewTz() })} (${viewTz()})`, 40, H - 22);
+  return cv;
+}
+const towerBlob = id => new Promise(res => towerCanvas(id).toBlob(res, 'image/png'));
+document.addEventListener('click', async e => {
+  const b = e.target.closest('[data-tower-img]');
+  if (!b) return;
+  const id = b.dataset.towerImg, blob = await towerBlob(id);
+  if (b.dataset.mode === 'copy') {
+    try { await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]); toast(t('Image copied.')); return; }
+    catch { toast(t('Copying images is not supported here — the image was saved instead.')); }
+  }
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `pasio-tower-${profile(id)?.username || id}.png` });
+  a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+});
 function towerTab(id, edit) {
   const total = TYPES.reduce((a, ty) => a + towerFloor(id, ty), 0);
-  return `<p class="lead">${t('Pasio Tower has one 40-floor tower per type, and only pairs of that type can climb it — the higher the floor, the more experience with that type. Total: {n} of {max} floors.', { n: total, max: TYPES.length * TOWER_TOP })}</p>
+  return `<div class="row" style="margin-bottom:8px"><button class="btn" data-tower-img="${id}" data-mode="save">${ico('out')} ${t('Save as image')}</button>
+    <button class="btn ghost" data-tower-img="${id}" data-mode="copy">${t('Copy image')}</button></div>
+  <p class="lead">${t('Pasio Tower has one 40-floor tower per type, and only pairs of that type can climb it — the higher the floor, the more experience with that type. Total: {n} of {max} floors.', { n: total, max: TYPES.length * TOWER_TOP })}</p>
   <div class="tower-grid">${TYPES.map(ty => {
     const f = towerFloor(id, ty);
     return `<div class="card tw ${f >= TOWER_TOP ? 'top' : ''}" style="--tc:${TYPE_COLORS[ty]}">
