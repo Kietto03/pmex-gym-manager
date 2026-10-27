@@ -479,6 +479,8 @@ f.onload = async () => {
     // 6k. Free Gems projection and management
     await go('#/gems');
     await until(() => $('.kpis'));
+    log(!!$('[data-gem-source=sheet].on') && /community Gems sheet/.test(W().document.body.innerText) && $$('table.table tbody tr').length >= 1, 'gems: the community Gems sheet is the default source, with its source note');
+    $('[data-gem-source=staff]').click(); await sleep(200);
     log($$('.kpis .kpi').length === 3 && $$('table.table tbody tr').length >= 1, 'gems: totals and a day-by-day table until the end of the month');
     log(/Claim any day/.test(W().document.body.innerText) && /amount unknown|Not enough data/.test(W().document.body.innerText), 'gems: window rewards and unknown amounts are listed apart');
     const total0 = $('.kpis .kpi b').innerText;

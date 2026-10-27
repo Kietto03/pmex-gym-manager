@@ -8,7 +8,7 @@ import { allTimezones } from '../time.js';
 // ═══════════════════════════════════════════════════════════════
 //  FREE GEMS: what is still to be earned until the end of the month (Free Gems only, a projection)
 // ═══════════════════════════════════════════════════════════════
-const gemUi = { tab: 'projection', month: 0, edit: null, evEdit: null };
+const gemUi = { tab: 'projection', month: 0, edit: null, evEdit: null, source: '' };
 const GEM_KINDS = [['daily', 'Every day'], ['on_date', 'One day'], ['window', 'Once, any day in the range']];
 const fmtServerDay = d => new Date(`${d}T00:00:00Z`).toLocaleDateString(locale(), { weekday: 'short', day: '2-digit', month: 'short', timeZone: 'UTC' });
 export function renderGems() {
@@ -18,15 +18,36 @@ export function renderGems() {
   if (gemUi.tab === 'manage' && !staff) gemUi.tab = 'projection';
   return `<div class="toolbar"><h1>${t('Free Gems')} <small>${t('server day {d}', { d: today })}</small></h1>
     <div class="seg">${tabs.map(([k, l]) => `<button class="${gemUi.tab === k ? 'on' : ''}" data-gem-tab="${k}">${t(l)}</button>`).join('')}</div></div>
-  <p class="muted">${t('Only Free Gems. This is a projection from the rewards staff entered, not a promise of what your account will receive. Days are server days, so changing your time zone does not move a reward.')}</p>
+  <p class="muted">${t('Only Free Gems. This is a projection from the rewards listed (the community Gems sheet, or what staff entered), not a promise of what your account will receive. Days are server days, so changing your time zone does not move a reward.')}</p>
   ${gemUi.tab === 'manage' ? gemManage(g) : gemProjection(g, from, to)}`;
 }
+// The community Gems sheet as day rewards: each part of a day (daily gems, Gym, other…) is its own line, so the breakdown shows where gems come from
+const SHEET_PARTS = { daily: 'Daily gems', gym: 'Gym Battle', other: 'Other', regional: 'Regional Rotation', stadium: 'Champion Stadium' };
+function sheetRewards(sheet, today) {
+  const out = []; let id = -1;
+  for (const d of sheet?.days || []) for (const [k, v] of Object.entries(d.parts || {})) if (v > 0)
+    out.push({ id: id--, label: SHEET_PARTS[k] || k, kind: 'on_date', start_date: d.date, end_date: d.date, free_gems: v, certainty: d.date >= today ? 'estimated' : 'confirmed', condition: '', source: 'sheet', event_id: null });
+  return out;
+}
+const gemSource = g => gemUi.source || (S.gemSheet?.days?.length ? 'sheet' : 'staff');
+function sheetNote(sheet, to) {
+  const last = sheet.days.at(-1)?.date, age = Math.floor((Date.now() - Date.parse(sheet.updated || sheet.fetched)) / 864e5);
+  return `<p class="muted">${t('Source')}: <a href="${esc(sheet.source)}" target="_blank" rel="noopener noreferrer">${t('community Gems sheet')}</a>${sheet.author ? ` (${esc(sheet.author)})` : ''} · ${t('updated {d}', { d: sheet.updated || '—' })} · ${t('covers until {d}', { d: last ? fmtServerDay(last) : '—' })}${age > 7 ? ` · <b>${t('may be out of date')}</b>` : ''}${last && last < to ? ` · <b>${t('the sheet ends before the end of this month')}</b>` : ''}</p>`;
+}
+function gemBanners(sheet, from, to) {
+  const list = (sheet.banners || []).filter(b => b.end >= from && b.start <= to);
+  return list.length ? `<h2 class="section">${t('Banners')}</h2><div class="card list">${list.map(b => `<div class="run"><div><b>${esc(b.name)}</b><small class="muted">${esc(b.type)} · ${fmtServerDay(b.start)} → ${fmtServerDay(b.end)}</small></div></div>`).join('')}</div>` : '';
+}
 function gemProjection(g, from, to) {
-  const p = projectGems(g.rewards, from, to), eventOf = r => g.events.find(e => e.id === r.event_id);
-  const seg = `<div class="seg" style="margin-bottom:10px">${[[0, 'This month'], [1, 'Next month']].map(([k, l]) => `<button class="${gemUi.month === k ? 'on' : ''}" data-gem-month="${k}">${t(l)}</button>`).join('')}</div>`;
-  if (!g.rewards.length) return `${seg}<p class="muted">${t('No rewards have been entered yet.')}${isStaff() ? ` ${t('Add them under “Manage rewards”.')}` : ''}</p>`;
-  const label = r => `${esc(r.label)}${eventOf(r) ? ` <small class="muted">· ${esc(eventOf(r).name)}</small>` : ''}${r.certainty === 'estimated' ? ` <span class="badge gold">${t('estimated')}</span>` : ''}`;
-  return `${seg}<div class="kpis">
+  const src = gemSource(g), sheet = S.gemSheet, rewards = src === 'sheet' && sheet ? sheetRewards(sheet, serverToday(g.settings)) : g.rewards;
+  const p = projectGems(rewards, from, to), eventOf = r => g.events.find(e => e.id === r.event_id);
+  const srcSeg = sheet?.days?.length ? `<div class="seg" style="margin:0 0 10px 8px;display:inline-flex">${[['sheet', 'Gems sheet'], ['staff', 'Entered by staff']].map(([k, l]) => `<button class="${src === k ? 'on' : ''}" data-gem-source="${k}">${t(l)}</button>`).join('')}</div>` : '';
+  const seg0 = `<div class="seg" style="margin-bottom:10px">${[[0, 'This month'], [1, 'Next month']].map(([k, l]) => `<button class="${gemUi.month === k ? 'on' : ''}" data-gem-month="${k}">${t(l)}</button>`).join('')}</div>`;
+  const seg = seg0 + srcSeg;
+  if (!rewards.length) return `${seg}<p class="muted">${t('No rewards have been entered yet.')}${isStaff() ? ` ${t('Add them under “Manage rewards”.')}` : ''}</p>`;
+  const note = src === 'sheet' && sheet ? sheetNote(sheet, to) : '';
+  const label = r => `${esc(t(r.label))}${eventOf(r) ? ` <small class="muted">· ${esc(eventOf(r).name)}</small>` : ''}${r.certainty === 'estimated' ? ` <span class="badge gold">${t('estimated')}</span>` : ''}`;
+  return `${seg}${note}<div class="kpis">
     <div class="card kpi" style="--kc:var(--gold)"><small>${t('Free Gems until {d}', { d: fmtServerDay(to) })}</small><b>${fmtN(p.totals.all)}</b><span>${t('{a} on set days + {b} claimable once', { a: fmtN(p.totals.days), b: fmtN(p.totals.windows) })}</span></div>
     <div class="card kpi"><small>${t('On set days')}</small><b>${fmtN(p.totals.days)}</b><span>${t('{n} days', { n: p.rows.filter(r => r.total).length })}</span></div>
     <div class="card kpi"><small>${t('Claimable once, any day')}</small><b>${fmtN(p.totals.windows)}</b><span>${t('{n} rewards', { n: p.windows.length })}</span></div></div>
@@ -37,7 +58,8 @@ function gemProjection(g, from, to) {
     <tbody>${p.rows.map(r => `<tr class="${r.total ? '' : 'dim'}"><td class="nowrap"><b>${fmtServerDay(r.date)}</b></td><td>${r.items.map(x => `${label(x.reward)} <small class="muted">+${fmtN(x.gems)}</small>`).join('<br>') || '<span class="muted">—</span>'}</td>
       <td class="num">${r.total ? `<b>${fmtN(r.total)}</b>` : '—'}</td><td class="num muted">${fmtN(r.cumulative)}</td></tr>`).join('')}</tbody></table></div>
   ${p.incomplete.length ? `<h2 class="section">${t('Not enough data')}</h2><div class="card list">${p.incomplete.map(r => `<div class="run"><div><b>${label(r)}</b><small class="muted">${fmtServerDay(r.start_date)}${r.end_date !== r.start_date ? ` → ${fmtServerDay(r.end_date)}` : ''}</small></div><span class="badge">${t('amount unknown')}</span></div>`).join('')}</div>
-    <p class="muted">${t('These are not counted in any total.')}</p>` : ''}`;
+    <p class="muted">${t('These are not counted in any total.')}</p>` : ''}
+  ${src === 'sheet' && sheet ? gemBanners(sheet, from, to) : ''}`;
 }
 function gemManage(g) {
   const e = gemUi.edit, ev = gemUi.evEdit, o = (k, d = '') => esc(e?.[k] ?? d);
@@ -69,10 +91,11 @@ document.addEventListener('change', async e => {
   }
 });
 document.addEventListener('click', async e => {
-  const el = e.target.closest('[data-gem-tab],[data-gem-month],[data-gem-new],[data-gem-ev-new],[data-gem-cancel],[data-gem-edit],[data-gem-del],[data-gem-ev-del]');
+  const el = e.target.closest('[data-gem-source],[data-gem-tab],[data-gem-month],[data-gem-new],[data-gem-ev-new],[data-gem-cancel],[data-gem-edit],[data-gem-del],[data-gem-ev-del]');
   if (!el) return;
   const d = el.dataset, refresh = async () => { S.gems = await api.gems(); hooks.route(); };
   if (d.gemTab) { gemUi.tab = d.gemTab; hooks.route(); }
+  else if (d.gemSource) { gemUi.source = d.gemSource; hooks.route(); }
   else if (d.gemMonth !== undefined) { gemUi.month = +d.gemMonth; hooks.route(); }
   else if ('gemNew' in d) { gemUi.edit = { kind: 'daily' }; gemUi.evEdit = null; hooks.route(); }
   else if ('gemEvNew' in d) { gemUi.evEdit = {}; gemUi.edit = null; hooks.route(); }

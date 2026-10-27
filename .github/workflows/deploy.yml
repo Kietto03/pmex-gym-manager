@@ -4,6 +4,8 @@ on:
   push:
     branches: ["main"]
   workflow_dispatch:
+  schedule:
+    - cron: "23 */6 * * *"   # rebuild every 6 hours so the data synced below stays fresh
 
 permissions:
   contents: read
@@ -23,6 +25,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Refresh data from the community sheets
+        # Each tool keeps the copy already in the repo when its source cannot be read or has changed shape.
+        run: |
+          node tools/sync-gems.mjs || echo "::warning::Gems sheet not refreshed, keeping the committed copy"
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
