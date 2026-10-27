@@ -447,6 +447,30 @@ f.onload = async () => {
     log(/Ghost types/.test($('.table').innerText) && /10 points/.test($('.table thead').innerText), 'lodge: search by topic lists who likes it');
     log(/Serebii/.test(document.body.innerText) || /Serebii/.test($('p.muted')?.innerText || ''), 'lodge: shows source and copy date');
 
+    // 6j. Sync Grid builder
+    await go('#/grid');
+    await until(() => $('#grid-q'));
+    setVal($('#grid-q'), 'red'); await sleep(300);
+    const pikachu = $$('.lodge-t').find(a => /Pikachu/.test(a.innerText) && /1996/.test(a.innerText)) || $$('.lodge-t')[0];
+    log(!!pikachu, 'grid: search finds a sync pair');
+    pikachu.click();
+    await until(() => $$('.g-tile').length > 30, 20000); await sleep(200);
+    log($$('.g-tile').length > 30 && $$('.g-tile.open').length >= 1 && $$('.g-tile.open').length <= 6, 'grid: only tiles next to the centre can be switched on at first', `${$$('.g-tile').length} tiles, ${$$('.g-tile.open').length} open, hash ${W().location.hash}, ${(pikachu.innerText||'').replace(/\\n/g,' ')}`);
+    $('.g-tile.open').dispatchEvent(new MouseEvent('click', { bubbles: true })); await sleep(120);
+    log(!!$('[data-gtoggle]') && !$('[data-gtoggle]').disabled, 'grid: tapping a tile shows it and offers to switch it on');
+    $('[data-gtoggle]').click(); await sleep(150);
+    log($$('.g-tile.on').length === 1 && /tiles/.test($('.gstats').innerText) && $$('.g-tile.open').length > 1, 'grid: switching a tile on opens its neighbours');
+    const far = $$('.g-tile.locked')[0]; far.dispatchEvent(new MouseEvent('click', { bubbles: true })); await sleep(100);
+    log($('[data-gtoggle]').disabled, 'grid: a tile that touches nothing active cannot be switched on');
+    setVal($('#g-name'), 'Test build'); $('[data-gsave]').click(); await sleep(500);
+    log(/Test build/.test(location.hash) === false && $$('.g-tile.on').length === 1, 'grid: build saved and still open');
+    await go('#/grid'); await until(() => $('.build'));
+    log($$('.build').length === 1 && /Test build/.test($('.build').innerText), 'grid: the saved build is in My builds');
+    $('.build').click(); await until(() => $$('.g-tile').length > 30, 20000); await sleep(200);
+    log($$('.g-tile.on').length === 1, 'grid: reopening a build restores its tiles');
+    $('[data-gtab=info]').click(); await sleep(150);
+    log($$('.mv').length >= 3, 'grid: moves and passives tab');
+
     // 7. Admin creates and deletes an account
     await go('#/admin');
     await until(() => $('[data-atab=accounts]'));

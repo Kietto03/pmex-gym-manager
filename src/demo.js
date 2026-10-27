@@ -96,7 +96,7 @@ function seedData() {
   }
   const activity = runs.slice(0, 30).map((r, i) => ({ id: i + 1, at: r.created_at, actor: r.created_by, actor_name: r.member_name,
     action: 'runs.insert', detail: { leader: r.leader, round: r.round, score: r.score } }));
-  return { profiles, catalog, memberPairs, tower, seasons, seasonMembers, runs, assignments, notes, activity, facilitators, results, resources: seedResources(), ...seedStrategies(profiles, catalog), sheet: seedSheet(profiles, memberPairs) };
+  return { profiles, catalog, memberPairs, tower, seasons, seasonMembers, runs, assignments, notes, activity, facilitators, results, resources: seedResources(), gridBuilds: [], ...seedStrategies(profiles, catalog), sheet: seedSheet(profiles, memberPairs) };
 }
 
 const DEMO_STRATEGY = `# 1. General requirements for all sync pairs
@@ -463,6 +463,17 @@ export function createDemoApi() {
       if (!db.revisions.some(x => x.strategy_id === r.strategy_id)) db.strategies = db.strategies.filter(x => x.id !== r.strategy_id);
     },
     async archiveStrategy(id, archived) { staff() || deny(); db.strategies.find(x => x.id === id).archived = archived; },
+    gridBuilds: async () => clone(db.gridBuilds.filter(b => b.user_id === me || b.visibility === 'gym')).sort((a, b) => b.updated_at.localeCompare(a.updated_at)),
+    async saveGridBuild(row) {
+      if (!(row.name || '').trim()) deny(t('Give it a name.'));
+      const old = row.id && db.gridBuilds.find(b => b.id === row.id);
+      if (old && old.user_id !== me) deny();
+      const now = new Date().toISOString();
+      if (old) { Object.assign(old, row, { updated_at: now }); return clone(old); }
+      const b = { id: Math.max(0, ...db.gridBuilds.map(x => x.id)) + 1, visibility: 'private', purpose: '', energy_cap: null, move_level: 5, ...row, user_id: me, created_at: now, updated_at: now };
+      db.gridBuilds.push(b); return clone(b);
+    },
+    async deleteGridBuild(id) { const b = db.gridBuilds.find(x => x.id === id); if (!b || b.user_id !== me) deny(); db.gridBuilds = db.gridBuilds.filter(x => x.id !== id); },
     facilitators: async sid => clone(db.facilitators.filter(f => f.season_id === sid)),
     async saveFacilitator(row) {
       staff() || deny();

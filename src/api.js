@@ -155,6 +155,10 @@ function supabaseApi(sb) {
     deleteRevision: async id => ok(await sb.from('strategy_revisions').delete().eq('id', id)),
     archiveStrategy: async (id, archived) => ok(await sb.from('strategies').update({ archived }).eq('id', id)),
 
+    gridBuilds: () => all(() => sb.from('grid_builds').select('*').order('updated_at', { ascending: false })),
+    saveGridBuild: async row => ok(row.id ? await sb.from('grid_builds').update(row).eq('id', row.id).select().single() : await sb.from('grid_builds').insert(row).select().single()),
+    deleteGridBuild: async id => ok(await sb.from('grid_builds').delete().eq('id', id)),
+
     facilitators: sid => all(() => sb.from('facilitator_plans').select('*').eq('season_id', sid).order('leader').order('user_id')),
     saveFacilitator: async row => ok(await sb.from('facilitator_plans').upsert(row)),
     removeFacilitator: async (season_id, leader, user_id) => ok(await sb.from('facilitator_plans').delete().match({ season_id, leader, user_id })),

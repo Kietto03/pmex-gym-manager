@@ -116,6 +116,28 @@ export function wtzScore(p, type) {
 }
 export const rebuffs = (p, type) => (p.rebuff || []).some(r => r === type || r === 'Weakness');
 
+// catalog pair → the id of its file in the Dex build (data/pair-map.json, made by tools/build-pair-map.mjs)
+let pairMap = {};
+export async function loadPairMap() { try { const r = await fetch('data/pair-map.json'); if (r.ok) pairMap = (await r.json()).pairs || {}; } catch { /* the grid pages say the data is missing */ } }
+export const dexIdOf = p => pairMap[`${p.trainer}|${p.pokemon}`.toLowerCase()] || null;
+// ─── Full detail of one pair (moves, passives, stats, grid) — one small script per pair in the Dex build ───
+const pending = new Map(), details = new Map();
+export function loadPairDetail(id) {
+  if (details.has(id)) return details.get(id);
+  if (!window.PMEX_PAIR_LOADED) window.PMEX_PAIR_LOADED = (pid, data) => pending.get(pid)?.(data);
+  const p = new Promise((resolve, reject) => {
+    const el = Object.assign(document.createElement('script'), { src: `${DEX}data/pairs/${encodeURIComponent(id)}.js`, async: true });
+    const done = fn => v => { clearTimeout(timer); pending.delete(id); el.remove(); fn(v); };
+    const timer = setTimeout(() => done(reject)(new Error('timeout')), 20000);
+    pending.set(id, done(resolve));
+    el.onerror = () => done(reject)(new Error('missing'));
+    document.head.append(el);
+  });
+  details.set(id, p);
+  p.catch(() => details.delete(id));   // a failed load may be tried again
+  return p;
+}
+
 // ─── Gym Battles (from the Dex) ───
 let gyms = [], gymsMeta = { builtAt: null, versions: [] };
 export const GYMS = () => gyms;

@@ -327,6 +327,28 @@ select pg_temp.check('approving the revision supersedes the old one', '00000000-
   $$ update public.strategy_revisions set status = 'published' where title = 'Fire rush v2';
      do $d$ begin if (select count(*) from public.strategy_revisions where status = 'superseded' and title = 'Fire rush') <> 1 or (select rev_no from public.strategy_revisions r join public.strategies s on s.published_rev = r.id) <> 2 then raise exception 'not superseded'; end if; end $d$ $$);
 
+-- ─── Sync Grid builds: private by default, shareable with the gym, only the owner edits ───
+select pg_temp.check('member saves a private build',               '00000000-0000-0000-0000-00000000000d',
+  $$ insert into public.grid_builds (user_id, pair_id, name, nodes) values ('00000000-0000-0000-0000-00000000000d', '0-red-1996-pikachu', 'Speed build', '{1,2,3}') $$);
+select pg_temp.check('other members cannot see a private build',   '00000000-0000-0000-0000-00000000000f',
+  $$ do $d$ begin if (select count(*) from public.grid_builds) <> 0 then raise exception 'leaked'; end if; end $d$ $$);
+select pg_temp.check('a mod cannot read a private build either',   '00000000-0000-0000-0000-00000000000b',
+  $$ do $d$ begin if (select count(*) from public.grid_builds) <> 0 then raise exception 'staff saw it'; end if; end $d$ $$);
+select pg_temp.check('owner shares it with the gym',               '00000000-0000-0000-0000-00000000000d',
+  $$ update public.grid_builds set visibility = 'gym' where name = 'Speed build' $$);
+select pg_temp.check('everyone now sees the shared build',         '00000000-0000-0000-0000-00000000000f',
+  $$ do $d$ begin if (select count(*) from public.grid_builds) <> 1 then raise exception 'not shared'; end if; end $d$ $$);
+select pg_temp.check('nobody else can edit it',                    '00000000-0000-0000-0000-00000000000f',
+  $$ update public.grid_builds set name = 'Hacked' where name = 'Speed build';
+     do $d$ begin if (select count(*) from public.grid_builds where name = 'Hacked') <> 0 then raise exception 'edited'; end if; end $d$ $$);
+select pg_temp.check('nobody else can delete it',                  '00000000-0000-0000-0000-00000000000b',
+  $$ delete from public.grid_builds where name = 'Speed build';
+     do $d$ begin if (select count(*) from public.grid_builds) <> 1 then raise exception 'deleted'; end if; end $d$ $$);
+select pg_temp.check('a build cannot be saved for someone else',   '00000000-0000-0000-0000-00000000000f',
+  $$ insert into public.grid_builds (user_id, pair_id, name) values ('00000000-0000-0000-0000-00000000000d', 'x', 'Forged') $$, 'row-level security');
+select pg_temp.check('a build needs a name',                       '00000000-0000-0000-0000-00000000000d',
+  $$ insert into public.grid_builds (user_id, pair_id, name) values ('00000000-0000-0000-0000-00000000000d', 'x', '  ') $$, 'check');
+
 select format('%s  %s%s', case when ok then 'PASS' else 'FAIL' end, name, case when ok then '' else '  → ' || info end) as result
   from results order by n;
 do $$ begin
