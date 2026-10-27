@@ -119,7 +119,9 @@ npm run test:db          # 63 permission & rule tests on a throwaway Postgres (n
 ```
 index.html, styles.css    page shell and styles
 config.js                 Supabase URL + anon key (empty = demo), data sources
-src/main.js               router and every page
+src/main.js               router, header and the older pages (overview, log, plan, roster, members, admin…)
+src/core.js               shared helpers, app state `S`, the api handle, who-may-do-what; pages reach the router through `hooks`
+src/pages/                newer pages, one module each: info, resources, strategies, lodge, gridpage, gemspage
 src/api.js                data layer: Supabase or the in-memory demo, same functions
 src/demo.js               demo backend + sample gym
 src/rules.js              Gym Battle rules (no DOM)
