@@ -398,6 +398,18 @@ f.onload = async () => {
     saveBtn.click(); await sleep(400);
     log(!$('.toast.bad, .toast.err'), 'tower image renders without an error');
 
+    // 6g. Resources
+    await go('#/resources');
+    await until(() => $('.res'));
+    log($$('.res').length === 5 && !!$('[data-res-new]'), 'resources: list with staff controls');
+    $('[data-res-cat=tier_jp]').click(); await sleep(150);
+    log($$('.res').length === 1 && /broken/i.test($('.res').innerText), 'resources: filter by category shows the broken status');
+    $('[data-res-cat=""]').click(); await sleep(100);
+    $('[data-res-new]').click(); await sleep(150);
+    setVal($('#res-form [name=title]'), 'New guide'); setVal($('#res-form [name=url]'), 'https://example.com/new');
+    $('#res-form').requestSubmit(); await sleep(400);
+    log($$('.res').length === 6, 'resources: staff adds a link');
+
     // 7. Admin creates and deletes an account
     await go('#/admin');
     await until(() => $('[data-atab=accounts]'));

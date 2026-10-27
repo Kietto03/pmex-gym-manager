@@ -96,7 +96,7 @@ function seedData() {
   }
   const activity = runs.slice(0, 30).map((r, i) => ({ id: i + 1, at: r.created_at, actor: r.created_by, actor_name: r.member_name,
     action: 'runs.insert', detail: { leader: r.leader, round: r.round, score: r.score } }));
-  return { profiles, catalog, memberPairs, tower, seasons, seasonMembers, runs, assignments, notes, activity, facilitators, results, sheet: seedSheet(profiles, memberPairs) };
+  return { profiles, catalog, memberPairs, tower, seasons, seasonMembers, runs, assignments, notes, activity, facilitators, results, resources: seedResources(), sheet: seedSheet(profiles, memberPairs) };
 }
 
 const DEMO_STRATEGY = `# 1. General requirements for all sync pairs
@@ -128,6 +128,14 @@ function seedSheet(profiles, memberPairs) {
 }
 
 // Fill a season with runs that pass validateRun, the way a gym plays it
+function seedResources() {
+  const mk = (id, category, title, url, language, scope, source, status = 'ok') => ({ id, category, title, url, language, scope, source, author: '', version: '', effective: null, checked_at: new Date(Date.now() - id * 864e5).toISOString(), status, note: '' });
+  return [mk(1, 'tier_cn', 'Tier list (China) by role', 'https://docs.qq.com/sheet/demo', 'zh', 'by role', 'Tencent Docs'),
+    mk(2, 'tier_spark', 'Spark tier list', 'https://docs.google.com/document/demo', 'en', 'Spark', 'Google Docs'),
+    mk(3, 'tier_jp', 'Tier list (Japan)', 'https://gamewith.jp/pokemonmasters/demo', 'ja', 'all roles', 'GameWith', 'broken'),
+    mk(4, 'tracker', 'Pasio Tower tracker', 'https://www.pomatowers.com/tracker', 'en', 'Pasio Tower', 'pomatowers.com'),
+    mk(5, 'guide', 'Trainer Lodge topics', 'https://www.serebii.net/pokemonmasters/trainerlodgetopics.shtml', 'en', 'Trainer Lodge', 'Serebii', 'unchecked')];
+}
 function simulate(season, profiles, memberPairs, seasonMembers, runs, nextId) {
   // The admin, first mod and first member are the "try it" accounts: keep tickets for them to spend
   const tryIt = new Set(['admin', 'mod', 'member'].map(r => profiles.find(p => p.role === r)?.id));
@@ -274,7 +282,7 @@ export function createDemoApi() {
       db.sheet = db.sheet.filter(x => !(x.user_id === user_id && x.pair_id === pair_id));
     },
 
-    tower: async () => clone(db.tower),
+    tower: async () => clone(db.tower.filter(x => staff() || x.user_id === me)),
     async upsertTower(row) {
       selfOrStaff(row.user_id);
       if (!(row.floor >= 0 && row.floor <= 40)) deny(t('Tower floors go from 0 to 40.'));
@@ -376,6 +384,17 @@ export function createDemoApi() {
     },
 
     results: async sid => clone(db.results.filter(r => r.season_id === sid)),
+    resources: async () => clone(db.resources).sort((a, b) => a.category.localeCompare(b.category) || a.title.localeCompare(b.title)),
+    async saveResource(row) {
+      staff() || deny();
+      if (!/^https?:\/\//i.test(row.url || '')) deny(t('The link must start with http:// or https://.'));
+      if (!(row.title || '').trim()) deny(t('Give it a title.'));
+      if (db.resources.some(x => x.url === row.url && x.id !== row.id)) deny(t('That link is already in the list.'));
+      const old = db.resources.find(x => x.id === row.id);
+      if (old) Object.assign(old, row, { updated_at: new Date().toISOString() });
+      else db.resources.push({ id: Math.max(0, ...db.resources.map(x => x.id)) + 1, status: 'unchecked', checked_at: null, ...row });
+    },
+    async deleteResource(id) { staff() || deny(); db.resources = db.resources.filter(x => x.id !== id); },
     facilitators: async sid => clone(db.facilitators.filter(f => f.season_id === sid)),
     async saveFacilitator(row) {
       staff() || deny();

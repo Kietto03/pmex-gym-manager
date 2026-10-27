@@ -50,7 +50,7 @@ async function act(fn, okMsg) {
 
 // ─── State ──────────────────────────────────────────────────
 let api;
-const S = { me: null, profiles: [], mp: [], tower: [], seasons: [], sid: null, runs: [], sm: [], asg: [], notes: [], fac: [], res: [], sheet: [] };
+const S = { me: null, profiles: [], mp: [], tower: [], seasons: [], sid: null, runs: [], sm: [], asg: [], notes: [], fac: [], res: [], resources: [], sheet: [] };
 const meP = () => S.profiles.find(p => p.id === S.me);
 let lockCtx = false;   // set while drawing a frozen page: staff controls disappear for everyone but the admin
 const isStaff = () => !lockCtx && ['admin', 'mod'].includes(meP()?.role);
@@ -60,6 +60,8 @@ const nameOf = p => (p ? p.display_name || p.username : '');
 const season = () => S.seasons.find(s => s.id === S.sid);
 const owned = uid => S.mp.filter(x => x.user_id === uid);
 const ownedPair = (uid, pid) => S.mp.find(x => x.user_id === uid && x.pair_id === pid);
+// Tower floors are private: the database only returns your own (staff see all), so others show as unknown
+const towerKnown = uid => uid === S.me || isStaff();
 const towerFloor = (uid, type) => S.tower.find(x => x.user_id === uid && x.type === type)?.floor || 0;
 // A Gym Battle that is over is frozen: only the admin can still change its log and plans (the database enforces it too)
 const frozen = () => { const s = season(); return !!s && Date.parse(s.battle_end) <= Date.now() && !isAdmin(); };
@@ -80,7 +82,7 @@ function av(uid, size = '') {
 }
 
 async function loadAll() {
-  [S.profiles, S.mp, S.tower, S.seasons, S.sheet] = await Promise.all([api.profiles(), api.memberPairs(), api.tower(), api.seasons(), api.sheet()]);
+  [S.profiles, S.mp, S.tower, S.seasons, S.sheet, S.resources] = await Promise.all([api.profiles(), api.memberPairs(), api.tower(), api.seasons(), api.sheet(), api.resources().catch(() => [])]);
   let saved = null;
   try { saved = +localStorage.getItem('gym-season'); } catch { /* private mode */ }
   S.sid = (S.seasons.find(s => s.id === saved) || S.seasons.find(s => s.is_active) || S.seasons[0])?.id ?? null;
@@ -93,7 +95,7 @@ async function loadSeason() {
 const state = () => (season() ? seasonState(season(), S.runs, S.sm) : null);
 
 // ─── Chrome (header) ────────────────────────────────────────
-const NAV = [['', 'Overview', 'home'], ['log', 'Log a run', 'swords'], ['plan', 'Plan', 'plan'], ['info', 'Battle info', 'flag'], ['roster', 'Roster', 'roster'],
+const NAV = [['', 'Overview', 'home'], ['log', 'Log a run', 'swords'], ['plan', 'Plan', 'plan'], ['info', 'Battle info', 'flag'], ['resources', 'Resources', 'note'], ['roster', 'Roster', 'roster'],
   ['members', 'Members', 'users'], ['admin', 'Admin', 'shield']];
 function renderHeader(active) {
   $('#nav').innerHTML = S.me ? NAV.filter(([k]) => k !== 'admin' || isStaff())
@@ -146,7 +148,7 @@ document.addEventListener('change', e => {
 
 // ─── Router ─────────────────────────────────────────────────
 const view = $('#view');
-const routes = { '': renderOverview, log: renderLog, plan: renderPlan, info: renderInfo, roster: renderRoster, members: renderMembers, member: renderMember,
+const routes = { '': renderOverview, log: renderLog, plan: renderPlan, info: renderInfo, resources: renderResources, roster: renderRoster, members: renderMembers, member: renderMember,
   settings: renderSettings, account: renderSettings, admin: renderAdmin };
 const after = {};
 
@@ -663,6 +665,79 @@ document.addEventListener('click', e => {
 });
 
 // ═══════════════════════════════════════════════════════════════
+//  RESOURCES: a library of links (tier lists, trackers, sheets, guides)
+// ═══════════════════════════════════════════════════════════════
+const RES_CATS = [['tier_cn', 'Tier list (China)'], ['tier_spark', 'Spark tier list'], ['tier_jp', 'Tier list (Japan)'], ['tracker', 'Trackers and tools'], ['sheet', 'Sheets'], ['guide', 'Guides'], ['other', 'Other']];
+const RES_LANG = { en: 'English', vi: 'Tiếng Việt', zh: '中文', ja: '日本語' };
+const resFilter = { cat: '', lang: '', q: '' };
+let resEdit = null;   // null = closed, {} = new, {id…} = editing
+const hostOf = u => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return ''; } };
+const resStatus = r => r.status === 'broken' ? ['bad', 'Link broken'] : r.status === 'ok' ? ['good', 'Works'] : ['', 'Not checked'];
+function renderResources() {
+  const f = resFilter, q = f.q.trim().toLowerCase();
+  const list = S.resources.filter(r => (!f.cat || r.category === f.cat) && (!f.lang || r.language === f.lang)
+    && (!q || `${r.title} ${r.scope} ${r.source} ${r.author}`.toLowerCase().includes(q)));
+  const langs = [...new Set(S.resources.map(r => r.language).filter(Boolean))];
+  return `<div class="toolbar"><h1>${t('Resources')} <small>${t('{n} links', { n: S.resources.length })}</small></h1>
+    ${isStaff() ? `<button class="btn primary" data-res-new>${ico('plus')} ${t('Add a link')}</button>` : ''}</div>
+  <p class="muted">${t('Tier lists and tools kept by the gym. They are references: the app does not copy their rankings.')}</p>
+  ${resEdit ? resForm() : ''}
+  <div class="card pad filters-row"><input id="res-q" placeholder="${t('Search title, role, source…')}" value="${esc(f.q)}">
+    <button class="pill ${!f.cat ? 'on' : ''}" data-res-cat="">${t('All')}</button>${RES_CATS.filter(([k]) => S.resources.some(r => r.category === k)).map(([k, l]) => `<button class="pill ${f.cat === k ? 'on' : ''}" data-res-cat="${k}">${t(l)}</button>`).join('')}
+    ${langs.length > 1 ? `<select data-res-lang><option value="">${t('Any language')}</option>${langs.map(l => `<option value="${l}" ${f.lang === l ? 'selected' : ''}>${esc(RES_LANG[l] || l)}</option>`).join('')}</select>` : ''}</div>
+  <div class="res-grid">${list.map(r => { const [cls, label] = resStatus(r);
+    return `<article class="card pad res"><div class="res-top"><span class="badge">${t(RES_CATS.find(c => c[0] === r.category)?.[1] || r.category)}</span><span class="badge ${cls}">${t(label)}</span></div>
+      <h3><a href="${esc(r.url)}" target="_blank" rel="noopener noreferrer">${esc(r.title)}</a></h3>
+      <small class="muted">${esc(hostOf(r.url))}${r.language ? ` · ${esc(RES_LANG[r.language] || r.language)}` : ''}</small>
+      ${r.scope ? `<p>${esc(r.scope)}</p>` : ''}
+      <small class="muted">${[r.source && `${t('Source')}: ${esc(r.source)}`, r.author && `${t('Author')}: ${esc(r.author)}`, r.version && `${t('Version')}: ${esc(r.version)}`, r.effective && `${t('Valid from')} ${fmtD(r.effective)}`, r.checked_at && `${t('Checked')} ${fmtD(r.checked_at)}`].filter(Boolean).join(' · ')}</small>
+      ${r.note ? `<p class="muted">${esc(r.note)}</p>` : ''}
+      <div class="row"><a class="btn sm" href="${esc(r.url)}" target="_blank" rel="noopener noreferrer">${t('Open')}</a>
+        ${isStaff() ? `<button class="btn sm ghost" data-res-edit="${r.id}">${t('Edit')}</button><button class="btn sm ghost" data-res-ok="${r.id}">${t('Mark checked')}</button><button class="btn sm ghost" data-res-bad="${r.id}">${t('Mark broken')}</button><button class="btn sm ghost" data-res-del="${r.id}" aria-label="${t('Delete')}">${ico('x')}</button>` : ''}</div></article>`;
+  }).join('') || `<p class="muted">${t('No links match.')}</p>`}</div>`;
+}
+function resForm() {
+  const r = resEdit, o = (k, d = '') => esc(r[k] ?? d);
+  return `<form class="card pad form" id="res-form"><h2 class="title">${r.id ? t('Edit link') : t('Add a link')}</h2>
+    <div class="grid3"><label>${t('Title')}<input name="title" value="${o('title')}" required></label>
+      <label>${t('Category')}<select name="category">${RES_CATS.map(([k, l]) => `<option value="${k}" ${(r.category || 'other') === k ? 'selected' : ''}>${t(l)}</option>`).join('')}</select></label>
+      <label>${t('Language')}<input name="language" value="${o('language')}" placeholder="en, vi, zh, ja"></label></div>
+    <label>URL<input name="url" type="url" value="${o('url')}" placeholder="https://" required></label>
+    <div class="grid3"><label>${t('Role or mode')}<input name="scope" value="${o('scope')}"></label><label>${t('Source')}<input name="source" value="${o('source')}"></label><label>${t('Author')}<input name="author" value="${o('author')}"></label></div>
+    <div class="grid3"><label>${t('Version')}<input name="version" value="${o('version')}"></label><label>${t('Valid from')}<input name="effective" type="date" value="${o('effective')}"></label></div>
+    <label>${t('Note')}<input name="note" value="${o('note')}"></label>
+    <div class="row"><button class="btn primary">${t('Save')}</button><button type="button" class="btn ghost" data-res-close>${t('Cancel')}</button><p class="form-err" id="res-err"></p></div></form>`;
+}
+document.addEventListener('input', e => { if (e.target.id === 'res-q') { resFilter.q = e.target.value; const pos = e.target.selectionStart; route(); const el = $('#res-q'); el?.focus(); el?.setSelectionRange(pos, pos); } });
+document.addEventListener('change', e => { if (e.target.dataset?.resLang !== undefined) { resFilter.lang = e.target.value; route(); } });
+document.addEventListener('click', async e => {
+  const el = e.target.closest('[data-res-cat],[data-res-new],[data-res-edit],[data-res-close],[data-res-ok],[data-res-bad],[data-res-del]');
+  if (!el) return;
+  const d = el.dataset, byId = id => S.resources.find(x => x.id === +id);
+  const refresh = async () => { S.resources = await api.resources(); route(); };
+  if ('resCat' in d) { resFilter.cat = d.resCat; route(); }
+  else if ('resNew' in d) { resEdit = {}; route(); }
+  else if (d.resEdit) { resEdit = { ...byId(d.resEdit) }; route(); window.scrollTo({ top: 0 }); }
+  else if ('resClose' in d) { resEdit = null; route(); }
+  else if (d.resOk || d.resBad) {
+    const r = byId(d.resOk || d.resBad);
+    if (await act(() => api.saveResource({ id: r.id, status: d.resOk ? 'ok' : 'broken', checked_at: new Date().toISOString() }), t('Saved.'))) await refresh();
+  } else if (d.resDel) {
+    const r = byId(d.resDel);
+    if (confirm(t('Delete the link “{t}”?', { t: r.title })) && await act(() => api.deleteResource(r.id), t('Link deleted.'))) await refresh();
+  }
+});
+document.addEventListener('submit', async e => {
+  if (e.target.id !== 'res-form') return;
+  e.preventDefault();
+  const f = Object.fromEntries(new FormData(e.target));
+  const row = { ...f, title: f.title.trim(), url: f.url.trim(), effective: f.effective || null, created_by: resEdit.id ? undefined : S.me };
+  if (resEdit.id) row.id = resEdit.id;
+  Object.keys(row).forEach(k => row[k] === undefined && delete row[k]);
+  if (await act(() => api.saveResource(row), t('Saved.'))) { resEdit = null; S.resources = await api.resources(); route(); }
+});
+
+// ═══════════════════════════════════════════════════════════════
 //  PLAN
 // ═══════════════════════════════════════════════════════════════
 function ruleShort(text) {
@@ -1101,18 +1176,18 @@ const tickClocks = () => document.querySelectorAll('[data-clock]').forEach(el =>
 setInterval(tickClocks, 20000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) tickClocks(); });
 function renderMembers() {
-  if (memberView === 'types') memberView = 'list';
+  if (memberView === 'types' || memberView === 'tower' || (memberView === 'dash' && !isStaff())) memberView = 'list';
   const rows = memberRows();
   const heat = (v, max, ty) => `<td class="heat" style="--h:${Math.min(1, v / max).toFixed(2)};--tc:${TYPE_COLORS[ty]}"><b>${v || '·'}</b></td>`;
 
   return `<div class="toolbar"><h1>${t('Members')} <small>${t('{n} people', { n: S.profiles.length })}</small></h1>
-    <div class="seg">${[['list', 'Cards'], ['tower', 'Tower by type'], ...(isStaff() ? [['dash', 'Tower dashboard']] : [])].map(([k, l]) => `<button class="${memberView === k ? 'on' : ''}" data-mview="${k}">${t(l)}</button>`).join('')}</div></div>
+    <div class="seg">${[['list', 'Cards'], ...(isStaff() ? [['dash', 'Tower dashboard']] : [])].map(([k, l]) => `<button class="${memberView === k ? 'on' : ''}" data-mview="${k}">${t(l)}</button>`).join('')}</div></div>
   ${memberView === 'dash' && isStaff() ? towerDashboard(rows) : memberView === 'list' ? `<div class="mgrid">${rows.map(r => `
     <article class="card mcard ${r.banned ? 'dim' : ''}">
       <div class="mtop">${av(r.p.id)}<div><a class="mname" href="#/member/${r.p.id}">${esc(nameOf(r.p))}</a>
         <small class="muted">@${esc(r.p.username)}</small> ${rankTag(r.p.role)}${r.banned ? ` <span class="badge bad">${t('locked')}</span>` : ''}</div></div>
       <div class="clock-row">${clockHtml(r.p)}</div>
-      <div class="mstats"><div><b>${r.pairs}</b>${t('pairs')}</div><div><b>${r.ex}</b>EX</div><div><b>${r.tower}</b>${t('floors')}</div><div><b>${fmtK(r.season?.score || 0)}</b>${t('score')}</div></div>
+      <div class="mstats"><div><b>${r.pairs}</b>${t('pairs')}</div><div><b>${r.ex}</b>EX</div><div><b>${towerKnown(r.p.id) ? r.tower : '—'}</b>${t('floors')}</div><div><b>${fmtK(r.season?.score || 0)}</b>${t('score')}</div></div>
       <div class="mtypes">${r.byType.slice(0, 6).map(([ty, n]) => `<span style="--tc:${TYPE_COLORS[ty]}" title="${t(ty)}">${img(typeIcon(ty), 'ti', ty)}${n}</span>`).join('')}</div>
       ${isStaff() ? `<div class="mlinks"><a class="btn sm" href="#/member/${r.p.id}/pairs">${t('Roster')}</a><a class="btn sm" href="#/member/${r.p.id}/tower">${t('Tower')}</a><a class="btn sm" href="#/member/${r.p.id}/plan">${t('Battle plan')}</a></div>` : ''}
     </article>`).join('')}</div>`
@@ -1204,7 +1279,7 @@ function typeRoster(rows) {
     <tbody>${data.map((d, i) => `<tr class="${d.r.banned ? 'dim' : ''} ${d.r.p.id === S.me ? 'me' : ''}">
       <td class="rank">${i + 1}</td>
       <td><a class="who" href="#/member/${d.r.p.id}/pairs">${av(d.r.p.id, 'xs')}${esc(nameOf(d.r.p))}</a><small class="muted count">${t('{n} pairs', { n: d.mine.filter(x => x.pair.type === ty).length })}</small></td>
-      ${row(d)}<td class="num">${towerFloor(d.r.p.id, ty)}<small class="muted">F</small></td></tr>`).join('')}</tbody></table></div>`;
+      ${row(d)}<td class="num">${towerKnown(d.r.p.id) ? `${towerFloor(d.r.p.id, ty)}<small class="muted">F</small>` : '<span class="muted">—</span>'}</td></tr>`).join('')}</tbody></table></div>`;
 }
 
 // The dropdown of one cell. It lists the pairs of the sheet's type, with the ones that fit the column
@@ -1317,6 +1392,7 @@ const MTABS = ['pairs', 'tower', 'plan', 'runs'];
 
 function renderMember(id = S.me, tab = '') {
   if (MTABS.includes(tab)) memberTab = tab;
+  if (memberTab === 'tower' && !towerKnown(id)) memberTab = 'pairs';
   const p = profile(id);
   if (!p) return `<div class="empty card"><h2>${t('Member not found')}</h2><p class="muted">${t('The account may have been deleted.')}</p></div>`;
   const edit = canEdit(id), mine = owned(id);
@@ -1353,7 +1429,7 @@ function renderMember(id = S.me, tab = '') {
   <div class="toolbar tabs">
     <div class="seg">
       <button class="${memberTab === 'pairs' ? 'on' : ''}" data-mtab="pairs">${t('Sync pairs')} (${mine.length})</button>
-      <button class="${memberTab === 'tower' ? 'on' : ''}" data-mtab="tower">${t('Pasio Tower')}</button>
+      ${towerKnown(id) ? `<button class="${memberTab === 'tower' ? 'on' : ''}" data-mtab="tower">${t('Pasio Tower')}</button>` : ''}
       <button class="${memberTab === 'plan' ? 'on' : ''}" data-mtab="plan">${t('Battle plan')}${nAsg ? ` (${nAsg})` : ''}</button>
       <button class="${memberTab === 'runs' ? 'on' : ''}" data-mtab="runs">${t('Runs this season')}</button>
     </div>

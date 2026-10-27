@@ -268,6 +268,24 @@ select pg_temp.check('admin changes the time after the season',     '00000000-00
 select pg_temp.check('the round and tickets stay when the time moves', '00000000-0000-0000-0000-00000000000a',
   $$ do $d$ begin if not ((select round from public.runs where member_name = 'x') = 1 and (select tickets from public.runs where member_name = 'x') = 3) then raise exception 'round or tickets changed'; end if; end $d$ $$);
 
+-- ─── Tower progress is private ───
+insert into public.tower_progress (user_id, type, floor) values ('00000000-0000-0000-0000-00000000000d', 'Fire', 12), ('00000000-0000-0000-0000-00000000000a', 'Fire', 30) on conflict do nothing;
+select pg_temp.check('member reads only their own tower rows',     '00000000-0000-0000-0000-00000000000d',
+  $$ do $d$ begin if (select count(*) from public.tower_progress) <> (select count(*) from public.tower_progress where user_id = '00000000-0000-0000-0000-00000000000d') or (select count(*) from public.tower_progress) = 0 then raise exception 'saw others'' towers'; end if; end $d$ $$);
+select pg_temp.check('staff reads everyone''s tower',                '00000000-0000-0000-0000-00000000000b',
+  $$ do $d$ begin if (select count(distinct user_id) from public.tower_progress) < 2 then raise exception 'staff cannot see all'; end if; end $d$ $$);
+
+-- ─── Resources: everyone reads, staff write ───
+select pg_temp.check('member reads the resource list',            '00000000-0000-0000-0000-00000000000d', $$ do $d$ begin if (select count(*) from public.resource_links) < 5 then raise exception 'no resources'; end if; end $d$ $$);
+select pg_temp.check('member cannot add a resource',               '00000000-0000-0000-0000-00000000000d',
+  $$ insert into public.resource_links (category, title, url) values ('other', 'x', 'https://example.com/m') $$, 'row-level security');
+select pg_temp.check('staff adds a resource',                      '00000000-0000-0000-0000-00000000000b',
+  $$ insert into public.resource_links (category, title, url) values ('guide', 'Guide', 'https://example.com/g') $$);
+select pg_temp.check('a link must be http(s)',                     '00000000-0000-0000-0000-00000000000b',
+  $$ insert into public.resource_links (category, title, url) values ('guide', 'Bad', 'javascript:alert(1)') $$, 'check');
+select pg_temp.check('the same link cannot be added twice',        '00000000-0000-0000-0000-00000000000b',
+  $$ insert into public.resource_links (category, title, url) values ('guide', 'Dup', 'https://example.com/g') $$, 'duplicate');
+
 select format('%s  %s%s', case when ok then 'PASS' else 'FAIL' end, name, case when ok then '' else '  → ' || info end) as result
   from results order by n;
 do $$ begin

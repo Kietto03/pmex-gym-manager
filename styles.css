@@ -892,3 +892,11 @@ td .muted .ico { width: 14px; height: 14px; vertical-align: -2px; }
 .heat.nil { opacity: .45; }
 .heatmap tfoot th { font-size: 12px; }
 #dash-q { min-width: 200px; }
+
+.res-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; margin-top: 12px; }
+.res { display: grid; gap: 6px; align-content: start; }
+.res h3 { margin: 4px 0 0; }
+.res h3 a { color: inherit; }
+.res-top { display: flex; gap: 6px; flex-wrap: wrap; }
+.badge.good { background: rgba(22,163,122,.18); color: #16a37a; }
+#res-q { min-width: 220px; }

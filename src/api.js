@@ -137,6 +137,10 @@ function supabaseApi(sb) {
 
     results: sid => all(() => sb.from('season_results').select('*').eq('season_id', sid).order('points', { ascending: false, nullsFirst: false })),
 
+    resources: () => all(() => sb.from('resource_links').select('*').order('category').order('title')),
+    saveResource: async row => ok(row.id ? await sb.from('resource_links').update(row).eq('id', row.id) : await sb.from('resource_links').insert(row)),
+    deleteResource: async id => ok(await sb.from('resource_links').delete().eq('id', id)),
+
     facilitators: sid => all(() => sb.from('facilitator_plans').select('*').eq('season_id', sid).order('leader').order('user_id')),
     saveFacilitator: async row => ok(await sb.from('facilitator_plans').upsert(row)),
     removeFacilitator: async (season_id, leader, user_id) => ok(await sb.from('facilitator_plans').delete().match({ season_id, leader, user_id })),
