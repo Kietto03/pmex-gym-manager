@@ -1101,6 +1101,9 @@ const rosterCell = x => x
 const tagsFor = (p, ty, slot) => slot.k === 'wtz' ? (p.wtz || []).filter(w => wtzScore(p, ty) >= 2 && (w.includes(ty) || /Sunny|Rain|Sand|Hail|Terrain/.test(w)))
   : slot.k === 'rebuff' ? (p.rebuff || []).filter(r => r === ty || r === 'Weakness').map(r => `${r === 'Weakness' ? t('Weakness') : r} Rebuff ↓`) : [];
 
+// The sheet's columns come in groups; a line marks where each group starts
+const slotGroup = k => (['special', 'subspec', 'physical', 'subphys'].includes(k) ? 'dps' : ['wtz', 'rebuff', 'extwtz'].includes(k) ? 'field' : k === 'support' ? 'support' : 'other');
+const slotFirst = sl => { const i = SHEET_SLOTS.indexOf(sl); return i > 0 && slotGroup(SHEET_SLOTS[i - 1].k) !== slotGroup(sl.k) ? 'g-first' : ''; };
 function typeRoster(rows) {
   const ty = rosterType || defaultRosterType();
   const data = rows.map(r => ({ r, mine: ownedWithPair(r.p.id), cells: sheetCells(r.p.id, ty),
@@ -1109,7 +1112,7 @@ function typeRoster(rows) {
   const canFill = data.some(d => canEdit(d.r.p.id));
   const head = SHEET_SLOTS.map(sl => {
     const p = sl.fixed && pairById(sl.fixed());
-    return p ? `<th class="core fixed" title="${esc(pairName(p))}">${pairIcon(p, 'xs')}<span>${esc(t(sl.label))}</span></th>` : `<th title="${esc(t(sl.hint))}">${esc(t(sl.label))}</th>`;
+    return p ? `<th class="core fixed" title="${esc(pairName(p))}">${pairIcon(p, 'xs')}<span>${esc(t(sl.label))}</span></th>` : `<th class="${slotFirst(sl)}" data-g="${slotGroup(sl.k)}" title="${esc(t(sl.hint))}">${esc(t(sl.label))}</th>`;
   }).join('');
   const row = d => SHEET_SLOTS.map((sl, i) => {
     const uid = d.r.p.id;
@@ -1118,7 +1121,7 @@ function typeRoster(rows) {
     const open = sheetPick && sheetPick.uid === uid && sheetPick.slot === sl.k;
     const body = has ? (v ? rosterCell(d.mine.find(x => x.pair_id === v) || { pair: pairById(v), level: 1 }) : rosterCell(null))
       : edit ? `<span class="sc-add">${ico('plus')}</span>` : '<span class="sc-blank"></span>';
-    return `<td class="sc ${open ? 'open' : ''} ${i > SHEET_SLOTS.length / 2 ? 'right' : ''}">${edit
+    return `<td class="sc ${slotFirst(sl)} ${open ? 'open' : ''}" data-g="${slotGroup(sl.k)}">${edit
       ? `<button type="button" class="sc-btn" data-sc="${uid}|${sl.k}" title="${esc(t(sl.hint))}">${body}</button>` : body}${open ? sheetPicker(d, ty, sl) : ''}</td>`;
   }).join('');
 
@@ -1203,7 +1206,8 @@ document.addEventListener('click', async e => {
     const [uid, slot] = d.sc.split('|');
     sheetPick = sheetPick && sheetPick.uid === uid && sheetPick.slot === slot ? null : { uid, slot, q: '' };
     route();
-    $('.sc-q')?.focus();
+    placePick();
+    $('.sc-q')?.focus({ preventScroll: true });
   }
   if (d.scPick) saveCell(sheetPick.uid, sheetPick.slot, d.scPick);
   if ('scNone' in d) saveCell(sheetPick.uid, sheetPick.slot, null);
@@ -1217,12 +1221,25 @@ document.addEventListener('click', async e => {
     if (await act(() => api.saveSheetCells(rows), t('Filled {n} cells.', { n: rows.length }))) { S.sheet = await api.sheet(); route(); }
   }
 });
+// The picker floats above the table (so the table's own scrolling never clips it) and sits next to the cell it belongs to
+function placePick() {
+  const pick = $('.sc-pick'), btn = sheetPick && $(`[data-sc="${sheetPick.uid}|${sheetPick.slot}"]`);
+  if (!pick || !btn) return;
+  const r = btn.getBoundingClientRect(), w = Math.min(320, innerWidth - 16);
+  pick.style.width = `${w}px`;
+  const h = Math.min(pick.offsetHeight, innerHeight - 16), left = Math.max(8, Math.min(r.left + r.width / 2 - w / 2, innerWidth - w - 8));
+  const below = innerHeight - r.bottom - 8, top = below >= h || below >= r.top - 8 ? r.bottom + 4 : r.top - h - 4;
+  pick.style.left = `${Math.round(left)}px`; pick.style.top = `${Math.round(Math.max(8, Math.min(top, innerHeight - h - 8)))}px`;
+}
+addEventListener('resize', () => { if (sheetPick) placePick(); });
+addEventListener('scroll', () => { if (sheetPick) placePick(); }, true);
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && sheetPick) { sheetPick = null; route(); } });
 document.addEventListener('input', e => {
   if (!('scQ' in e.target.dataset) || !sheetPick) return;
   sheetPick.q = e.target.value;
   const ty = rosterType || defaultRosterType();
   e.target.closest('.sc-pick').querySelector('.sc-list').innerHTML = sheetPickList(pickCtx(sheetPick.uid), ty, SHEET_SLOTS.find(x => x.k === sheetPick.slot));
+  placePick();
 });
 
 // ═══════════════════════════════════════════════════════════════
