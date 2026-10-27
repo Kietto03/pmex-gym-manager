@@ -823,4 +823,10 @@ export default {
   'Locked': 'Đang khóa',
   'Can be switched on': 'Bật được',
   'Normal form': 'Dạng thường',
+  'Gimmicks this round': 'Gimmick của round này',
+  'No special rule': 'Không có luật đặc biệt',
+  'Physical damage is cancelled: use Special attackers': 'Sát thương Physical bị vô hiệu: dùng Special',
+  'Special damage is cancelled: use Physical attackers': 'Sát thương Special bị vô hiệu: dùng Physical',
+  'The opponents’ P-moves are stronger': 'P-move của đối thủ mạnh hơn',
+  'Only super effective hits do damage': 'Chỉ đòn hiệu quả (super effective) mới gây sát thương',
 };

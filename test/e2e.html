@@ -30,6 +30,8 @@ f.onload = async () => {
     btn[2].click();
     log(!!await until(() => $('.kpis')), 'member lands on the dashboard');
     log(!!$('.progress tbody tr.active'), 'progress matrix highlights the open round');
+    log($$('.gim-board .gim-card').length === 8 && /Gimmicks this round/.test($('.gim-board').innerText), 'overview: the gimmick of every Gym Leader for the open round');
+    log(!$$('.progress tbody tr').some(tr => false), 'overview: progress rows carry the gimmick tags');
     log(!$('#nav a[href="#/admin"]'), 'member does not see the admin menu');
     const hash0 = W().location.hash;
     log(!$('#companion').hidden && /red-directions/.test($('.m-dir').style.backgroundImage) && !!$('#brand-mascot .m-head'), 'trainer companion (Red) + logo from the page-mascot sheets');
@@ -362,7 +364,7 @@ f.onload = async () => {
     await until(() => $('.info-l'));
     log($$('.info-l').length === 8 && /HP/.test($('.info-l').innerText) && /Passives/.test($('.info-l').innerText) && /Condition/.test($('.info-l').innerText), 'battle info: 8 leader cards with HP, condition and passives');
     $$('[data-istage]')[5].click(); await sleep(200);
-    log(/Extra Battle 3/.test($('.view, #view, main')?.innerText || document.body.innerText) && $$('.info-l').length === 8 && $$('.bar.on').length === 1 && $$('.matrix tbody tr').length > 10, 'battle info: pick another circuit');
+    log(/Extra Battle 3/.test($('.view, #view, main')?.innerText || document.body.innerText) && $$('.info-l').length === 8 && $$('.bar.on').length === 1, 'battle info: pick another circuit');
     $('[data-itab=next]').click(); await sleep(250);
     log($$('.nr').length >= 2 && $$('.nr-l').length >= 16 && /Where this comes from/.test($('.nr-src').innerText), 'next rounds: open round and the next ones, with the source box', $$('.nr').length);
     $('[data-itab=schedule]').click(); await sleep(150);

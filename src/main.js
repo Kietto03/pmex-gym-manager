@@ -210,6 +210,14 @@ const planTeam = a => (a?.team || []).map(id => {
 const assignment = (uid, leader) => S.asg.find(a => a.user_id === uid && a.leader === leader);
 
 let showAllRounds = false;
+// The gimmicks of the open round, one card per Gym Leader: what is cancelled, the boss's focus and its rule in full
+function gimmickBoard(s, n, c) {
+  return `<section class="section gim-board"><h2>${t('Gimmicks this round')} <small>${esc(c.label)}</small></h2>
+    <div class="gim-grid">${s.leaders.map(l => { const rule = leaderRule(s, l.name, n), focus = leaderFocus(s, l.name, n), tags = gimTags(s, l.name, n);
+      return `<a class="card gim-card" href="#/log/${encodeURIComponent(l.name)}" style="--tc:${tc(l.type)}">${leaderImg(s, l.name)}<div><b>${esc(l.name)}</b> ${(l.weakness || []).map(w => img(typeIcon(w), 'ti', w)).join('')}
+        <div class="gim-row">${tags || `<span class="muted">${t('No special rule')}</span>`}</div>
+        ${rule && rule !== 'No rules' ? `<small class="muted">${esc(rule)}</small>` : ''}${focus.length ? `<div class="chips-l">${focus.map(f => `<span class="chip">${esc(f)}</span>`).join('')}</div>` : ''}</div></a>`; }).join('')}</div></section>`;
+}
 function renderOverview() {
   const s = season();
   if (!s) return seasonBar() + noSeason();
@@ -243,9 +251,10 @@ function renderOverview() {
     ${lineup(s.leaders.map(l => {
       const v = cur ? pointsIn(st, st.active, l.name) : 0, done = cur && v >= cur.pts;
       return { name: l.name, type: l.type, src: leaderImage(s, l.name), href: `#/log/${encodeURIComponent(l.name)}`, done,
-        label: !cur ? '' : done ? `${ico('check')} ${t('cleared')}` : t('{n} to go', { n: fmtK(cur.pts - v) }) };
+        label: !cur ? '' : `${done ? `${ico('check')} ${t('cleared')}` : t('{n} to go', { n: fmtK(cur.pts - v) })}${s.gym_data?.stages?.length ? `<span class="gim-row">${gimTags(s, l.name, st.active) || ''}</span>` : ''}` };
     }))}
   </section>
+  ${cur && s.gym_data?.stages?.length ? gimmickBoard(s, st.active, cur) : ''}
 
   <div class="kpis">
     <div class="card kpi" style="--kc:var(--gold)"><span class="k-ico">${ico('trophy')}</span><small>${t('Combined score')}</small><b>${fmtN(st.combined)}</b>
@@ -288,7 +297,7 @@ function renderOverview() {
             ${s.leaders.map(l => {
               const v = pointsIn(st, n, l.name), full = v >= c.pts;
               return `<td><a class="cell ${full ? 'full' : v ? 'part' : ''}" href="#/log/${encodeURIComponent(l.name)}/${n}" title="${esc(l.name)} · ${esc(c.label)}: ${fmtN(v)} / ${fmtN(c.pts)}">
-                <i style="width:${Math.min(100, v / c.pts * 100)}%"></i><span>${full ? ico('check') : v ? fmtK(v) : ''}</span></a></td>`;
+                <i style="width:${Math.min(100, v / c.pts * 100)}%"></i><span>${full ? ico('check') : v ? fmtK(v) : ''}</span>${s.gym_data?.stages?.length ? `<em class="gim-row">${gimTags(s, l.name, n)}</em>` : ''}</a></td>`;
             }).join('')}</tr>`;
         }).join('')}</tbody>
       </table>
@@ -568,6 +577,11 @@ function ruleShort(text) {
   if (/P-move/i.test(text)) return ['P+5', 'r-pmove', t('P-move power +5')];
   return ['—', 'r-none', text || t('No rules')];
 }
+// The gimmick of a Gym Leader in a round, as short tags: which damage is cancelled, P-moves, only super effective hits
+const GIM = [[/Zero physical/i, 'SPEC', 'r-spec', 'Physical damage is cancelled: use Special attackers'], [/Zero special/i, 'PHYS', 'r-phys', 'Special damage is cancelled: use Physical attackers'],
+  [/P-move/i, 'P+5', 'r-pmove', 'The opponents’ P-moves are stronger'], [/not super ?effective|supereffective|super effective/i, 'SE', 'r-se', 'Only super effective hits do damage']];
+const gimmickTags = text => GIM.filter(([re]) => re.test(text || '')).map(([, tag, cls, tip]) => [tag, cls, t(tip)]);
+const gimTags = (s, leader, n) => gimmickTags(leaderRule(s, leader, n)).map(([tag, cls, tip]) => `<b class="gim-tag ${cls}" title="${esc(tip)}">${tag}</b>`).join('');
 const fitFor = (uid, types) => types.map(ty => readiness(owned(uid), towerFloor(uid, ty), ty, pairById)).sort((a, b) => b.score - a.score)[0]
   || { score: 0, pairs: [], floor: 0, count: 0 };
 
