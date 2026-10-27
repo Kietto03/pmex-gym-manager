@@ -83,6 +83,10 @@ Same logic in `src/rules.js` (instant feedback) and the `check_run()` trigger (t
    - *Seasons* → create a season (pick a Gym Battle from the datamine to fill in leaders, circuits and Battle times).
    - *Accounts* → create an account for each member.
 
+## Keeping outside data fresh
+
+Game updates and community sheets change all the time, so every outside source is refreshed automatically: a workflow runs every 6 hours (`npm run sync` does the same by hand), publishes the site when something really changed, and **Admin → Data updates** shows each source's state. The Dex repo does the same for the datamine every day, with a check that refuses a build that lost data. See [docs/data-sync.md](docs/data-sync.md).
+
 ## Going to production with scripts
 
 Instead of steps 2–6 above by hand: create the Supabase project, then put `SUPABASE_ACCESS_TOKEN` (a personal access token, `sbp_…`) and `SUPABASE_PROJECT_REF` in `.env` (see `.env.example`; never committed) and run

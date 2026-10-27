@@ -25,3 +25,7 @@ Cập nhật: 27/10/2026. Tất cả mục "Đã làm" đã chạy trên product
 2. Xác nhận luồng log muộn sau mùa (FR-06L).
 3. Quyết định có cho người chưa đăng nhập xem build Sync Grid qua link hay không.
 4. Phase sau: công thức sát thương và cơ chế mô phỏng.
+
+## Cập nhật dữ liệu tự động (27/10/2026)
+
+Xem `docs/data-sync.md`: workflow `Sync outside data` (6 giờ một lần) cho bảng Gems, xếp hạng D.C., Trainer Lodge, bản đồ pair; kiểm tra sống cho tracker và Dex; trang Admin → Data updates. Repo Dex có workflow `Update from the datamine` (hằng ngày) với kiểm tra an toàn trước khi đăng.
