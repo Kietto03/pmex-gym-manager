@@ -165,22 +165,24 @@ f.onload = async () => {
     const all = $$('.owned').length;
     $('.tchip').click(); await sleep(120);
     const ty = $('.tchip.on').title;
-    log($$('.owned').length < all && $$('.group-h').length === 1, 'type filter narrows the roster', `${all} → ${$$('.owned').length} (${ty})`);
+    log($$('.owned').length < all && $$('.owned').length > 0, 'type filter narrows the roster', `${all} → ${$$('.owned').length} (${ty})`);
     $('[data-preset]').click(); await sleep(120);
     log($$('.owned').length === all, 'clear filters shows everything again');
     $('[data-mtab=tower]').click(); await sleep(150);
     const tile = ty => [...$$('.tw')].find(x => x.querySelector(`[data-tower=${ty}]`));
-    const range = await until(() => $('input[type=range][data-tower=Dragon]'));
-    setVal(range, '40'); await sleep(250);
-    log(tile('Dragon').querySelector('.tw-n').value === '40', 'tower floor saved to 40 with the slider');
-    // Click the number and type a floor instead of dragging
+    await until(() => $('input[data-tower=Dragon]'));
+    log(!$('input[type=range]') && !$('input[type=number]'), 'tower: only plain numeric boxes, no slider and no scroll-changing number input');
+    $('[data-tower-max=Dragon]').click(); await sleep(300);
+    log(tile('Dragon').querySelector('.tw-n').value === '40' && /Cleared/.test(tile('Dragon').innerText), 'the 40 button clears a whole tower');
     const num = () => tile('Dragon').querySelector('.tw-n');
     setVal(num(), '17'); await sleep(300);
-    log(num().value === '17' && tile('Dragon').querySelector('input[type=range]').value === '17', 'typing a floor number saves it and moves the slider', num().value);
+    log(num().value === '17' && !/Cleared/.test(tile('Dragon').innerText), 'typing a floor number saves it', num().value);
     setVal(num(), '99'); await sleep(300);
     log(num().value === '40', 'a floor above 40 is limited to 40', num().value);
-    setVal(num(), '-5'); await sleep(300);
-    log(num().value === '0', 'a negative floor becomes 0', num().value);
+    num().value = 'x-5'; num().dispatchEvent(new Event('input', { bubbles: true }));
+    log(num().value === '5', 'only digits are accepted in a floor box (a minus sign or a letter is dropped)', num().value);
+    setVal(num(), '0'); await sleep(300);
+    log(num().value === '0' && !/Cleared/.test(tile('Dragon').innerText), 'floor 0 is a valid value', num().value);
     setVal(num(), '40'); await sleep(300);
 
     // 4. Member cannot edit someone else

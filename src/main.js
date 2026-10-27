@@ -13,6 +13,7 @@ import { indexGrid, whyNot, canRemove, validate, totals, levelNeeded, otherReqs,
 import { browserTz, allTimezones, validTz, toLocalInput, fromLocalInput, clockIn } from './time.js';
 import { loadCatalog, loadGyms, PAIRS, loadPairDetail, loadPairMap, dexIdOf, pairById, pairName, pairImage, TYPES, TYPE_COLORS, typeIcon, roleIcon, roleKey,
   PLACEHOLDER, catalogRows, catalogVersion, GYMS, GYMS_META, seasonFromGym, leaderRule, leaderFocus, leaderImage, POMA, DEX, loadTags, wtzScore, rebuffs, pairByTrackerKey } from './catalog.js';
+import { byAcquisition, acqLabel } from './acquisition.js';
 import { SHEET_SLOTS, fixedIds, rankForSlot, autoFill, suggestFacilitator } from './sheet.js';
 import { parseTrackerBackup, trackerRows } from './tracker.js';
 
@@ -1248,13 +1249,14 @@ document.addEventListener('input', e => {
 let memberTab = 'pairs', editingInfo = false;
 // Roster filters. The shown order is frozen until a filter, the sort or the owned set changes,
 // so toggling EX / stars / level never makes a card jump away under the cursor.
-const pairFilter = { q: '', types: new Set(), role: '', status: '', sort: 'type' };
+const pairFilter = { q: '', types: new Set(), role: '', status: '', sort: 'acq' };
 let pairOrder = { key: '', ids: [] };
-const SORTS = [['type', 'By type'], ['strength', 'Strongest first'], ['name', 'Name A–Z'], ['new', 'Newest first'], ['rarity', 'Base rarity']];
+const SORTS = [['acq', 'Acquisition, newest first'], ['type', 'By type'], ['strength', 'Strongest first'], ['name', 'Name A–Z'], ['new', 'Newest first'], ['rarity', 'Base rarity']];
 const STATUS = [['', 'All'], ['ex', '6★ EX'], ['noex', 'Not EX yet'], ['low', 'Below 5★'], ['sa', 'Superawakened']];
 const ROLE_KEYS = ['strike', 'tech', 'support', 'sprint', 'field', 'multi'];
 const statusOk = (x, st) => !st || (st === 'ex' ? x.ex : st === 'noex' ? !x.ex : st === 'low' ? (x.stars || 5) < 5 : x.level > 5);
 const pairSort = {
+  acq: (a, b) => byAcquisition(a.pair, b.pair) || a.pair.trainer.localeCompare(b.pair.trainer),
   type: (a, b) => TYPES.indexOf(a.pair.type) - TYPES.indexOf(b.pair.type) || pairWeight(b) - pairWeight(a) || a.pair.trainer.localeCompare(b.pair.trainer),
   strength: (a, b) => pairWeight(b) - pairWeight(a) || a.pair.trainer.localeCompare(b.pair.trainer),
   name: (a, b) => a.pair.trainer.localeCompare(b.pair.trainer) || a.pair.pokemon.localeCompare(b.pair.pokemon),
@@ -1462,59 +1464,88 @@ document.addEventListener('click', async e => {
   }
 });
 
-// The tower overview as a PNG (drawn on a canvas, no outside images so it can always be saved or copied)
-function towerCanvas(id) {
-  const p = profile(id), W = 960, rowH = 58, top = 150, rows = Math.ceil(TYPES.length / 2), H = top + rows * rowH + 56;
+// The tower overview as a PNG to show off: a card with the player, their totals and one tile per tower.
+// Pictures (type icons, the player's photo) are loaded with CORS so the canvas can still be saved; if one cannot be loaded the card is drawn without it.
+const loadImg = src => new Promise(res => { if (!src) return res(null); const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => res(im); im.onerror = () => res(null); im.src = src; });
+const rr = (g, x, y, w, h, r) => { g.beginPath(); g.roundRect(x, y, w, h, r); };
+async function towerCanvas(id) {
+  const p = profile(id), W = 1080, pad = 56, cols = 3, rows = Math.ceil(TYPES.length / cols), tileW = (W - pad * 2 - 24 * (cols - 1)) / cols, tileH = 150, top = 330, H = top + rows * (tileH + 20) + 120;
+  const owned0 = avatarPair(id), pair = owned0 && pairById(owned0.pair_id);
+  const [avatar, ...icons] = await Promise.all([loadImg(p?.avatar_url || (pair && pairImage(pair, owned0.ex, owned0.stars))), ...TYPES.map(ty => loadImg(typeIcon(ty)))]);
   const dpr = 2, cv = document.createElement('canvas');
   cv.width = W * dpr; cv.height = H * dpr;
   const g = cv.getContext('2d'); g.scale(dpr, dpr);
-  const css = getComputedStyle(document.documentElement), acc = css.getPropertyValue('--accent').trim() || '#e83a2a';
-  g.fillStyle = '#12151f'; g.fillRect(0, 0, W, H);
-  g.fillStyle = acc; g.fillRect(0, 0, W, 8);
-  const font = (w, px) => { g.font = `${w} ${px}px system-ui, -apple-system, "Segoe UI", sans-serif`; };
-  const total = TYPES.reduce((a, ty) => a + towerFloor(id, ty), 0);
-  g.fillStyle = '#fff'; font(800, 40); g.fillText(nameOf(p).slice(0, 28), 40, 70);
-  g.fillStyle = '#9aa3b8'; font(600, 18); g.fillText(`${(window.GYM_CONFIG || {}).gymName || ''} · Pasio Tower`, 40, 100);
-  g.fillStyle = '#fff'; font(800, 44); g.textAlign = 'right'; g.fillText(`${total}`, W - 40, 70);
-  g.fillStyle = '#9aa3b8'; font(600, 16); g.fillText(`/ ${TYPES.length * TOWER_TOP} ${t('floors')}`, W - 40, 98); g.textAlign = 'left';
+  const acc = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#e83a2a';
+  const font = (w, px) => { g.font = `${w} ${px}px "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif`; };
+  const total = TYPES.reduce((a, ty) => a + towerFloor(id, ty), 0), cleared = TYPES.filter(ty => towerFloor(id, ty) >= TOWER_TOP).length, max = TYPES.length * TOWER_TOP;
+  // background
+  const bg = g.createLinearGradient(0, 0, W, H); bg.addColorStop(0, '#1a2447'); bg.addColorStop(.55, '#0f1530'); bg.addColorStop(1, '#161029');
+  g.fillStyle = bg; g.fillRect(0, 0, W, H);
+  g.globalAlpha = .06; g.fillStyle = '#fff'; for (let y = 0; y < H; y += 12) g.fillRect(0, y, W, 6); g.globalAlpha = 1;
+  g.fillStyle = acc; g.fillRect(0, 0, W, 10);
+  // player
+  const cx = pad + 70, cy = 142;
+  g.save(); g.beginPath(); g.arc(cx, cy, 70, 0, 7); g.clip();
+  if (avatar) g.drawImage(avatar, cx - 70, cy - 70, 140, 140); else { g.fillStyle = '#2b3866'; g.fillRect(cx - 70, cy - 70, 140, 140); g.fillStyle = '#fff'; font(800, 64); g.textAlign = 'center'; g.fillText((nameOf(p) || '?')[0].toUpperCase(), cx, cy + 22); g.textAlign = 'left'; }
+  g.restore(); g.lineWidth = 6; g.strokeStyle = '#ffd54a'; g.beginPath(); g.arc(cx, cy, 70, 0, 7); g.stroke();
+  g.fillStyle = '#fff'; font(900, 54); g.fillText(nameOf(p).slice(0, 20), pad + 170, 135);
+  g.fillStyle = '#9fb0e8'; font(700, 26); g.fillText(`${(window.GYM_CONFIG || {}).gymName || ''}${(window.GYM_CONFIG || {}).gymName ? ' · ' : ''}Pasio Tower`, pad + 172, 178);
+  // totals
+  const bx = pad, by = 236, bw = W - pad * 2;
+  g.fillStyle = 'rgba(255,255,255,.08)'; rr(g, bx, by, bw, 64, 20); g.fill();
+  const stat = (x, big, small) => { g.fillStyle = '#ffd54a'; font(900, 40); g.fillText(big, x, by + 44); const w = g.measureText(big).width; g.fillStyle = '#b9c4ee'; font(700, 22); g.fillText(small, x + w + 10, by + 43); };
+  stat(bx + 26, `${cleared}/${TYPES.length}`, 'towers cleared'); stat(bx + 420, `${total}/${max}`, 'floors');
+  g.fillStyle = '#ffd54a'; font(900, 30); g.textAlign = 'right'; g.fillText(`${Math.round(total / max * 100)}%`, bx + bw - 26, by + 42); g.textAlign = 'left';
+  // one tile per tower
   TYPES.forEach((ty, i) => {
-    const col = i < rows ? 0 : 1, row = i % rows, x = 40 + col * 440, y = top + row * rowH;
-    const rec = S.tower.find(r => r.user_id === id && r.type === ty), f = rec?.floor || 0, c = TYPE_COLORS[ty] || '#888';
-    g.fillStyle = c; g.beginPath(); g.arc(x + 12, y + 14, 10, 0, 7); g.fill();
-    g.fillStyle = '#fff'; font(700, 18); g.fillText(t(ty), x + 32, y + 20);
-    g.textAlign = 'right'; font(800, 18); g.fillStyle = rec ? '#fff' : '#6c7590'; g.fillText(rec ? `${f} / ${TOWER_TOP}` : t('not updated'), x + 400, y + 20); g.textAlign = 'left';
-    g.fillStyle = '#242a3b'; g.beginPath(); g.roundRect(x, y + 30, 400, 10, 5); g.fill();
-    if (f) { g.fillStyle = c; g.beginPath(); g.roundRect(x, y + 30, Math.max(10, 400 * f / TOWER_TOP), 10, 5); g.fill(); }
+    const col = i % cols, row = Math.floor(i / cols), x = pad + col * (tileW + 24), y = top + row * (tileH + 20), f = towerFloor(id, ty), has = S.tower.some(r => r.user_id === id && r.type === ty), c = TYPE_COLORS[ty] || '#888', done = f >= TOWER_TOP;
+    const t0 = g.createLinearGradient(x, y, x + tileW, y + tileH); t0.addColorStop(0, `${c}55`); t0.addColorStop(1, 'rgba(15,21,48,.9)');
+    g.fillStyle = t0; rr(g, x, y, tileW, tileH, 22); g.fill();
+    g.lineWidth = done ? 5 : 2; g.strokeStyle = done ? '#ffd54a' : `${c}aa`; rr(g, x, y, tileW, tileH, 22); g.stroke();
+    if (icons[i]) g.drawImage(icons[i], x + 18, y + 16, 44, 44); else { g.fillStyle = c; g.beginPath(); g.arc(x + 40, y + 38, 20, 0, 7); g.fill(); }
+    g.fillStyle = '#fff'; font(800, 28); g.fillText(t(ty), x + 74, y + 48);
+    g.textAlign = 'right'; g.fillStyle = has ? '#fff' : '#7d88b3'; font(900, has ? 46 : 26); g.fillText(has ? String(f) : '—', x + tileW - 22 - (has ? 62 : 0), y + 108);
+    if (has) { g.fillStyle = '#9fb0e8'; font(700, 24); g.fillText('/ 40', x + tileW - 22, y + 106); }
+    g.textAlign = 'left';
+    g.fillStyle = 'rgba(255,255,255,.14)'; rr(g, x + 22, y + 118, tileW - 44, 14, 7); g.fill();
+    if (f) { g.fillStyle = done ? '#ffd54a' : c; rr(g, x + 22, y + 118, Math.max(14, (tileW - 44) * f / TOWER_TOP), 14, 7); g.fill(); }
+    if (done) { g.fillStyle = '#ffd54a'; font(900, 22); g.fillText('★ CLEARED', x + 22, y + 100); }
   });
-  g.fillStyle = '#6c7590'; font(500, 14);
-  g.fillText(`${t('Exported')} ${new Date().toLocaleString(locale(), { dateStyle: 'medium', timeStyle: 'short', timeZone: viewTz() })} (${viewTz()})`, 40, H - 22);
+  g.fillStyle = '#7d88b3'; font(600, 22);
+  g.fillText(`${new Date().toLocaleDateString(locale(), { day: '2-digit', month: 'short', year: 'numeric', timeZone: viewTz() })}`, pad, H - 40);
+  g.textAlign = 'right'; g.fillText('Pokémon Masters EX · Pasio Tower', W - pad, H - 40); g.textAlign = 'left';
   return cv;
 }
-const towerBlob = id => new Promise(res => towerCanvas(id).toBlob(res, 'image/png'));
 document.addEventListener('click', async e => {
   const b = e.target.closest('[data-tower-img]');
   if (!b) return;
-  const id = b.dataset.towerImg, blob = await towerBlob(id);
-  if (b.dataset.mode === 'copy') {
-    try { await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]); toast(t('Image copied.')); return; }
-    catch { toast(t('Copying images is not supported here — the image was saved instead.')); }
-  }
-  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `pasio-tower-${profile(id)?.username || id}.png` });
-  a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  const id = b.dataset.towerImg;
+  b.disabled = true;
+  try {
+    const canvas = await towerCanvas(id), blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+    if (b.dataset.mode === 'copy') {
+      try { await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]); toast(t('Image copied.')); return; }
+      catch { toast(t('Copying images is not supported here — the image was saved instead.')); }
+    }
+    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `pasio-tower-${profile(id)?.username || id}.png` });
+    a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  } finally { b.disabled = false; }
 });
+// The tracker: how many towers are cleared, how many floors, and one tile per type. Floors are typed as numbers (no slider, nothing to scroll by accident).
 function towerTab(id, edit) {
-  const total = TYPES.reduce((a, ty) => a + towerFloor(id, ty), 0);
-  return `<div class="row" style="margin-bottom:8px"><button class="btn" data-tower-img="${id}" data-mode="save">${ico('out')} ${t('Save as image')}</button>
-    <button class="btn ghost" data-tower-img="${id}" data-mode="copy">${t('Copy image')}</button></div>
-  <p class="lead">${t('Pasio Tower has one 40-floor tower per type, and only pairs of that type can climb it — the higher the floor, the more experience with that type. Total: {n} of {max} floors.', { n: total, max: TYPES.length * TOWER_TOP })}</p>
-  <div class="tower-grid">${TYPES.map(ty => {
-    const f = towerFloor(id, ty);
+  const total = TYPES.reduce((a, ty) => a + towerFloor(id, ty), 0), cleared = TYPES.filter(ty => towerFloor(id, ty) >= TOWER_TOP).length, max = TYPES.length * TOWER_TOP;
+  return `<section class="tw-sum card pad"><div class="tw-big"><b>${cleared}</b><small>/ ${TYPES.length} ${t('towers cleared')}</small></div><div class="tw-big"><b>${total}</b><small>/ ${max} ${t('floors')}</small></div>
+      <div class="tw-bar"><i style="width:${total / max * 100}%"></i></div>
+      <div class="row"><button class="btn" data-tower-img="${id}" data-mode="save">${ico('out')} ${t('Save as image')}</button><button class="btn ghost" data-tower-img="${id}" data-mode="copy">${t('Copy image')}</button></div></section>
+    ${edit ? `<p class="muted tw-hint">${t('Type the floor you reached in each tower, 0 to 40. It saves when you leave the box.')}</p>` : ''}
+    <div class="tower-grid">${TYPES.map(ty => {
+    const f = towerFloor(id, ty), has = S.tower.some(r => r.user_id === id && r.type === ty);
     return `<div class="card tw ${f >= TOWER_TOP ? 'top' : ''}" style="--tc:${TYPE_COLORS[ty]}">
-      <div class="tw-head">${typeTag(ty)}<span class="tw-val">${edit
-        ? `<input class="tw-n" type="number" min="0" max="${TOWER_TOP}" step="1" inputmode="numeric" value="${f}" data-tower="${ty}" aria-label="${t('{type} tower floor', { type: t(ty) })}" title="${t('Type a floor number')}">`
-        : `<b>${f}</b>`}<small> / ${TOWER_TOP}</small></span></div>
+      <div class="tw-head">${typeTag(ty)}${f >= TOWER_TOP ? `<span class="tw-done">★ ${t('Cleared')}</span>` : ''}</div>
+      <div class="tw-val">${edit
+        ? `<input class="tw-n" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" autocomplete="off" value="${has ? f : ''}" placeholder="0" data-tower="${ty}" aria-label="${t('{type} tower floor', { type: t(ty) })}">`
+        : `<b>${has ? f : '—'}</b>`}<small>/ ${TOWER_TOP}</small>${edit && f < TOWER_TOP ? `<button type="button" class="tw-max" data-tower-max="${ty}" title="${t('Cleared all 40 floors')}">40</button>` : ''}</div>
       <div class="meter"><i style="width:${f / TOWER_TOP * 100}%"></i></div>
-      ${edit ? `<input type="range" min="0" max="${TOWER_TOP}" value="${f}" data-tower="${ty}" aria-label="${t('{type} tower floor', { type: t(ty) })}">` : ''}
     </div>`;
   }).join('')}</div>`;
 }
@@ -1577,7 +1608,7 @@ document.addEventListener('change', async e => {
   const el = e.target;
   if (el.dataset.own && el.dataset.k === 'level') saveOwned(memberId(), el.dataset.own, { level: +el.value });
   if ('psort' in el.dataset) { pairFilter.sort = el.value; redrawTab(); }
-  if (el.dataset.tower) {   // the slider and the number box save the same way; typed numbers are kept within 0–40
+  if (el.dataset.tower) {   // a typed number, kept within 0–40, saved when the box is left
     const floor = Math.max(0, Math.min(TOWER_TOP, Math.round(Number(el.value)) || 0));
     if (await act(() => api.upsertTower({ user_id: memberId(), type: el.dataset.tower, floor }), t('{type} tower: floor {n}', { type: t(el.dataset.tower), n: floor }))) {
       S.tower = await api.tower(); redrawTab();
@@ -1587,13 +1618,16 @@ document.addEventListener('change', async e => {
 // Click a floor number to type it: select it so typing replaces it
 document.addEventListener('focusin', e => { if (e.target.classList?.contains('tw-n')) e.target.select(); });
 document.addEventListener('keydown', e => { if (e.target.classList?.contains('tw-n') && e.key === 'Enter') e.target.blur(); });
+document.addEventListener('click', async e => {
+  const b = e.target.closest('[data-tower-max]');
+  if (!b) return;
+  if (await act(() => api.upsertTower({ user_id: memberId(), type: b.dataset.towerMax, floor: TOWER_TOP }), t('{type} tower: floor {n}', { type: t(b.dataset.towerMax), n: TOWER_TOP }))) { S.tower = await api.tower(); redrawTab(); }
+});
 document.addEventListener('input', e => {
   const el = e.target;
-  if (el.dataset.tower) {   // live while dragging or typing; saved on change
-    const tile = el.closest('.tw'), v = Math.max(0, Math.min(TOWER_TOP, Math.round(Number(el.value)) || 0));
-    tile.querySelector('.meter i').style.width = `${v / TOWER_TOP * 100}%`;
-    if (el.type === 'range') tile.querySelector('.tw-n').value = v;
-    else if (el.value !== '') tile.querySelector('input[type=range]').value = v;
+  if (el.dataset.tower) {   // digits only; the bar follows while typing
+    el.value = el.value.replace(/\D/g, '').slice(0, 2);
+    el.closest('.tw').querySelector('.meter i').style.width = `${Math.min(TOWER_TOP, +el.value || 0) / TOWER_TOP * 100}%`;
   }
   if ('pq' in el.dataset) {
     pairFilter.q = el.value;

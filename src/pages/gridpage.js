@@ -3,6 +3,7 @@ import { $, esc, fmtN, img, pairIcon, typeTag, act, api, S, profile, nameOf, own
 import { ico } from '../icons.js';
 import { t } from '../i18n.js';
 import { splitDescription, count } from '../moves.js';
+import { byAcquisition, acqLabel } from '../acquisition.js';
 import { indexGrid, whyNot, canRemove, validate, totals, levelNeeded, otherReqs, gridHash, hexXY, COLORS } from '../grid.js';
 import { PAIRS, loadPairDetail, dexIdOf, pairById, pairName, pairImage, TYPE_COLORS, TYPES, typeIcon } from '../catalog.js';
 
@@ -165,7 +166,7 @@ function filteredPairs() {
   const q = GF.q.trim().toLowerCase();
   const list = PAIRS().filter(p => (!q || `${p.trainer} ${p.pokemon}`.toLowerCase().includes(q)) && (!GF.type || p.type === GF.type) && (!GF.role || p.role === GF.role)
     && (!GF.rarity || String(p.rarity) === GF.rarity) && (!GF.acq || p.acquisition === GF.acq) && (!GF.ex || p.exRole) && (!GF.owned || ownedPair(S.me, p.id)) && (!GF.withGrid || dexIdOf(p)));
-  const by = { new: (a, b) => (b.release || '').localeCompare(a.release || ''), old: (a, b) => (a.release || '9').localeCompare(b.release || '9'), name: (a, b) => a.trainer.localeCompare(b.trainer) || a.pokemon.localeCompare(b.pokemon), type: (a, b) => (a.type || '').localeCompare(b.type || '') || (b.release || '').localeCompare(a.release || '') };
+  const by = { acq: (a, b) => byAcquisition(a, b) || a.trainer.localeCompare(b.trainer), new: (a, b) => (b.release || '').localeCompare(a.release || ''), old: (a, b) => (a.release || '9').localeCompare(b.release || '9'), name: (a, b) => a.trainer.localeCompare(b.trainer) || a.pokemon.localeCompare(b.pokemon), type: (a, b) => (a.type || '').localeCompare(b.type || '') || (b.release || '').localeCompare(a.release || '') };
   return list.sort((a, b) => by[GF.sort](a, b) || a.trainer.localeCompare(b.trainer));
 }
 function pairTile(p) {
@@ -174,7 +175,7 @@ function pairTile(p) {
     <span class="pt-img">${pairIcon(p, 'md', own?.ex)}${isNew(p) ? `<b class="pt-new">${t('New')}</b>` : ''}${own ? `<b class="pt-own" title="${t('you own this pair')}">✓</b>` : ''}</span>
     <span class="pt-name">${esc(p.trainer)}</span><span class="pt-poke">${esc(p.pokemon)}</span>
     <span class="pt-meta">${img(typeIcon(p.type), 'ti', p.type)}<small>${esc(p.role || '')}${p.exRole ? ' · EX' : ''}</small></span>
-    <small class="pt-date">${p.release ? esc(p.release) : ''}</small></a>`;
+    <small class="pt-date">${p.release ? esc(p.release) : ''}${GF.sort === 'acq' ? ` · ${acqLabel(p.acquisition)}` : ''}</small></a>`;
 }
 function pairResults() {
   const list = filteredPairs(), shown = list.slice(0, GF.shown);
@@ -194,7 +195,7 @@ function gridHome() {
     <div class="res-grid" style="margin-top:10px">${[...mine, ...others].map(line).join('')}</div></details>` : ''}
   <div class="card pad pt-filters"><input id="grid-q" placeholder="${t('Search a sync pair…')}" value="${esc(GF.q)}" autocomplete="off">
     ${sel('type', GF.type, TYPES.map(x => [x, t(x)]), 'All types')}${sel('role', GF.role, roles.map(x => [x, x]), 'All roles')}${sel('rarity', GF.rarity, [['5', '5★'], ['4', '4★'], ['3', '3★']], 'Any stars')}${sel('acq', GF.acq, acqs.map(x => [x, x]), 'Any way to get it')}
-    <select data-gf="sort"><option value="new" ${GF.sort === 'new' ? 'selected' : ''}>${t('Newest first')}</option><option value="old" ${GF.sort === 'old' ? 'selected' : ''}>${t('Oldest first')}</option><option value="name" ${GF.sort === 'name' ? 'selected' : ''}>${t('Name')}</option><option value="type" ${GF.sort === 'type' ? 'selected' : ''}>${t('Type')}</option></select>
+    <select data-gf="sort"><option value="new" ${GF.sort === 'new' ? 'selected' : ''}>${t('Newest first')}</option><option value="acq" ${GF.sort === 'acq' ? 'selected' : ''}>${t('Acquisition, newest first')}</option><option value="old" ${GF.sort === 'old' ? 'selected' : ''}>${t('Oldest first')}</option><option value="name" ${GF.sort === 'name' ? 'selected' : ''}>${t('Name')}</option><option value="type" ${GF.sort === 'type' ? 'selected' : ''}>${t('Type')}</option></select>
     <label class="chk"><input type="checkbox" data-gfc="ex" ${GF.ex ? 'checked' : ''}> ${t('EX role')}</label><label class="chk"><input type="checkbox" data-gfc="owned" ${GF.owned ? 'checked' : ''}> ${t('Mine')}</label><label class="chk"><input type="checkbox" data-gfc="withGrid" ${GF.withGrid ? 'checked' : ''}> ${t('Has a grid')}</label>
     <button class="btn sm ghost" data-gf-clear>${t('Clear filters')}</button></div>
   <div id="pair-results">${pairResults()}</div>`;

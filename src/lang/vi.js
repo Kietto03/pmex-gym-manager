@@ -814,4 +814,9 @@ export default {
   'Max uses': 'Số lần dùng tối đa',
   'Effect': 'Hiệu ứng',
   'Target': 'Mục tiêu',
+  'towers cleared': 'tháp đã clear',
+  'Cleared': 'Đã clear',
+  'Type the floor you reached in each tower, 0 to 40. It saves when you leave the box.': 'Gõ tầng bạn đã đạt ở mỗi tháp, từ 0 đến 40. Tự lưu khi bạn rời khỏi ô.',
+  'Cleared all 40 floors': 'Đã clear đủ 40 tầng',
+  'Acquisition, newest first': 'Cách nhận (AF > ExMF > MF > Ex Fair > PF), mới nhất trước',
 };
