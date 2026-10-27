@@ -436,6 +436,17 @@ f.onload = async () => {
     $('[data-strat-view=library]').click(); await sleep(150);
     log($$('.strat').length === 2 && !$$('.strat').some(c => /Waiting/.test(c.innerText)), 'strategies: approving publishes the revision');
 
+    // 6i. Trainer Lodge lookup
+    await go('#/lodge');
+    await until(() => $('.lodge-t'));
+    log($$('.lodge-t').length === 58, 'lodge: every sync pair of the source is listed', $$('.lodge-t').length);
+    $('[data-lodge-trainer]').click(); await sleep(200);
+    log($$('.lodge-cols > div').length === 3 && /10 points/.test($('.lodge-cols').innerText) && $$('.lodge-topic').length > 20, 'lodge: topics by points for one trainer');
+    $('[data-lodge-mode=topic]').click(); await sleep(150);
+    setVal($('#lodge-q'), 'ghost types'); await sleep(250);
+    log(/Ghost types/.test($('.table').innerText) && /10 points/.test($('.table thead').innerText), 'lodge: search by topic lists who likes it');
+    log(/Serebii/.test(document.body.innerText) || /Serebii/.test($('p.muted')?.innerText || ''), 'lodge: shows source and copy date');
+
     // 7. Admin creates and deletes an account
     await go('#/admin');
     await until(() => $('[data-atab=accounts]'));

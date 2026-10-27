@@ -1,0 +1,6 @@
+character      shift   overlap   palette    width   (at 140px rendered)
+red          0.00 px     83.9%     81.5%     0.8%
+
+worst shift: red moves 0.00 rendered px on boop
+weakest palette match: red at 81.5%
+worst width change: red at 0.8%
