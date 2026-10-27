@@ -2,6 +2,7 @@
 //   node tools/sync-ranking.mjs   → writes data/dc-ranking.json
 import fs from 'node:fs';
 import { parseCsv, num } from './sync-gems.mjs';
+import { getText, writeIfChanged } from './lib.mjs';
 
 const SHEET_ID = '14C_CPMRC8xHslf7id6wMqTdQeCvPA-_X4w9URrHNRzE', GID = '1658000195';
 const TYPES = ['Normal', 'Fire', 'Water', 'Electric', 'Grass', 'Ice', 'Fighting', 'Poison', 'Ground', 'Flying', 'Psychic', 'Bug', 'Rock', 'Ghost', 'Dragon', 'Dark', 'Steel', 'Fairy'];
@@ -25,14 +26,14 @@ export function parseRanking(rows) {
   }
   return out;
 }
-async function main() {
-  const res = await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}`, { headers: { 'user-agent': 'Mozilla/5.0 (pmex-gym-manager)' } });
-  if (!res.ok) throw new Error(`Google answered ${res.status}`);
-  const types = parseRanking(parseCsv(await res.text()));
+export async function buildRanking() {
+  const types = parseRanking(parseCsv(await getText(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}`)));
   if (types.length < 10) throw new Error(`Only ${types.length} types found: the sheet layout may have changed. Nothing written.`);
-  fs.mkdirSync('data', { recursive: true });
-  fs.writeFileSync('data/dc-ranking.json', JSON.stringify({ source: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit?gid=${GID}`, fetched: new Date().toISOString(),
-    note: 'Best 3v3 scores by type, from D.C. and Ranked Damage Super Sparring (community sheet).', types }));
-  console.log(`${types.length} types, best ${types[0].type} ${types[0].score}`);
+  const data = { source: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit?gid=${GID}`, fetched: new Date().toISOString(), note: 'Best 3v3 scores by type, from D.C. and Ranked Damage Super Sparring (community sheet).', types };
+  return { file: 'data/dc-ranking.json', data, items: types.length, note: `best ${types[0].type} ${types[0].score}` };
+}
+async function main() {
+  const r = await buildRanking();
+  console.log(`${r.items} types, ${r.note}${writeIfChanged(r.file, r.data) ? '' : ' (no change)'}`);
 }
 if (import.meta.url === `file://${process.argv[1]}`) main().catch(e => { console.error(e.message); process.exit(1); });

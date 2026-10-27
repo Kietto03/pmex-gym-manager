@@ -4,6 +4,7 @@
 // The sheet is hand-made, so the parser looks for its header rows ("Daily Gems … Tổng", "Regional Rotation …")
 // instead of fixed cell positions, and refuses to write the file when it finds nothing.
 import fs from 'node:fs';
+import { UA, getText, writeIfChanged } from './lib.mjs';
 
 export const SHEET_ID = '1Vu8af6bU3hXuHCDZHr-ppVwkVjJfO2QZ3iSitcViYts';
 
@@ -69,19 +70,19 @@ export function merge(tabs) {
   return { updated, days: [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date)), banners: [...banners.values()].sort((a, b) => a.start.localeCompare(b.start)), months: [...months.values()].sort((a, b) => a.month - b.month) };
 }
 
-async function main() {
-  const UA = { 'user-agent': 'Mozilla/5.0 (pmex-gym-manager)' };
-  const page = await (await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/htmlview`, { headers: UA })).text();
+export async function buildGems() {
+  const page = await getText(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/htmlview`);
   const gids = [...new Set([...page.matchAll(/gid=(\d+)/g)].map(m => m[1]))];
   const tabs = [];
-  for (const gid of gids) {
-    const res = await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}`, { headers: UA });
-    if (res.ok) tabs.push(parseTab(parseCsv(await res.text()), gid));
-  }
+  for (const gid of gids) tabs.push(parseTab(parseCsv(await getText(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}`)), gid));
   const out = merge(tabs);
   if (out.days.length < 20) throw new Error(`Only ${out.days.length} days found in ${gids.length} tabs: the sheet layout may have changed. Nothing written.`);
-  fs.mkdirSync('data', { recursive: true });
-  fs.writeFileSync('data/gems-sheet.json', JSON.stringify({ source: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit`, author: 'Tarolush', fetched: new Date().toISOString(), note: 'Free Gems per day from the community Gems sheet (daily + Gym + other; the free-to-play columns of the forecast). Not Paid Gems.', ...out }));
-  console.log(`${out.days.length} days (${out.days[0].date} → ${out.days.at(-1).date}), ${out.banners.length} banners, sheet updated ${out.updated}`);
+  const data = { source: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit`, author: 'Tarolush', fetched: new Date().toISOString(), note: 'Free Gems per day from the community Gems sheet (daily + Gym + other; the free-to-play columns of the forecast). Not Paid Gems.', ...out };
+  return { file: 'data/gems-sheet.json', data, items: out.days.length, note: `${out.days[0].date} → ${out.days.at(-1).date}, sheet updated ${out.updated}` };
+}
+async function main() {
+  const r = await buildGems();
+  const changed = writeIfChanged(r.file, r.data);
+  console.log(`${r.items} days, ${r.note}${changed ? '' : ' (no change)'}`);
 }
 if (import.meta.url === `file://${process.argv[1]}`) main().catch(e => { console.error(e.message); process.exit(1); });

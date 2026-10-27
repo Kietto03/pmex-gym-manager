@@ -24,6 +24,7 @@ import { renderStrategies } from './pages/strategies.js';
 import { renderLodge } from './pages/lodge.js';
 import { renderGrid } from './pages/gridpage.js';
 import { renderGems } from './pages/gemspage.js';
+import { dataFreshness, freshnessIssues } from './pages/freshness.js';
 // ─── Chrome (header) ────────────────────────────────────────
 const NAV = [['', 'Overview', 'home'], ['log', 'Log a run', 'swords'], ['plan', 'Plan', 'plan'], ['info', 'Battle info', 'flag'], ['strategies', 'Strategies', 'trophy'], ['lodge', 'Trainer Lodge', 'star'], ['grid', 'Sync Grid', 'bolt'], ['gems', 'Free Gems', 'ticket'], ['resources', 'Resources', 'note'], ['roster', 'Roster', 'roster'],
   ['members', 'Members', 'users'], ['admin', 'Admin', 'shield']];
@@ -1661,6 +1662,7 @@ function renderAdmin() {
     <button class="${adminTab === 'seasons' ? 'on' : ''}" data-atab="seasons">${t('Gym Battle seasons')}</button>
     ${isAdmin() ? `<button class="${adminTab === 'accounts' ? 'on' : ''}" data-atab="accounts">${t('Accounts')}</button>` : ''}
     <button class="${adminTab === 'catalog' ? 'on' : ''}" data-atab="catalog">${t('Pair catalog')}</button>
+    <button class="${adminTab === 'data' ? 'on' : ''}" data-atab="data">${t('Data updates')}${freshnessIssues() ? ` <span class="badge bad">${freshnessIssues()}</span>` : ''}</button>
     <button class="${adminTab === 'activity' ? 'on' : ''}" data-atab="activity">${t('Activity')}</button>
   </div></div><div id="admin-body"><p class="muted">${t('Loading…')}</p></div>`;
 }
@@ -1673,6 +1675,7 @@ after.admin = async () => {
     <p>${t('The database has {a} sync pairs; the tracker ({v}) lists {b}.', { a: `<b>${await api.catalogCount()}</b>`, b: `<b>${PAIRS().length}</b>`, v: esc(catalogVersion()) })}</p>
     <p class="muted">${t('Sync again after a game update so members can add the new pairs.')}</p>
     <button class="btn primary" data-sync-catalog>${t('Sync {n} pairs', { n: PAIRS().length })}</button></div>`;
+  if (adminTab === 'data') body.innerHTML = dataFreshness();
   if (adminTab === 'activity') {
     const list = await api.activity();
     body.innerHTML = `<div class="card scroll"><table class="table"><thead><tr><th>${t('When')}</th><th>${t('Who')}</th><th>${t('What')}</th><th>${t('Details')}</th></tr></thead>
@@ -1832,7 +1835,7 @@ document.addEventListener('submit', async e => {
   showMascot();
   renderHeader('');
   try {
-    await Promise.all([loadCatalog(), loadGyms(), loadPairMap(), fetch('data/gems-sheet.json').then(r => (r.ok ? r.json() : null)).then(j => { S.gemSheet = j; }).catch(() => {}), fetch('data/dc-ranking.json').then(r => (r.ok ? r.json() : null)).then(j => { S.dcRanking = j; }).catch(() => {})]);
+    await Promise.all([loadCatalog(), loadGyms(), loadPairMap(), fetch('data/gems-sheet.json').then(r => (r.ok ? r.json() : null)).then(j => { S.gemSheet = j; }).catch(() => {}), fetch('data/dc-ranking.json').then(r => (r.ok ? r.json() : null)).then(j => { S.dcRanking = j; }).catch(() => {}), fetch('data/sync-status.json').then(r => (r.ok ? r.json() : null)).then(j => { S.syncStatus = j; }).catch(() => {})]);
     await loadTags();
     setApi(await createApi());
     S.me = await api.session();

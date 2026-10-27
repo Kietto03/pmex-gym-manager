@@ -5,6 +5,8 @@
   "description": "Gym manager for Pokémon Masters EX: members, sync pairs, Pasio Tower and Gym Battle logs (static site + Supabase)",
   "scripts": {
     "serve": "python3 -m http.server 8767",
-    "test:db": "bash supabase/tests/run.sh"
+    "test:db": "bash supabase/tests/run.sh",
+    "test:unit": "node test/grid.test.mjs && node test/gems.test.mjs && node test/ranking.test.mjs && node test/sync-gems.test.mjs && node test/sync-ranking.test.mjs && node test/sync-lib.test.mjs",
+    "sync": "node tools/sync-all.mjs"
   }
 }

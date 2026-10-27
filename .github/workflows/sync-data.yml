@@ -1,0 +1,54 @@
+name: Sync outside data
+
+# Every 6 hours (and on demand): refresh the data files from the community sheets, Serebii and the Dex build,
+# commit them if anything really changed, then publish the site. See docs/data-sync.md.
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: sync-data
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Run the data tools
+        id: sync
+        continue-on-error: true      # a broken source must not stop the others from being committed
+        env:
+          # Optional: with these three secrets the sync pairs are also refreshed in the database (pair_catalog)
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: node tools/sync-all.mjs
+      - name: Commit the changes
+        id: commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data
+          if git diff --cached --quiet; then echo "pushed=false" >> "$GITHUB_OUTPUT"; exit 0; fi
+          git commit -m "Update outside data (automatic)"
+          git pull --rebase origin main
+          git push origin HEAD:main
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
+      - name: Publish the site
+        if: steps.commit.outputs.pushed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy.yml --ref main
+      - name: Report a failed source
+        if: steps.sync.outcome == 'failure'
+        run: |
+          echo "::error::At least one data source failed. The site keeps the last good copy. Open the run summary for the list."
+          exit 1
