@@ -32,7 +32,7 @@ f.onload = async () => {
     log(!!$('.progress tbody tr.active'), 'progress matrix highlights the open round');
     log(!$('#nav a[href="#/admin"]'), 'member does not see the admin menu');
     const hash0 = W().location.hash;
-    log(!$('#companion').hidden && /ace-directions/.test($('.m-dir').style.backgroundImage) && !!$('#brand-mascot .m-head'), 'trainer companion (Kai) + logo from the page-mascot sheets');
+    log(!$('#companion').hidden && /red-directions/.test($('.m-dir').style.backgroundImage) && !!$('#brand-mascot .m-head'), 'trainer companion (Red) + logo from the page-mascot sheets');
     $('#companion .m-btn').click(); await sleep(250);
     log($('.m-say').classList.contains('show') && $('.m-say p').textContent.length > 0 && $('.m-react').style.opacity === '1' && W().location.hash === hash0,
       'poking the mascot shows a reaction and a speech card', $('.m-say p').textContent);
@@ -224,9 +224,9 @@ f.onload = async () => {
     $('[data-set-accent=blue]').click(); await sleep(100);
     log(root.dataset.theme === 'dark' && root.dataset.accent === 'blue', 'settings: dark mode and a blue accent');
     $('[data-set-mascot=momo]').click(); await sleep(150);
-    log(/ranger(-pixel)?-directions/.test($('.m-dir').style.backgroundImage) && /ranger/.test($('#brand-mascot .m-head').style.backgroundImage), 'settings: switch the mascot to Momo');
+    log(/gloria(-pixel)?-directions/.test($('.m-dir').style.backgroundImage) && /gloria/.test($('#brand-mascot .m-head').style.backgroundImage), 'settings: switch the mascot to Gloria');
     $('[data-set-mstyle=pixel]').click(); await sleep(150);
-    log(/ranger-pixel-directions/.test($('.m-dir').style.backgroundImage) && $('#companion').classList.contains('pixel'), 'settings: pixel style of the mascot');
+    log(/gloria-pixel-directions/.test($('.m-dir').style.backgroundImage) && $('#companion').classList.contains('pixel'), 'settings: pixel style of the mascot');
     $('[data-set-mstyle=auto]').click(); await sleep(100);
     $('[data-set-mascot=off]').click(); await sleep(150);
     log($('#companion').hidden, 'settings: turn the mascot off');
@@ -361,6 +361,8 @@ f.onload = async () => {
     log($$('.info-l').length === 8 && /HP/.test($('.info-l').innerText) && /Passives/.test($('.info-l').innerText) && /Condition/.test($('.info-l').innerText), 'battle info: 8 leader cards with HP, condition and passives');
     $$('[data-istage]')[5].click(); await sleep(200);
     log(/Extra Battle 3/.test($('.view, #view, main')?.innerText || document.body.innerText) && $$('.info-l').length === 8 && $$('.bar.on').length === 1 && $$('.matrix tbody tr').length > 10, 'battle info: pick another circuit');
+    $('[data-itab=next]').click(); await sleep(250);
+    log($$('.nr').length >= 2 && $$('.nr-l').length >= 16 && /Where this comes from/.test($('.nr-src').innerText), 'next rounds: open round and the next ones, with the source box', $$('.nr').length);
     $('[data-itab=schedule]').click(); await sleep(150);
     log(/Battle/.test($('.cols').innerText) && /×3/.test($('.cols').innerText), 'battle info: schedule and ticket times');
     $('[data-itab=rewards]').click(); await sleep(150);

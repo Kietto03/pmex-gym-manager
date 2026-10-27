@@ -6,13 +6,14 @@
    · a click blinks, then shows a heart / sparkles / a grin; four quick clicks → dizzy
    · it dozes off when the page sits still, and says something useful in a speech card
    Sheets: assets/mascots/<file>[-pixel]-{directions,reactions}.webp, drawn with the
-   page-mascot skill (original trainer designs, modern and pixel styles).
+   page-mascot skill (reference trainer fan art, modern and pixel renderings).
    ═══════════════════════════════════════════════════════════════ */
 export const MASCOTS = [
-  { id: 'kai', file: 'ace', name: 'Kai', cry: ['Let’s go!', 'Ready to battle!', 'Heh, nice one!'] },
-  { id: 'momo', file: 'ranger', name: 'Momo', cry: ['Hehe~', 'Adventure time!', 'Found you!'] },
-  { id: 'sage', file: 'scholar', name: 'Sage', cry: ['Hmm, interesting.', 'Let me check the data…', 'Noted!'] },
-  { id: 'aria', file: 'champion', name: 'Aria', cry: ['Stay sharp.', 'Victory awaits.', 'Good form.'] },
+  // Keep the saved IDs so existing appearance preferences select the replacement.
+  { id: 'kai', file: 'red', name: 'Red', cry: ['Let’s go!', 'Ready to battle!', 'Heh, nice one!'] },
+  { id: 'momo', file: 'gloria', name: 'Gloria', cry: ['Hehe~', 'Adventure time!', 'Found you!'] },
+  { id: 'sage', file: 'cynthia', name: 'Cynthia', cry: ['Hmm, interesting.', 'Let me check the data…', 'Noted!'] },
+  { id: 'aria', file: 'dawn', name: 'Dawn', cry: ['Stay sharp.', 'Victory awaits.', 'Good form.'] },
 ];
 export const MASCOT_STYLES = [['auto', 'Auto'], ['modern', 'Modern'], ['pixel', 'Pixel']];
 // Auto: pixel art in the DS and Game Boy themes, the modern drawing everywhere else

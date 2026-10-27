@@ -117,12 +117,15 @@ export function wtzScore(p, type) {
 export const rebuffs = (p, type) => (p.rebuff || []).some(r => r === type || r === 'Weakness');
 
 // ─── Gym Battles (from the Dex) ───
-let gyms = [];
+let gyms = [], gymsMeta = { builtAt: null, versions: [] };
 export const GYMS = () => gyms;
+export const GYMS_META = () => gymsMeta;   // when the Dex build was made and which game versions it covers
 export async function loadGyms() {
   try {
     const res = await fetch(`${DEX}data/gyms.json`);
-    gyms = res.ok ? (await res.json()).gyms || [] : [];
+    const j = res.ok ? await res.json() : {};
+    gyms = j.gyms || [];
+    gymsMeta = { builtAt: j.builtAt || null, versions: j.versions || [] };
   } catch { gyms = []; }
   return gyms;
 }

@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en" data-style="switch" data-theme="light">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<base href="../">
+<title>Trainer mascot preview</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  body { padding: 32px; }
+  main { max-width: 900px; margin: auto; }
+  .gallery { display: grid; grid-template-columns: repeat(auto-fit,minmax(180px,1fr)); gap: 18px; margin: 24px 0; }
+  .portrait { display: block; width: 160px; height: 160px; margin: auto; background-size: 300% 300%; background-position: 50% 50%; }
+  .gallery button { padding: 16px; border-radius: 16px; }
+</style>
+<main>
+  <h1>Trainer companions</h1>
+  <p>Select a character, then poke the companion. Four quick pokes show the dizzy reaction.</p>
+  <label>Rendering <select id="style"><option value="modern">Modern</option><option value="pixel">Pixel</option><option value="auto">Auto</option></select></label>
+  <div class="gallery" id="gallery"></div>
+  <p id="status" role="status"></p>
+</main>
+<div id="companion" class="companion"></div>
+<script type="module">
+  import { MASCOTS, mascotHead, mountCompanion } from './src/mascot.js';
+  let selected = MASCOTS[0].id;
+  const style = document.querySelector('#style');
+  const companion = mountCompanion(document.querySelector('#companion'), {
+    getTips: () => ['Ready for the next Gym Battle?'],
+    t: (text, values = {}) => text.replace(/\{(\w+)\}/g, (_, key) => values[key] ?? `{${key}}`),
+  });
+  function render() {
+    document.querySelector('#gallery').innerHTML = MASCOTS.map(m => `<button type="button" data-character="${m.id}">${mascotHead(m.id, style.value, 'portrait')}<b>${m.name}</b></button>`).join('');
+    companion.set(selected, style.value);
+    document.querySelector('#status').textContent = `Selected: ${MASCOTS.find(m => m.id === selected).name} · ${style.value}`;
+  }
+  document.querySelector('#gallery').addEventListener('click', e => {
+    const button = e.target.closest('[data-character]');
+    if (button) { selected = button.dataset.character; render(); }
+  });
+  style.addEventListener('change', render);
+  render();
+</script>
+</html>
