@@ -1,10 +1,7 @@
 // D.C 3v3 score ranking by type (a shared Google Sheet): the best score per type, the three pairs used and a video.
 //   node tools/sync-ranking.mjs   → writes data/dc-ranking.json
-import fs from 'node:fs';
 import { parseCsv, num } from './sync-gems.mjs';
-import { getText, writeIfChanged } from './lib.mjs';
 
-const SHEET_ID = '14C_CPMRC8xHslf7id6wMqTdQeCvPA-_X4w9URrHNRzE', GID = '1658000195';
 const TYPES = ['Normal', 'Fire', 'Water', 'Electric', 'Grass', 'Ice', 'Fighting', 'Poison', 'Ground', 'Flying', 'Psychic', 'Bug', 'Rock', 'Ghost', 'Dragon', 'Dark', 'Steel', 'Fairy'];
 
 // "Red 1996\n5 EX R" → { name: 'Red 1996', level: 5, ex: true, exr: true }
@@ -26,14 +23,3 @@ export function parseRanking(rows) {
   }
   return out;
 }
-export async function buildRanking() {
-  const types = parseRanking(parseCsv(await getText(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}`)));
-  if (types.length < 10) throw new Error(`Only ${types.length} types found: the sheet layout may have changed. Nothing written.`);
-  const data = { source: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit?gid=${GID}`, fetched: new Date().toISOString(), note: 'Best 3v3 scores by type, from D.C. and Ranked Damage Super Sparring (community sheet).', types };
-  return { file: 'data/dc-ranking.json', data, items: types.length, note: `best ${types[0].type} ${types[0].score}` };
-}
-async function main() {
-  const r = await buildRanking();
-  console.log(`${r.items} types, ${r.note}${writeIfChanged(r.file, r.data) ? '' : ' (no change)'}`);
-}
-if (import.meta.url === `file://${process.argv[1]}`) main().catch(e => { console.error(e.message); process.exit(1); });

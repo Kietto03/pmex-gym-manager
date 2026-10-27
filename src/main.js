@@ -1926,7 +1926,7 @@ document.addEventListener('submit', async e => {
   showMascot();
   renderHeader('');
   try {
-    await Promise.all([loadCatalog(), loadGyms(), loadPairMap(), fetch('data/gems-sheet.json').then(r => (r.ok ? r.json() : null)).then(j => { S.gemSheet = j; }).catch(() => {}), fetch('data/dc-ranking.json').then(r => (r.ok ? r.json() : null)).then(j => { S.dcRanking = j; }).catch(() => {}), fetch('data/sync-status.json').then(r => (r.ok ? r.json() : null)).then(j => { S.syncStatus = j; }).catch(() => {})]);
+    await Promise.all([loadCatalog(), loadGyms(), loadPairMap(), fetch('data/gems-sheet.json').then(r => (r.ok ? r.json() : null)).then(j => { S.gemSheet = j; }).catch(() => {}), fetch('data/clears.json').then(r => (r.ok ? r.json() : null)).then(j => { S.clears = j; }).catch(() => {}), fetch('data/sync-status.json').then(r => (r.ok ? r.json() : null)).then(j => { S.syncStatus = j; }).catch(() => {})]);
     await loadTags();
     setApi(await createApi());
     S.me = await api.session();

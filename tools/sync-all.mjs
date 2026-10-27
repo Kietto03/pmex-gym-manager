@@ -7,7 +7,7 @@
 import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { buildGems } from './sync-gems.mjs';
-import { buildRanking } from './sync-ranking.mjs';
+import { buildClears } from './sync-clears.mjs';
 import { buildLodge } from './build-lodge.mjs';
 import { buildPairMap } from './build-pair-map.mjs';
 import { getJson, writeIfChanged, nextStatus, settle, health, DEX_SITE, POMA_SITE } from './lib.mjs';
@@ -46,7 +46,7 @@ export const SOURCES = [
   }),
   fileSource('pairmap', 'Pair files of the Dex, copy kept here', 'Sync Grid fallback when the Dex index is unreachable', `${DEX_SITE}data/data.js`, 40, buildPairMap),
   fileSource('gems', 'Free Gems (community Gems sheet)', 'Free Gems projection, banners', 'https://docs.google.com/spreadsheets/d/1Vu8af6bU3hXuHCDZHr-ppVwkVjJfO2QZ3iSitcViYts/edit', 7, buildGems),
-  fileSource('dcranking', 'D.C. 3v3 ranking (community sheet)', 'Strategies: best scores by type', 'https://docs.google.com/spreadsheets/d/14C_CPMRC8xHslf7id6wMqTdQeCvPA-_X4w9URrHNRzE/edit?gid=1658000195', 30, buildRanking),
+  fileSource('clears', 'D.C. and GvG clears (community sheets)', 'Strategies: D.C. and GvG libraries', 'https://docs.google.com/spreadsheets/d/14C_CPMRC8xHslf7id6wMqTdQeCvPA-_X4w9URrHNRzE/edit', 30, buildClears),
   fileSource('lodge', 'Trainer Lodge topics (Serebii)', 'Trainer Lodge lookup', 'https://www.serebii.net/pokemonmasters/trainerlodgetopics.shtml', 60, buildLodge),
   { id: 'tier', label: 'Tier lists (China, Spark, Japan)', feeds: 'suggestions by tier (not built yet)', kind: 'manual', url: 'https://docs.qq.com/sheet/DSWp2aXZHSUphT1lW?tab=n44aze',
     note: 'No machine-readable copy: the China sheet asks for a login and the Spark list is made of pictures.' },
@@ -65,7 +65,7 @@ function catalogToDatabase(dry) {
 export async function syncAll({ only = null, dry = false, log = console.log } = {}) {
   let status = {};
   try { status = JSON.parse(fs.readFileSync(STATUS, 'utf8')).sources || {}; } catch { /* first run */ }
-  const out = { ...status };
+  const out = Object.fromEntries(Object.entries(status).filter(([id]) => SOURCES.some(x => x.id === id)));   // a source that no longer exists leaves the report
   let failed = 0;
   for (const def of SOURCES) {
     if (only && !only.includes(def.id)) continue;

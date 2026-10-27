@@ -423,9 +423,22 @@ f.onload = async () => {
 
     // 6h. Strategy library: write, submit, review, publish, revise
     await go('#/strategies');
-    await until(() => $('.strat'));
+    await until(() => $('.cl-card'));
+    log($$('.cl-card').length > 20 && $$('.strat-modes button').length === 3, 'D.C. library: clears listed, three tabs (D.C., GvG, team strategies)', $$('.cl-card').length);
+    log($$('.cl-u').length > 0 && $$('.cl-ph').length === 0, 'D.C. library: every pair of the listed clears has its icon (no placeholder letters)', $$('.cl-ph').length);
+    const dcAll = $$('.cl-card').length;
+    $('[data-cl-type^="dc:Fire"]').click(); await sleep(150);
+    log($$('.cl-card').length > 0 && $$('.cl-card').length < dcAll && $$('.cl-card').every(c => /Fire/.test(c.querySelector('.type')?.innerText || '')), 'D.C. library: filter by weakness type', `${dcAll} → ${$$('.cl-card').length}`);
+    $('[data-cl-type="dc:"]').click(); await sleep(100);
+    setVal($('[data-cl="dc:mode"]'), '3v1'); await sleep(150);
+    log($$('.cl-card').length > 10 && $$('.cl-meta').every(m => m.innerText === '3v1'), 'D.C. library: 3v1 clears');
+    $('[data-strat-mode=gvg]').click(); await until(() => $('.cl-card'));
+    log($$('.cl-card').length > 10 && /SS\d/.test($('.cl-meta').innerText) && $$('.cl-ph').length === 0, 'GvG library: clears with season, round and tickets, icons present');
+    const gAll = $$('.cl-card').length;
+    setVal($('[data-cl="gvg:season"]'), 'SS3 Johto'); await sleep(150);
+    log($$('.cl-card').length > 0 && $$('.cl-card').length < gAll && $$('.cl-meta').every(m => /SS3/.test(m.innerText)), 'GvG library: filter by season', `${gAll} → ${$$('.cl-card').length}`);
+    $('[data-strat-mode=team]').click(); await until(() => $('.strat'));
     log($$('.strat').length === 2 && !$('[data-strat-view=review]') === false, 'strategies: published ones in the library, review tab for staff', $$('.strat').length);
-    log(!!$('.dc-rank') && $$('.dc-rank tbody tr').length >= 10, 'strategies: best 3v3 scores by type from the D.C. ranking sheet');
     $('[data-strat-view=review]').click(); await sleep(150);
     log($$('.strat').length === 1, 'strategies: one waiting for review');
     $('.strat').click(); await sleep(200);

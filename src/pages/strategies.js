@@ -1,7 +1,7 @@
 // Page module (split out of main.js). Registers its own listeners when imported.
 import { $, esc, fmtN, pairIcon, ownIcon, typeTag, toast, act, api, S, isStaff, profile, nameOf, season, owned, ownedPair, hooks, fmtD } from '../core.js';
 import { ico } from '../icons.js';
-import { matchUnit } from '../ranking.js';
+import { clearsView } from './clears.js';
 import { t } from '../i18n.js';
 import { PAIRS, pairById, pairName, TYPES } from '../catalog.js';
 
@@ -33,21 +33,11 @@ const stratTeam = (team, uid) => (team || []).map(x => {
   return p ? `<span class="st-pair ${uid && !mp ? 'missing' : ''}" title="${esc(pairName(p))}${uid ? (mp ? '' : ` — ${t('you do not own this pair')}`) : ''}">${mp ? ownIcon(p, mp, 'sm') : pairIcon(p, 'sm')}<small>${esc(p.pokemon)}</small></span>` : '';
 }).join('');
 
-// Best 3v3 scores by type (community D.C. ranking sheet): the pairs used and the video. A name is shown with its
-// picture only when it matches exactly one sync pair; otherwise it stays as text.
-function dcRankingPanel() {
-  const d = S.dcRanking;
-  if (!d?.types?.length) return '';
-  const age = Math.floor((Date.now() - Date.parse(d.fetched)) / 864e5);
-  return `<details class="card pad dc-rank"><summary><b>${t('Best 3v3 scores by type')}</b> <small class="muted">${t('D.C. ranking sheet, {n} types', { n: d.types.length })}</small></summary>
-    <p class="muted">${t('Source')}: <a href="${esc(d.source)}" target="_blank" rel="noopener noreferrer">${t('community D.C. ranking')}</a> · ${t('copied on {d}', { d: fmtD(d.fetched) })}${age > 14 ? ` · <b>${t('may be out of date')}</b>` : ''} · ${t('Pictures are matched by name and may be wrong; the text is what the sheet says.')}</p>
-    <div class="table-wrap"><table class="table"><thead><tr><th>#</th><th>${t('Stage type')}</th><th class="num">${t('Score')}</th><th>${t('Team')}</th><th>${t('Video')}</th></tr></thead>
-      <tbody>${d.types.map(r => `<tr><td>${r.rank}</td><td>${typeTag(r.type)}</td><td class="num"><b>${fmtN(r.score)}</b></td>
-        <td>${r.units.map(u => { const p = matchUnit(u.name, null, PAIRS()); return `<span class="dc-u" title="${esc(p ? pairName(p) : u.name)}">${p ? pairIcon(p, 'xs') : ''}<span>${esc(u.name)}${u.level ? ` <small class="muted">${u.level}${u.ex ? ' EX' : ''}${u.exr ? ' R' : ''}</small>` : ''}</span></span>`; }).join('')}</td>
-        <td>${r.video ? `<a class="btn sm" href="${esc(r.video)}" target="_blank" rel="noopener noreferrer">${t('Watch')}</a>` : '—'}</td></tr>`).join('')}</tbody></table></div></details>`;
-}
-
+let stratMode = 'dc';   // 'dc' | 'gvg' | 'team'
+const modeTabs = () => `<div class="seg strat-modes">${[['dc', 'D.C. library', (S.clears?.dc || []).length], ['gvg', 'GvG library', (S.clears?.gvg || []).length], ['team', 'Team strategies', S.strats.strategies.filter(x => !x.archived && x.published_rev).length]]
+  .map(([k, l, n]) => `<button class="${stratMode === k ? 'on' : ''}" data-strat-mode="${k}">${t(l)} <small>${n}</small></button>`).join('')}</div>`;
 export function renderStrategies() {
+  if (stratMode !== 'team') return `<div class="toolbar"><h1>${t('Strategies')}</h1>${modeTabs()}</div>${clearsView(stratMode)}`;
   const staff = isStaff(), f = stratFilter, q = f.q.trim().toLowerCase();
   const pending = S.strats.revisions.filter(r => r.status === 'pending');
   const mine = S.strats.revisions.filter(r => r.author_id === S.me && !['superseded'].includes(r.status) && !(r.status === 'published' && false));
@@ -63,11 +53,9 @@ export function renderStrategies() {
   if (stratView === 'mine') list = mine.filter(matches).map(r => card(r, stratById(r.strategy_id)));
   else if (stratView === 'review') list = pending.filter(matches).map(r => card(r, stratById(r.strategy_id)));
   else list = S.strats.strategies.filter(st => !st.archived).map(st => publishedOf(st)).filter(r => r && matches(r)).map(r => card(r, stratById(r.strategy_id)));
-  return `<div class="toolbar"><h1>${t('Strategies')} <small>${t('{n} published', { n: S.strats.strategies.filter(x => !x.archived && x.published_rev).length })}</small></h1>
-    <button class="btn primary" data-strat-new>${ico('plus')} ${t('New strategy')}</button></div>
+  return `<div class="toolbar"><h1>${t('Strategies')}</h1>${modeTabs()}</div><div class="row" style="justify-content:flex-end;margin:-6px 0 6px"><button class="btn primary" data-strat-new>${ico('plus')} ${t('New strategy')}</button></div>
   <p class="muted">${t('Team strategies for GvG and D.C. Everyone can write one; a mod or the admin approves it before it appears in the library.')}</p>
   ${stratEdit ? stratEditor() : ''}${stratOpen && !stratEdit ? stratDetail() : ''}
-  ${dcRankingPanel()}
   <div class="seg" style="margin:10px 0">${tabs.map(([k, l]) => `<button class="${stratView === k ? 'on' : ''}" data-strat-view="${k}">${t(l.replace(/ \(\d+\)$/, ''))}${/\((\d+)\)$/.exec(l) ? ` (${/\((\d+)\)$/.exec(l)[1]})` : ''}</button>`).join('')}</div>
   <div class="card pad filters-row"><input id="strat-q" placeholder="${t('Search title, boss, rotation…')}" value="${esc(f.q)}">
     <select data-strat-f="mode"><option value="">${t('All modes')}</option>${STRAT_MODES.map(m => `<option ${f.mode === m ? 'selected' : ''}>${m}</option>`).join('')}</select>
@@ -141,10 +129,11 @@ document.addEventListener('input', e => {
 });
 document.addEventListener('change', e => { const k = e.target.dataset?.stratF; if (k) { stratFilter[k] = e.target.value; hooks.route(); } });
 document.addEventListener('click', async e => {
-  const el = e.target.closest('[data-strat-open],[data-strat-new],[data-strat-view],[data-strat-close],[data-strat-cancel],[data-strat-edit],[data-strat-revise],[data-strat-submit],[data-strat-withdraw],[data-strat-del],[data-strat-archive],[data-strat-approve],[data-strat-changes],[data-strat-apply],[data-strat-add],[data-strat-drop],[data-save]');
+  const el = e.target.closest('[data-strat-mode],[data-strat-open],[data-strat-new],[data-strat-view],[data-strat-close],[data-strat-cancel],[data-strat-edit],[data-strat-revise],[data-strat-submit],[data-strat-withdraw],[data-strat-del],[data-strat-archive],[data-strat-approve],[data-strat-changes],[data-strat-apply],[data-strat-add],[data-strat-drop],[data-save]');
   if (!el) return;
   const d = el.dataset, rev = id => S.strats.revisions.find(x => x.id === +id);
-  if (d.stratOpen) { stratOpen = +d.stratOpen; stratEdit = null; hooks.route(); window.scrollTo({ top: 0 }); }
+  if (d.stratMode) { stratMode = d.stratMode; stratOpen = null; stratEdit = null; hooks.route(); }
+  else if (d.stratOpen) { stratOpen = +d.stratOpen; stratEdit = null; hooks.route(); window.scrollTo({ top: 0 }); }
   else if ('stratNew' in d) { stratEdit = blankStrat(); stratOpen = null; hooks.route(); }
   else if (d.stratView) { stratView = d.stratView; hooks.route(); }
   else if ('stratClose' in d) { stratOpen = null; hooks.route(); }
