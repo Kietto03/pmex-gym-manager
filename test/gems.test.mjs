@@ -34,4 +34,11 @@ const noon = Date.parse('2026-10-26T18:00:00Z');
 assert.equal(serverToday({ reset_timezone: 'Asia/Tokyo', reset_hour: 0 }, noon), '2026-10-27');
 assert.equal(serverToday({ reset_timezone: 'UTC', reset_hour: 0 }, noon), '2026-10-26');
 assert.equal(serverToday({ reset_timezone: 'UTC', reset_hour: 20 }, noon), '2026-10-25', 'before the reset hour it is still the previous server day');
+// looking at the whole month from the 1st, with the 26th as today: what is behind and what is ahead
+const whole = project([R(1, 'daily', '2026-10-01', '2026-10-31', 10), R(2, 'on_date', '2026-10-05', '2026-10-05', 300), R(3, 'window', '2026-10-24', '2026-10-30', 500)], '2026-10-01', '2026-10-31', '2026-10-26');
+assert.equal(whole.rows.length, 31); assert.equal(whole.rows[4].total, 310); assert.equal(whole.rows[4].past, true); assert.equal(whole.rows[25].past, false);
+assert.equal(whole.totals.earned, 25 * 10 + 300, 'days before the 26th are earned');
+assert.equal(whole.totals.ahead, 6 * 10 + 500, 'the 26th on, with the one-off still open');
+assert.equal(whole.totals.all, 31 * 10 + 300 + 500);
+assert.equal(whole.windows[0].state, 'open');
 console.log('gems projection: all passed');

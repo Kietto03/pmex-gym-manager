@@ -550,6 +550,17 @@ f.onload = async () => {
     log(!sameMonth || gnum($('.kpis .kpi b').innerText) === gnum(total0) + 1000, 'gems: the projection includes the new reward', `${total0} → ${$('.kpis .kpi b').innerText}`);
     $('[data-gem-month="1"]').click(); await sleep(150);
     log(!!$('.kpis'), 'gems: next month view');
+    $('[data-gem-tab=history]').click(); await sleep(250);
+    log($$('table.table tbody tr').length >= 25 && /Earned up to today/.test($('.kpis').innerText) && $$('table.table tbody tr:not(.dim)').length > 0, 'gems history: every day of a month with where the gems came from, past days included');
+    $('[data-gem-tab=overview]').click(); await sleep(250);
+    log($$('.gx-m').length >= 9 && /Average per month/.test($('.kpis').innerText) && !!$('.gx-col u'), 'gems overview: the months of the year with the average line');
+    $('[data-gem-tab=calendar]').click(); await sleep(250);
+    log($$('.gx-d').length >= 28 && $$('.gx-d .g').length > 10 && $$('.gx-ev').length > 0, 'gems calendar: gems per day and the events of the month', `${$$('.gx-d').length} days, ${$$('.gx-ev').length} events`);
+    $$('[data-gx-cal]')[0].click(); await sleep(200);
+    log($$('.gx-d').length >= 28, 'gems calendar: previous month');
+    $('[data-gem-tab=projection]').click(); await sleep(150);
+    $('[data-gem-month="0"]').click(); await sleep(120); $('[data-gem-source=sheet]').click(); await sleep(150);
+    log(/Earned so far/.test($('.kpis').innerText) && /Still to come/.test($('.kpis').innerText) && $$('tr.gx-past').length > 0 && $$('tr.gx-today').length === 1, 'gems projection: the whole month, past days marked, today highlighted');
 
     // 6l. Admin → Data updates
     await go('#/admin');

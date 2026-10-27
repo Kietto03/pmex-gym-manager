@@ -7,7 +7,14 @@ export const UA = { 'user-agent': 'Mozilla/5.0 (pmex-gym-manager data sync; gith
 export const DEX_SITE = process.env.DEX_SITE || 'https://kietto03.github.io/pmex-supez-dex/';
 export const POMA_SITE = process.env.POMA_SITE || 'https://pomasters.github.io/SyncPairsTracker/';
 
+const memo = new Map();   // the same address is fetched once per run (two tools read the Dex's data.js)
 export async function getText(url, { tries = 3 } = {}) {
+  if (memo.has(url)) return memo.get(url);
+  const text = await fetchText(url, tries);
+  memo.set(url, text);
+  return text;
+}
+async function fetchText(url, tries) {
   let last;
   for (let i = 1; i <= tries; i++) {
     try {

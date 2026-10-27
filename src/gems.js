@@ -21,14 +21,14 @@ export function serverToday(settings, now = Date.now()) {
   return p.hour < h ? addDays(day, -1) : day;
 }
 
-export function project(rewards, from, to) {
+export function project(rewards, from, to, today = from) {
   const days = new Map(), windows = [], incomplete = [], past = [];
   const put = (d, r) => { (days.get(d) || days.set(d, []).get(d)).push({ reward: r, gems: r.free_gems }); };
   for (const r of rewards) {
     if (r.free_gems == null) { if (r.end_date >= from && r.start_date <= to) incomplete.push(r); continue; }
     if (r.end_date < from) { past.push(r); continue; }
     if (r.start_date > to) continue;
-    if (r.kind === 'window') windows.push({ reward: r, state: r.start_date <= from ? 'open' : 'upcoming' });
+    if (r.kind === 'window') windows.push({ reward: r, state: r.end_date < today ? 'closed' : r.start_date <= today ? 'open' : 'upcoming' });
     else for (let d = r.start_date < from ? from : r.start_date; d <= (r.end_date > to ? to : r.end_date); d = addDays(d, 1)) put(d, r);
   }
   let run = 0;
@@ -36,8 +36,8 @@ export function project(rewards, from, to) {
   for (let d = from; d <= to; d = addDays(d, 1)) {
     const items = days.get(d) || [], total = items.reduce((a, x) => a + x.gems, 0);
     run += total;
-    rows.push({ date: d, items, total, cumulative: run });
+    rows.push({ date: d, items, total, cumulative: run, past: d < today });
   }
-  const fixed = run, oneOff = windows.reduce((a, w) => a + w.reward.free_gems, 0);
-  return { rows, windows, incomplete, past, totals: { days: fixed, windows: oneOff, all: fixed + oneOff } };
+  const fixed = run, oneOff = windows.reduce((a, w) => a + w.reward.free_gems, 0), earned = rows.filter(r => r.past).reduce((a, r) => a + r.total, 0);
+  return { rows, windows, incomplete, past, totals: { days: fixed, windows: oneOff, all: fixed + oneOff, earned, ahead: fixed - earned + oneOff } };
 }

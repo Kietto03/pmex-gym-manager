@@ -46,7 +46,7 @@ export async function act(fn, okMsg) {
 // ─── State ──────────────────────────────────────────────────
 export let api;
 export const setApi = a => { api = a; };
-export const S = { me: null, profiles: [], mp: [], tower: [], seasons: [], sid: null, runs: [], sm: [], asg: [], notes: [], fac: [], res: [], resources: [], lodge: null, gemSheet: null, clears: null, syncStatus: null, builds: [], reviews: [], gems: { settings: { reset_timezone: 'UTC', reset_hour: 0 }, events: [], rewards: [] }, strats: { strategies: [], revisions: [] }, sheet: [] };
+export const S = { me: null, profiles: [], mp: [], tower: [], seasons: [], sid: null, runs: [], sm: [], asg: [], notes: [], fac: [], res: [], resources: [], lodge: null, gemSheet: null, clears: null, events: null, syncStatus: null, builds: [], reviews: [], gems: { settings: { reset_timezone: 'UTC', reset_hour: 0 }, events: [], rewards: [] }, strats: { strategies: [], revisions: [] }, sheet: [] };
 export const meP = () => S.profiles.find(p => p.id === S.me);
 export let lockCtx = false;
 export const setLock = v => { lockCtx = v; };   // set while drawing a frozen page: staff controls disappear for everyone but the admin

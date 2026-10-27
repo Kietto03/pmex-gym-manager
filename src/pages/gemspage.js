@@ -4,6 +4,7 @@ import { ico } from '../icons.js';
 import { t, locale } from '../i18n.js';
 import { project as projectGems, serverToday, monthEnd, addDays } from '../gems.js';
 import { allTimezones } from '../time.js';
+import { gemHistory, gemOverview, gemCalendar } from './gemsextra.js';
 
 // ═══════════════════════════════════════════════════════════════
 //  FREE GEMS: what is still to be earned until the end of the month (Free Gems only, a projection)
@@ -13,13 +14,13 @@ const GEM_KINDS = [['daily', 'Every day'], ['on_date', 'One day'], ['window', 'O
 const fmtServerDay = d => new Date(`${d}T00:00:00Z`).toLocaleDateString(locale(), { weekday: 'short', day: '2-digit', month: 'short', timeZone: 'UTC' });
 export function renderGems() {
   const g = S.gems, today = serverToday(g.settings), staff = isStaff();
-  const from = gemUi.month ? addDays(monthEnd(today), 1) : today, to = monthEnd(from);
-  const tabs = [['projection', 'Projection'], ...(staff ? [['manage', 'Manage rewards']] : [])];
+  const from = gemUi.month ? addDays(monthEnd(today), 1) : today.slice(0, 8) + '01', to = monthEnd(from);
+  const tabs = [['projection', 'Projection'], ['history', 'History'], ['overview', 'Year overview'], ['calendar', 'Event calendar'], ...(staff ? [['manage', 'Manage rewards']] : [])];
   if (gemUi.tab === 'manage' && !staff) gemUi.tab = 'projection';
   return `<div class="toolbar"><h1>${t('Free Gems')} <small>${t('server day {d}', { d: today })}</small></h1>
     <div class="seg">${tabs.map(([k, l]) => `<button class="${gemUi.tab === k ? 'on' : ''}" data-gem-tab="${k}">${t(l)}</button>`).join('')}</div></div>
   <p class="muted">${t('Only Free Gems. This is a projection from the rewards listed (the community Gems sheet, or what staff entered), not a promise of what your account will receive. Days are server days, so changing your time zone does not move a reward.')}</p>
-  ${gemUi.tab === 'manage' ? gemManage(g) : gemProjection(g, from, to)}`;
+  ${gemUi.tab === 'manage' ? gemManage(g) : gemUi.tab === 'history' ? gemHistory(today) : gemUi.tab === 'overview' ? gemOverview(today) : gemUi.tab === 'calendar' ? gemCalendar(today) : gemProjection(g, from, to, today)}`;
 }
 // The community Gems sheet as day rewards: each part of a day (daily gems, Gym, other…) is its own line, so the breakdown shows where gems come from
 const SHEET_PARTS = { daily: 'Daily gems', gym: 'Gym Battle', other: 'Other', regional: 'Regional Rotation', stadium: 'Champion Stadium' };
@@ -38,9 +39,9 @@ function gemBanners(sheet, from, to) {
   const list = (sheet.banners || []).filter(b => b.end >= from && b.start <= to);
   return list.length ? `<h2 class="section">${t('Banners')}</h2><div class="card list">${list.map(b => `<div class="run"><div><b>${esc(b.name)}</b><small class="muted">${esc(b.type)} · ${fmtServerDay(b.start)} → ${fmtServerDay(b.end)}</small></div></div>`).join('')}</div>` : '';
 }
-function gemProjection(g, from, to) {
+function gemProjection(g, from, to, today) {
   const src = gemSource(g), sheet = S.gemSheet, rewards = src === 'sheet' && sheet ? sheetRewards(sheet, serverToday(g.settings)) : g.rewards;
-  const p = projectGems(rewards, from, to), eventOf = r => g.events.find(e => e.id === r.event_id);
+  const p = projectGems(rewards, from, to, today), eventOf = r => g.events.find(e => e.id === r.event_id);
   const srcSeg = sheet?.days?.length ? `<div class="seg" style="margin:0 0 10px 8px;display:inline-flex">${[['sheet', 'Gems sheet'], ['staff', 'Entered by staff']].map(([k, l]) => `<button class="${src === k ? 'on' : ''}" data-gem-source="${k}">${t(l)}</button>`).join('')}</div>` : '';
   const seg0 = `<div class="seg" style="margin-bottom:10px">${[[0, 'This month'], [1, 'Next month']].map(([k, l]) => `<button class="${gemUi.month === k ? 'on' : ''}" data-gem-month="${k}">${t(l)}</button>`).join('')}</div>`;
   const seg = seg0 + srcSeg;
@@ -48,14 +49,14 @@ function gemProjection(g, from, to) {
   const note = src === 'sheet' && sheet ? sheetNote(sheet, to) : '';
   const label = r => `${esc(t(r.label))}${eventOf(r) ? ` <small class="muted">· ${esc(eventOf(r).name)}</small>` : ''}${r.certainty === 'estimated' ? ` <span class="badge gold">${t('estimated')}</span>` : ''}`;
   return `${seg}${note}<div class="kpis">
-    <div class="card kpi" style="--kc:var(--gold)"><small>${t('Free Gems until {d}', { d: fmtServerDay(to) })}</small><b>${fmtN(p.totals.all)}</b><span>${t('{a} on set days + {b} claimable once', { a: fmtN(p.totals.days), b: fmtN(p.totals.windows) })}</span></div>
-    <div class="card kpi"><small>${t('On set days')}</small><b>${fmtN(p.totals.days)}</b><span>${t('{n} days', { n: p.rows.filter(r => r.total).length })}</span></div>
-    <div class="card kpi"><small>${t('Claimable once, any day')}</small><b>${fmtN(p.totals.windows)}</b><span>${t('{n} rewards', { n: p.windows.length })}</span></div></div>
+    <div class="card kpi" style="--kc:var(--gold)"><small>${t('Free Gems this month')}</small><b>${fmtN(p.totals.all)}</b><span>${t('until {d}', { d: fmtServerDay(to) })}</span></div>
+    <div class="card kpi"><small>${t('Earned so far')}</small><b>${fmtN(p.totals.earned)}</b><span>${t('{n} days', { n: p.rows.filter(r => r.past).length })}</span></div>
+    <div class="card kpi"><small>${t('Still to come')}</small><b>${fmtN(p.totals.ahead)}</b><span>${t('{a} on set days + {b} claimable once', { a: fmtN(p.totals.days - p.totals.earned), b: fmtN(p.totals.windows) })}</span></div></div>
   ${p.windows.length ? `<h2 class="section">${t('Claim any day in the range')} <small>${t('not placed on a day')}</small></h2><div class="card list">${p.windows.map(w => `<div class="run"><div><b>${label(w.reward)}</b>
     <small class="muted">${fmtServerDay(w.reward.start_date)} → ${fmtServerDay(w.reward.end_date)}${w.reward.condition ? ` · ${esc(w.reward.condition)}` : ''}</small></div>
-    <span class="badge ${w.state === 'open' ? 'good' : ''}">${w.state === 'open' ? t('available now') : t('upcoming')}</span><b class="num">${fmtN(w.reward.free_gems)}</b></div>`).join('')}</div>` : ''}
+    <span class="badge ${w.state === 'open' ? 'good' : ''}">${w.state === 'open' ? t('available now') : w.state === 'closed' ? t('ended') : t('upcoming')}</span><b class="num">${fmtN(w.reward.free_gems)}</b></div>`).join('')}</div>` : ''}
   <h2 class="section">${t('Day by day')}</h2><div class="card scroll"><table class="table"><thead><tr><th>${t('Day')}</th><th>${t('From')}</th><th class="num">${t('Gems')}</th><th class="num">${t('Total so far')}</th></tr></thead>
-    <tbody>${p.rows.map(r => `<tr class="${r.total ? '' : 'dim'}"><td class="nowrap"><b>${fmtServerDay(r.date)}</b></td><td>${r.items.map(x => `${label(x.reward)} <small class="muted">+${fmtN(x.gems)}</small>`).join('<br>') || '<span class="muted">—</span>'}</td>
+    <tbody>${p.rows.map(r => `<tr class="${r.total ? '' : 'dim'} ${r.past ? 'gx-past' : ''} ${r.date === today ? 'gx-today' : ''}"><td class="nowrap"><b>${fmtServerDay(r.date)}</b>${r.date === today ? ` <span class="badge good">${t('today')}</span>` : ''}</td><td>${r.items.map(x => `${label(x.reward)} <small class="muted">+${fmtN(x.gems)}</small>`).join('<br>') || '<span class="muted">—</span>'}</td>
       <td class="num">${r.total ? `<b>${fmtN(r.total)}</b>` : '—'}</td><td class="num muted">${fmtN(r.cumulative)}</td></tr>`).join('')}</tbody></table></div>
   ${p.incomplete.length ? `<h2 class="section">${t('Not enough data')}</h2><div class="card list">${p.incomplete.map(r => `<div class="run"><div><b>${label(r)}</b><small class="muted">${fmtServerDay(r.start_date)}${r.end_date !== r.start_date ? ` → ${fmtServerDay(r.end_date)}` : ''}</small></div><span class="badge">${t('amount unknown')}</span></div>`).join('')}</div>
     <p class="muted">${t('These are not counted in any total.')}</p>` : ''}
