@@ -155,6 +155,9 @@ function supabaseApi(sb) {
     deleteRevision: async id => ok(await sb.from('strategy_revisions').delete().eq('id', id)),
     archiveStrategy: async (id, archived) => ok(await sb.from('strategies').update({ archived }).eq('id', id)),
 
+    runReviews: () => all(() => sb.from('run_reviews').select('*').order('run_id')),
+    saveRunReview: async row => ok(await sb.from('run_reviews').upsert(row)),
+    deleteRunReview: async run_id => ok(await sb.from('run_reviews').delete().eq('run_id', run_id)),
     gems: async () => {
       const [settings, events, rewards] = await Promise.all([sb.from('gem_settings').select('*').maybeSingle(), all(() => sb.from('gem_events').select('*').order('start_date')), all(() => sb.from('gem_rewards').select('*').order('start_date'))]);
       return { settings: ok(settings) || { reset_timezone: 'UTC', reset_hour: 0 }, events, rewards };

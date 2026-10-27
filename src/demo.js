@@ -72,6 +72,7 @@ function seedData() {
       .forEach(([p, tk, pts, ice], i) => results.push({ season_id: 3, name: p ? p.display_name : 'Former member', user_id: p ? p.id : null, tickets: tk, points: pts, teams: ice ? { ICE: ice } : {} }));
   }
 
+  for (const r of runs) r.main_type_at = seasonMembers.find(m => m.season_id === r.season_id && m.user_id === r.user_id)?.main_type || null;
   const assignments = [], notes = [];
   const live2 = seasons.find(s => s.is_active);
   if (live2) {
@@ -96,7 +97,7 @@ function seedData() {
   }
   const activity = runs.slice(0, 30).map((r, i) => ({ id: i + 1, at: r.created_at, actor: r.created_by, actor_name: r.member_name,
     action: 'runs.insert', detail: { leader: r.leader, round: r.round, score: r.score } }));
-  return { profiles, catalog, memberPairs, tower, seasons, seasonMembers, runs, assignments, notes, activity, facilitators, results, resources: seedResources(), gridBuilds: [], ...seedGems(), ...seedStrategies(profiles, catalog), sheet: seedSheet(profiles, memberPairs) };
+  return { profiles, catalog, memberPairs, tower, seasons, seasonMembers, runs, assignments, notes, activity, facilitators, results, resources: seedResources(), gridBuilds: [], runReviews: [], ...seedGems(), ...seedStrategies(profiles, catalog), sheet: seedSheet(profiles, memberPairs) };
 }
 
 const DEMO_STRATEGY = `# 1. General requirements for all sync pairs
@@ -348,6 +349,7 @@ export function createDemoApi() {
       const s = db.seasons.find(x => x.id === row.season_id);
       row = { ...row, occurred_at: checkTime(s, row.occurred_at || new Date(Math.min(Math.max(Date.now(), Date.parse(s.battle_start)), Date.parse(s.battle_end))).toISOString()) };
       const p = db.profiles.find(x => x.id === row.user_id);
+      row = { ...row, main_type_at: db.seasonMembers.find(m => m.season_id === row.season_id && m.user_id === row.user_id)?.main_type || null };
       const r = { id: nextRun++, member_name: p?.display_name || p?.username || '', note: '', created_by: me,
         created_at: new Date().toISOString(), updated_at: new Date().toISOString(), ...row };
       db.runs.unshift(r);
@@ -359,6 +361,10 @@ export function createDemoApi() {
       const r = db.runs.find(x => x.id === id);
       if (r.user_id !== me && !staff()) deny();
       checkRun({ ...r, ...patch }, r);
+      if ((patch.user_id && patch.user_id !== r.user_id) || (patch.leader && patch.leader !== r.leader) || (patch.occurred_at && patch.occurred_at !== r.occurred_at)) {
+        patch = { ...patch, main_type_at: db.seasonMembers.find(m => m.season_id === r.season_id && m.user_id === (patch.user_id || r.user_id))?.main_type || null };
+        db.runReviews = db.runReviews.filter(x => x.run_id !== r.id);   // the context changed: review again
+      }
       if (patch.occurred_at && patch.occurred_at !== r.occurred_at) {
         checkTime(db.seasons.find(x => x.id === r.season_id), patch.occurred_at);
         patch = { ...patch, occurred_inferred: false };
@@ -470,6 +476,14 @@ export function createDemoApi() {
       if (!db.revisions.some(x => x.strategy_id === r.strategy_id)) db.strategies = db.strategies.filter(x => x.id !== r.strategy_id);
     },
     async archiveStrategy(id, archived) { staff() || deny(); db.strategies.find(x => x.id === id).archived = archived; },
+    runReviews: async () => clone(db.runReviews.filter(x => staff() || db.runs.find(r => r.id === x.run_id)?.user_id === me)),
+    async saveRunReview(row) {
+      staff() || deny();
+      const old = db.runReviews.find(x => x.run_id === row.run_id);
+      const next = { note: '', ...row, reviewed_by: me, reviewed_at: new Date().toISOString() };
+      if (old) Object.assign(old, next); else db.runReviews.push(next);
+    },
+    async deleteRunReview(run_id) { staff() || deny(); db.runReviews = db.runReviews.filter(x => x.run_id !== run_id); },
     gems: async () => clone(db.gems),
     async saveGemReward(row) {
       staff() || deny();

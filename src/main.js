@@ -52,7 +52,7 @@ async function act(fn, okMsg) {
 
 // ─── State ──────────────────────────────────────────────────
 let api;
-const S = { me: null, profiles: [], mp: [], tower: [], seasons: [], sid: null, runs: [], sm: [], asg: [], notes: [], fac: [], res: [], resources: [], lodge: null, builds: [], gems: { settings: { reset_timezone: 'UTC', reset_hour: 0 }, events: [], rewards: [] }, strats: { strategies: [], revisions: [] }, sheet: [] };
+const S = { me: null, profiles: [], mp: [], tower: [], seasons: [], sid: null, runs: [], sm: [], asg: [], notes: [], fac: [], res: [], resources: [], lodge: null, builds: [], reviews: [], gems: { settings: { reset_timezone: 'UTC', reset_hour: 0 }, events: [], rewards: [] }, strats: { strategies: [], revisions: [] }, sheet: [] };
 const meP = () => S.profiles.find(p => p.id === S.me);
 let lockCtx = false;   // set while drawing a frozen page: staff controls disappear for everyone but the admin
 const isStaff = () => !lockCtx && ['admin', 'mod'].includes(meP()?.role);
@@ -82,7 +82,7 @@ function av(uid, size = '') {
 }
 
 async function loadAll() {
-  [S.profiles, S.mp, S.tower, S.seasons, S.sheet, S.resources, S.strats, S.builds, S.gems] = await Promise.all([api.profiles(), api.memberPairs(), api.tower(), api.seasons(), api.sheet(), api.resources().catch(() => []), api.strategies().catch(() => ({ strategies: [], revisions: [] })), api.gridBuilds().catch(() => []), api.gems().catch(() => S.gems)]);
+  [S.profiles, S.mp, S.tower, S.seasons, S.sheet, S.resources, S.strats, S.builds, S.gems, S.reviews] = await Promise.all([api.profiles(), api.memberPairs(), api.tower(), api.seasons(), api.sheet(), api.resources().catch(() => []), api.strategies().catch(() => ({ strategies: [], revisions: [] })), api.gridBuilds().catch(() => []), api.gems().catch(() => S.gems), api.runReviews().catch(() => [])]);
   let saved = null;
   try { saved = +localStorage.getItem('gym-season'); } catch { /* private mode */ }
   S.sid = (S.seasons.find(s => s.id === saved) || S.seasons.find(s => s.is_active) || S.seasons[0])?.id ?? null;
@@ -1322,6 +1322,12 @@ document.addEventListener('click', e => {
 const BATTLE_ROLES = [['DDs', 'Main damage dealers'], ['HHs', 'Heavy hitters'], ['Facilitator', 'Sets the fight up'], ['Finisher', 'Closes the fight'], ['Helper', 'Helps wherever needed']];
 const rolesFilter = { role: '', type: '', stageType: '', leader: '' };
 const stageTypeOf = (s, leader) => (s.leaders.find(l => l.name === leader)?.weakness || [])[0] || '';
+// A run is "main" when the stage's type (weakness of its Gym Leader) is the member's main type as it was when the run was logged,
+// "support" when it differs, "unclassified" when either is unknown. Reviews only confirm the label: points never change.
+const runClass = (s, r) => { const st = stageTypeOf(s, r.leader); return !r.main_type_at || !st ? 'unclassified' : r.main_type_at === st ? 'main' : 'support'; };
+const reviewOf = id => S.reviews.find(x => x.run_id === id);
+const REVIEW_LABEL = { pending: ['', 'Waiting for review'], confirmed: ['good', 'Confirmed'], needs_correction: ['bad', 'Needs correction'] };
+const reviewStatus = id => reviewOf(id)?.status || 'pending';
 function planRoles(s) {
   const st = state(), sm = uid => S.sm.find(m => m.user_id === uid) || {};
   const f = rolesFilter, staff = isStaff();
@@ -1329,8 +1335,10 @@ function planRoles(s) {
   const rows = S.profiles.map(p => {
     const m = sm(p.id), mine = S.runs.filter(r => r.user_id === p.id);
     const stage = mine.filter(r => (!f.leader || r.leader === f.leader) && (!f.stageType || stageTypeOf(s, r.leader) === f.stageType));
+    const by = k => mine.filter(r => runClass(s, r) === k), sum = a => a.reduce((x, r) => x + r.score, 0), sup = by('support');
     return { p, role: m.battle_role || '', type: m.main_type || '', total: st.perMember[p.id]?.score || 0, banned: st.banned.has(p.id),
-      stage: stage.reduce((a, r) => a + r.score, 0), stageRuns: stage.length };
+      stage: stage.reduce((a, r) => a + r.score, 0), stageRuns: stage.length, mainPts: sum(by('main')), supPts: sum(sup), unPts: sum(by('unclassified')),
+      supRuns: sup.length, pend: sup.filter(r => reviewStatus(r.id) === 'pending').length };
   }).filter(r => (!f.role || (f.role === 'none' ? !r.role : r.role === f.role)) && (!f.type || (f.type === 'none' ? !r.type : r.type === f.type)))
     .sort((a, b) => (f.stageType || f.leader ? b.stage - a.stage : b.total - a.total));
   const stageOn = !!(f.stageType || f.leader);
@@ -1346,11 +1354,13 @@ function planRoles(s) {
       ${staff && others.length ? `<span class="spacer"></span><select id="roles-copy-from"><option value="">${t('Copy roles from…')}</option>${others.map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select>` : ''}
     </div>
     <div class="card scroll"><table class="table roles">
-      <thead><tr><th>${t('Member')}</th><th>${t('Role')}</th><th>${t('Main type')}</th><th class="num">${t('Season total')}</th>${stageOn ? `<th class="num">${t('Filtered stages')}</th>` : ''}</tr></thead>
+      <thead><tr><th>${t('Member')}</th><th>${t('Role')}</th><th>${t('Main type')}</th><th class="num">${t('Season total')}</th><th class="num">${t('Main')}</th><th class="num">${t('Support')}</th><th class="num">${t('Unclassified')}</th><th class="num">${t('Support runs')}</th>${stageOn ? `<th class="num">${t('Filtered stages')}</th>` : ''}</tr></thead>
       <tbody>${rows.map(r => `<tr class="${r.banned ? 'dim' : ''}"><td><a class="who" href="#/member/${r.p.id}">${av(r.p.id, 'xs')}${esc(nameOf(r.p))}</a>${r.banned ? ` <span class="badge bad">${t('locked')}</span>` : ''}</td>
         <td>${staff ? `<select data-role-of="${r.p.id}" data-field="battle_role"><option value="">${t('Not assigned')}</option>${BATTLE_ROLES.map(([k]) => `<option ${r.role === k ? 'selected' : ''}>${k}</option>`).join('')}</select>` : r.role ? `<span class="badge">${r.role}</span>` : `<span class="muted">${t('Not assigned')}</span>`}</td>
         <td>${staff ? `<select data-role-of="${r.p.id}" data-field="main_type"><option value="">${t('Not assigned')}</option>${TYPES.map(ty => `<option value="${ty}" ${r.type === ty ? 'selected' : ''}>${t(ty)}</option>`).join('')}</select>` : r.type ? typeTag(r.type) : `<span class="muted">${t('Not assigned')}</span>`}</td>
-        <td class="num"><b>${fmtN(r.total)}</b></td>${stageOn ? `<td class="num"><b>${fmtN(r.stage)}</b> <small class="muted">${t('{n} runs', { n: r.stageRuns })}</small></td>` : ''}</tr>`).join('') || `<tr><td colspan="5" class="muted pad">${t('Nobody matches these filters.')}</td></tr>`}</tbody></table></div>
+        <td class="num"><b>${fmtN(r.total)}</b></td><td class="num">${fmtN(r.mainPts)}</td><td class="num">${fmtN(r.supPts)}</td><td class="num muted">${fmtN(r.unPts)}</td>
+        <td class="num">${r.supRuns ? `${r.supRuns}${r.pend ? ` <span class="badge gold" title="${t('Waiting for review')}">${r.pend}</span>` : ''}` : '—'}</td>${stageOn ? `<td class="num"><b>${fmtN(r.stage)}</b> <small class="muted">${t('{n} runs', { n: r.stageRuns })}</small></td>` : ''}</tr>`).join('') || `<tr><td colspan="5" class="muted pad">${t('Nobody matches these filters.')}</td></tr>`}</tbody></table></div>
+    ${supportReview(s)}
     <p class="muted">${t('Points come from the run log as it is: the season total never changes with the filters, the stage column only adds up the matching stages. A stage’s type is the weakness of its Gym Leader.')}</p></section>`;
 }
 document.addEventListener('change', async e => {
@@ -1368,6 +1378,31 @@ document.addEventListener('change', async e => {
     if (!confirm(t('Copy {n} roles into this Gym Battle? Existing roles of those members are replaced; review them afterwards.', { n: rows.length }))) { e.target.value = ''; return; }
     if (await act(() => api.setSeasonRoles(rows), t('Roles copied.'))) { S.sm = await api.seasonMembers(S.sid); route(); }
   }
+});
+
+// The support runs: stages of a type other than the member's main type. Staff confirm the label or ask for a correction.
+function supportReview(s) {
+  const staff = isStaff();
+  const list = S.runs.filter(r => runClass(s, r) === 'support' && (staff || r.user_id === S.me));
+  if (!list.length) return '';
+  const order = { pending: 0, needs_correction: 1, confirmed: 2 };
+  const rows = [...list].sort((a, b) => order[reviewStatus(a.id)] - order[reviewStatus(b.id)] || b.occurred_at.localeCompare(a.occurred_at));
+  return `<h2 class="section">${t('Support runs')} <small>${t('{n} waiting for review', { n: list.filter(r => reviewStatus(r.id) === 'pending').length })}</small></h2>
+  <p class="muted">${t('A run on a stage of another type than the member’s main type. Reviewing only confirms that label: the points, tickets and round progress stay as logged.')}</p>
+  <div class="card scroll"><table class="table"><thead><tr><th>${t('Member')}</th><th>${t('Stage')}</th><th>${t('Main type then')}</th><th class="num">${t('Score')}</th><th>${t('When')}</th><th>${t('Review')}</th></tr></thead>
+    <tbody>${rows.slice(0, 60).map(r => { const rv = reviewOf(r.id), [cls, label] = REVIEW_LABEL[reviewStatus(r.id)];
+      return `<tr><td>${esc(r.member_name)}</td><td>${esc(r.leader)} ${typeTag(stageTypeOf(s, r.leader))}</td><td>${typeTag(r.main_type_at)}</td><td class="num"><b>${fmtN(r.score)}</b></td><td class="muted nowrap">${fmtDT(r.occurred_at)}</td>
+        <td><span class="badge ${cls}">${t(label)}</span>${rv?.note ? `<br><small class="muted">${esc(rv.note)}</small>` : ''}
+          ${staff ? `<div class="row"><button class="btn sm" data-rv="${r.id}" data-st="confirmed">${t('Confirm')}</button><button class="btn sm ghost" data-rv="${r.id}" data-st="needs_correction">${t('Needs correction')}</button>${rv ? `<button class="btn sm ghost" data-rv-clear="${r.id}">${t('Reset')}</button>` : ''}</div>` : ''}</td></tr>`; }).join('')}</tbody></table></div>`;
+}
+document.addEventListener('click', async e => {
+  const b = e.target.closest('[data-rv],[data-rv-clear]');
+  if (!b) return;
+  const refresh = async () => { S.reviews = await api.runReviews(); route(); };
+  if (b.dataset.rvClear) { if (await act(() => api.deleteRunReview(+b.dataset.rvClear), t('Saved.'))) await refresh(); return; }
+  let note = '';
+  if (b.dataset.st === 'needs_correction') { note = (prompt(t('What should be corrected?')) || '').trim(); if (!note) return; }
+  if (await act(() => api.saveRunReview({ run_id: +b.dataset.rv, status: b.dataset.st, note }), t('Saved.'))) await refresh();
 });
 
 // ── Strategy: the season's rules and requirements ──

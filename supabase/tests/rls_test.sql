@@ -366,6 +366,28 @@ select pg_temp.check('an unknown amount is allowed',               '00000000-000
 select pg_temp.check('a member cannot change the reset settings',  '00000000-0000-0000-0000-00000000000d',
   $$ update public.gem_settings set reset_hour = 5 $$);
 
+-- ─── Support runs: the main type is kept on the run, reviews never touch points ───
+select pg_temp.check('a new run keeps the main type of the moment',  '00000000-0000-0000-0000-00000000000d',
+  $$ insert into public.runs (season_id, user_id, leader, round, tickets, score, occurred_at) select id, '00000000-0000-0000-0000-00000000000d', 'Roark', 2, 3, 50, now() - interval '30 minutes' from public.seasons where name = 'SS-test';
+     do $d$ begin if (select main_type_at from public.runs where leader = 'Roark' and round = 2 and user_id = '00000000-0000-0000-0000-00000000000d') is distinct from 'Fire' then raise exception 'no snapshot'; end if; end $d$ $$);
+select pg_temp.check('changing the assignment later keeps old runs', '00000000-0000-0000-0000-00000000000b',
+  $$ update public.season_members set main_type = 'Water' where user_id = '00000000-0000-0000-0000-00000000000d';
+     do $d$ begin if (select main_type_at from public.runs where leader = 'Roark' and round = 2 and user_id = '00000000-0000-0000-0000-00000000000d') is distinct from 'Fire' then raise exception 'history rewritten'; end if; end $d$ $$);
+select pg_temp.check('staff confirms a run',                         '00000000-0000-0000-0000-00000000000b',
+  $$ insert into public.run_reviews (run_id, status, note) select id, 'confirmed', 'asked to cover' from public.runs where leader = 'Roark' and round = 2 and user_id = '00000000-0000-0000-0000-00000000000d' $$);
+select pg_temp.check('the owner can read their review',              '00000000-0000-0000-0000-00000000000d',
+  $$ do $d$ begin if (select count(*) from public.run_reviews) <> 1 then raise exception 'cannot read'; end if; end $d$ $$);
+select pg_temp.check('other members cannot read it',                 '00000000-0000-0000-0000-00000000000f',
+  $$ do $d$ begin if (select count(*) from public.run_reviews) <> 0 then raise exception 'leaked'; end if; end $d$ $$);
+select pg_temp.check('a member cannot review their own run',         '00000000-0000-0000-0000-00000000000d',
+  $$ update public.run_reviews set status = 'confirmed', note = 'self';
+     do $d$ begin if (select note from public.run_reviews) = 'self' then raise exception 'self-review worked'; end if; end $d$ $$);
+select pg_temp.check('the review does not change points or tickets', '00000000-0000-0000-0000-00000000000b',
+  $$ do $d$ begin if (select score from public.runs where leader = 'Roark' and round = 2 and user_id = '00000000-0000-0000-0000-00000000000d') <> 50 then raise exception 'score changed'; end if; end $d$ $$);
+select pg_temp.check('moving the run in time re-snapshots and resets the review', '00000000-0000-0000-0000-00000000000d',
+  $$ update public.runs set occurred_at = now() - interval '20 minutes' where leader = 'Roark' and round = 2 and user_id = '00000000-0000-0000-0000-00000000000d';
+     do $d$ begin if (select count(*) from public.run_reviews) <> 0 then raise exception 'review kept'; end if; if (select main_type_at from public.runs where leader = 'Roark' and round = 2) is distinct from 'Water' then raise exception 'not re-snapshotted'; end if; end $d$ $$);
+
 select format('%s  %s%s', case when ok then 'PASS' else 'FAIL' end, name, case when ok then '' else '  → ' || info end) as result
   from results order by n;
 do $$ begin

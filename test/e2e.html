@@ -381,6 +381,11 @@ f.onload = async () => {
     setVal($('[data-rf=stageType]'), $('[data-rf=stageType] option:nth-child(2)').value); await sleep(250);
     log(/Filtered stages/.test($('.roles thead').innerText) && $$('.roles tbody tr').length > 3, 'roles tab: stage filter adds a stage column');
     setVal($('[data-rf=role]'), 'none'); await sleep(250);
+    log(/Main/.test($('.roles thead').innerText) && /Support/.test($('.roles thead').innerText) && /Unclassified/.test($('.roles thead').innerText), 'roles tab: main, support and unclassified points');
+    log(/waiting for review/i.test(W().document.body.innerText) && $$('[data-rv]').length > 0, 'roles tab: support runs listed with review buttons for staff');
+    const pend0 = $$('[data-rv][data-st=confirmed]').length;
+    $('[data-rv][data-st=confirmed]').click(); await sleep(400);
+    log($$('.badge.good').some(b => /Confirmed/.test(b.innerText)), 'roles tab: staff confirms a support run');
     log(!$$('.roles tbody tr').some(tr => tr.querySelector('select[data-field=battle_role]')?.value), 'roles tab: "not assigned" filter lists only unassigned members');
     setVal($('[data-rf=role]'), ''); setVal($('[data-rf=stageType]'), ''); await sleep(150);
     await go('#/log');
