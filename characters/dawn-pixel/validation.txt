@@ -1,0 +1,6 @@
+character      shift   overlap   palette    width   (at 140px rendered)
+dawn-pixel   0.00 px     92.4%     88.8%     2.4%
+
+worst shift: dawn-pixel moves 0.00 rendered px on boop
+weakest palette match: dawn-pixel at 88.8%
+worst width change: dawn-pixel at 2.4%

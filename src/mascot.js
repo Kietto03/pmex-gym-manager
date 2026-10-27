@@ -34,7 +34,8 @@ const SQUASH = [
   { transform: 'scale(1, 1)' },
 ];
 const pos = i => `${(i % 3) * 50}% ${Math.floor(i / 3) * 50}%`;
-const sheet = (id, style, kind) => `assets/mascots/${fileOf(id)}${resolveStyle(style) === 'pixel' ? '-pixel' : ''}-${kind}.webp`;
+// Refresh previously cached portraits when the replacement set is deployed.
+const sheet = (id, style, kind) => `assets/mascots/${fileOf(id)}${resolveStyle(style) === 'pixel' ? '-pixel' : ''}-${kind}.webp?v=20261027-trainers2`;
 const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // Static head (the "center" cell) — used as the brand logo and in Settings

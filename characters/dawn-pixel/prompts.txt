@@ -1,0 +1,7 @@
+Built-in image_gen; transparent_background=true.
+
+DIRECTIONS (Modern Dawn sheet as reference):
+Use case: stylized-concept. Asset: 3x3 page mascot sprite sheet. Redraw the referenced Dawn chibi in TRUE 16-bit pixel art: chunky visible square pixels on a strict low-resolution grid, small limited palette, hard-edged dithering, crisp one-pixel dark outline, absolutely NO anti-aliasing/soft gradients. Each sprite should look hand-pixelled around 80x80 logical pixels, upscaled with nearest neighbour, not a smooth picture made blurry. Preserve Dawn/Hikari's dark blue-black hair with short fringe, small pink/lavender tiara, tiny pink/gold earrings, purple scarf and dark purple/gold jeweled dress top, friendly large eyes. Rounded full chibi head and substantial shoulders. Hair kept compact above shoulders. Body and scarf must face forward and be identical in every cell. Nine HEAD DIRECTIONS with calm expression: row1 viewer's up-left/up/up-right; row2 left/front/right; row3 down-left/down/down-right. Head actually turns, not just pupils. Draw forward-facing body ONCE and repeat identically; head/neck/shoulders only, no arms/hands. Same size/position each cell, all busts occupy 65-70% cell, generous empty transparent gaps on all 4 sides. True transparent alpha background. No labels/borders/text/symbols/shadow. This is first of two matching atlases.
+
+REACTIONS (normalized Pixel directions as reference):
+undefined

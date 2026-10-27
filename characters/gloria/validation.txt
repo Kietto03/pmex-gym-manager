@@ -1,0 +1,6 @@
+character      shift   overlap   palette    width   (at 140px rendered)
+gloria       0.00 px     85.8%     65.8%     1.8%
+
+worst shift: gloria moves 0.00 rendered px on boop
+weakest palette match: gloria at 65.8%
+worst width change: gloria at 1.8%

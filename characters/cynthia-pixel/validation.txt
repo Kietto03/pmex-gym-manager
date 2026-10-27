@@ -1,0 +1,6 @@
+character      shift   overlap   palette    width   (at 140px rendered)
+cynthia-pixel  0.00 px     94.5%     80.7%     3.4%
+
+worst shift: cynthia-pixel moves 0.00 rendered px on boop
+weakest palette match: cynthia-pixel at 80.7%
+worst width change: cynthia-pixel at 3.4%
