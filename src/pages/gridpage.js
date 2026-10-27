@@ -2,6 +2,7 @@
 import { $, esc, fmtN, img, pairIcon, typeTag, act, api, S, profile, nameOf, ownedPair, hooks } from '../core.js';
 import { ico } from '../icons.js';
 import { t } from '../i18n.js';
+import { splitDescription, count } from '../moves.js';
 import { indexGrid, whyNot, canRemove, validate, totals, levelNeeded, otherReqs, gridHash, hexXY, COLORS } from '../grid.js';
 import { PAIRS, loadPairDetail, dexIdOf, pairById, pairName, pairImage, TYPE_COLORS, TYPES, typeIcon } from '../catalog.js';
 
@@ -125,17 +126,22 @@ function tilePanel() {
 // ── moves, passives, team skills and facts, laid out like the game's pair screen ──
 const STAT_ROWS = [['HP', 'HP', '#dff3d6'], ['Attack', 'Atk', '#fde6cf'], ['Defense', 'Def', '#fbf3c8'], ['Sp. Atk', 'Sp.Atk', '#d6e7fb'], ['Sp. Def', 'Sp.Def', '#e5ddf8'], ['Speed', 'Speed', '#fadbec']];
 const CAT = { physical: ['Physical', '#e8741f'], special: ['Special', '#3c8de8'], status: ['Status', '#8d99a6'] };
+// The text of a move or passive: the activation condition, the deactivation condition and the effect each on their own line
+function describe(text) {
+  const d = splitDescription(text);
+  return `${d.activation ? `<p class="cond act"><b>${t('Activation condition')}</b>${esc(d.activation)}</p>` : ''}${d.deactivation ? `<p class="cond deact"><b>${t('Deactivation condition')}</b>${esc(d.deactivation)}</p>` : ''}${d.rest ? `<p class="pre">${esc(d.rest)}</p>` : ''}`;
+}
 function moveCard(m, sync = false) {
   if (!m) return '';
-  const col = TYPE_COLORS[m.type] || '#8d99a6', cat = CAT[String(m.category || '').toLowerCase()] || [m.category || '', '#8d99a6'], uses = +m.maxUses || 0;
+  const col = TYPE_COLORS[m.type] || '#8d99a6', cat = CAT[String(m.category || '').toLowerCase()] || [m.category || '', '#8d99a6'], gauge = count(m.gauge), limit = count(m.maxUses);
   return `<article class="mv move ${sync || m.isSync ? 'sync' : ''}" style="--c:${col}"><header>${m.type ? img(typeIcon(m.type), 'ti', m.type) : ''}<h4>${esc(m.name || '')}</h4>
-      ${sync || m.isSync ? `<span class="rb">${t('Sync move')}</span>` : uses ? `<span class="pips" title="${t('Uses')} ${uses}">${Array.from({ length: Math.min(uses, 8) }, () => '<i></i>').join('')}</span>` : ''}</header>
+      ${sync || m.isSync ? `<span class="rb">${t('Sync move')}</span>` : ''}${gauge ? `<span class="pips" title="${t('Move gauge needed')}: ${gauge}" aria-label="${t('Move gauge needed')}: ${gauge}">${Array.from({ length: Math.min(gauge, 8) }, () => '<i></i>').join('')}</span>` : ''}</header>
     <dl class="mv-facts"><div><dt>${t('Category')}</dt><dd><span class="cat" style="--k:${cat[1]}">${t(cat[0])}</span></dd></div><div><dt>${t('Target')}</dt><dd>${esc(m.target || '—')}</dd></div>
       <div><dt>${t('Power')}</dt><dd>${esc(m.power || '—')}</dd></div><div><dt>${t('Accuracy')}</dt><dd>${esc(m.accuracy && m.accuracy !== '--' ? m.accuracy : '—')}</dd></div>
-      ${m.gauge ? `<div><dt>${t('Gauge')}</dt><dd>${esc(m.gauge)}</dd></div>` : ''}${m.effectTag && m.effectTag !== '--' ? `<div><dt>${t('Effect')}</dt><dd>${esc(m.effectTag)}</dd></div>` : ''}</dl>
-    <p class="pre">${esc(m.description || '')}</p></article>`;
+      ${limit ? `<div class="lim"><dt>${t('Max uses')}</dt><dd>${limit}</dd></div>` : ''}${m.effectTag && m.effectTag !== '--' ? `<div><dt>${t('Effect')}</dt><dd>${esc(m.effectTag)}</dd></div>` : ''}</dl>
+    <div class="mv-text">${describe(m.description)}</div></article>`;
 }
-const passiveCard = (x, kind = '') => `<article class="mv passive ${kind}" style="--c:${kind === 'super' ? '#bf80ff' : '#e5b143'}"><header><h4>${esc(x.name || '')}</h4>${x.master ? `<span class="rb">${t('Master')}</span>` : kind === 'super' ? `<span class="rb">${t('Super')}</span>` : ''}</header><p class="pre">${esc(x.description || '')}</p></article>`;
+const passiveCard = (x, kind = '') => `<article class="mv passive ${kind}" style="--c:${kind === 'super' ? '#bf80ff' : '#e5b143'}"><header><h4>${esc(x.name || '')}</h4>${x.master ? `<span class="rb">${t('Master')}</span>` : kind === 'super' ? `<span class="rb">${t('Super')}</span>` : ''}</header><div class="mv-text">${describe(x.description)}</div></article>`;
 function pairPanel() {
   const d = G.detail, levels = Object.keys(d.stats || {}).sort((a, b) => +a - +b);
   const lvl = levels.includes(G.statLevel) ? G.statLevel : (levels.includes('140') ? '140' : levels.at(-1)), st = (d.stats || {})[lvl] || {};

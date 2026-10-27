@@ -808,4 +808,10 @@ export default {
   'Game info': 'Thông tin game',
   'Sections': 'Mục',
   'Pages': 'Trang',
+  'Activation condition': 'Điều kiện kích hoạt',
+  'Deactivation condition': 'Điều kiện hủy kích hoạt',
+  'Move gauge needed': 'Gauge move cần để dùng',
+  'Max uses': 'Số lần dùng tối đa',
+  'Effect': 'Hiệu ứng',
+  'Target': 'Mục tiêu',
 };

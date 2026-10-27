@@ -484,7 +484,10 @@ f.onload = async () => {
     $('.build').click(); await until(() => $$('.g-tile').length > 30, 20000); await sleep(200);
     log($$('.g-tile.on').length === 1, 'grid: reopening a build restores its tiles');
     $('[data-gpanel=pair]').click(); await sleep(150);
-    log($$('.stat-row > div').length === 6 && $$('.mv.move').length >= 3 && !!$('.mv.sync') && $$('.mv .pips i').length > 0, 'grid: pair panel with stats, move cards, sync move and uses');
+    log($$('.stat-row > div').length === 6 && $$('.mv.move').length >= 3 && !!$('.mv.sync') && $$('.mv .pips i').length > 0, 'grid: pair panel with stats, move cards, sync move and gauge bar');
+    log($$('.mv .cond.act').length > 0 && $$('.mv .cond.deact').length > 0 && !$$('.mv .pre').some(p => /Activation Condition|Deactivation Condition/.test(p.innerText)), 'grid: activation, deactivation and effect text each on their own line');
+    const gauged = $$('.mv.move').find(m => m.querySelector('.pips'));
+    log(!!gauged && /Move gauge needed/.test(gauged.querySelector('.pips').title) && $$('.mv-facts .lim').every(x => /Max uses/.test(x.innerText)), 'grid: the blue bar is the gauge needed; max uses appear below only for limited moves');
     $('[data-gsub=passives]').click(); await sleep(120);
     log($$('.mv.passive').length >= 1, 'grid: passives listed');
     $('[data-gsub=team]').click(); await sleep(120);
