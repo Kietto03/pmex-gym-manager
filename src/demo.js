@@ -96,7 +96,7 @@ function seedData() {
   }
   const activity = runs.slice(0, 30).map((r, i) => ({ id: i + 1, at: r.created_at, actor: r.created_by, actor_name: r.member_name,
     action: 'runs.insert', detail: { leader: r.leader, round: r.round, score: r.score } }));
-  return { profiles, catalog, memberPairs, tower, seasons, seasonMembers, runs, assignments, notes, activity, facilitators, results, resources: seedResources(), gridBuilds: [], ...seedStrategies(profiles, catalog), sheet: seedSheet(profiles, memberPairs) };
+  return { profiles, catalog, memberPairs, tower, seasons, seasonMembers, runs, assignments, notes, activity, facilitators, results, resources: seedResources(), gridBuilds: [], ...seedGems(), ...seedStrategies(profiles, catalog), sheet: seedSheet(profiles, memberPairs) };
 }
 
 const DEMO_STRATEGY = `# 1. General requirements for all sync pairs
@@ -142,6 +142,13 @@ function seedStrategies(profiles, catalog) {
       rev(2, 2, { title: 'Dragon 3v1 safe rotation', boss: 'Clair', weakness: 'Dragon', season_label: 'D.C season 12', conditions: 'Three teams of three.', team: pick('Dragon'), rotation: 'Lead with the Fairy sync, finish with the Dragon striker.' }),
       rev(3, 3, { title: 'Ice rush (draft for review)', boss: 'Falkner', weakness: 'Ice', status: 'pending', author_id: profiles[5].id, team: pick('Ice'), rotation: 'Fast clear in two sync moves.', reviewed_by: null, reviewed_at: null })],
   };
+}
+function seedGems() {
+  const day = n => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
+  const r = (id, label, kind, a, b, free_gems, extra = {}) => ({ id, event_id: null, label, kind, start_date: day(a), end_date: day(b), free_gems, certainty: 'confirmed', condition: '', source: 'demo', ...extra });
+  return { gems: { settings: { reset_timezone: 'UTC', reset_hour: 0 }, events: [{ id: 1, name: 'Anniversary week', start_date: day(-2), end_date: day(6), source: 'demo', note: '' }],
+    rewards: [r(1, 'Daily login', 'daily', -10, 20, 10), r(2, 'Mission milestone', 'on_date', 2, 2, 300), r(3, 'Anniversary mission', 'window', -2, 6, 500, { event_id: 1, condition: 'Clear 5 missions' }),
+      r(4, 'Ranking reward', 'on_date', 4, 4, null), r(5, 'Old bonus', 'on_date', -5, -5, 100)] } };
 }
 function seedResources() {
   const mk = (id, category, title, url, language, scope, source, status = 'ok') => ({ id, category, title, url, language, scope, source, author: '', version: '', effective: null, checked_at: new Date(Date.now() - id * 864e5).toISOString(), status, note: '' });
@@ -463,6 +470,26 @@ export function createDemoApi() {
       if (!db.revisions.some(x => x.strategy_id === r.strategy_id)) db.strategies = db.strategies.filter(x => x.id !== r.strategy_id);
     },
     async archiveStrategy(id, archived) { staff() || deny(); db.strategies.find(x => x.id === id).archived = archived; },
+    gems: async () => clone(db.gems),
+    async saveGemReward(row) {
+      staff() || deny();
+      if (!(row.label || '').trim()) deny(t('Give it a name.'));
+      if (row.end_date < row.start_date) deny(t('The end is before the start.'));
+      if (row.kind === 'on_date' && row.start_date !== row.end_date) deny(t('A one-day reward needs one date.'));
+      if (row.free_gems != null && row.free_gems < 0) deny(t('Gems cannot be negative.'));
+      if (db.gems.rewards.some(x => x.label === row.label && x.kind === row.kind && x.start_date === row.start_date && x.end_date === row.end_date && x.id !== row.id)) deny(t('That reward is already in the list.'));
+      const old = row.id && db.gems.rewards.find(x => x.id === row.id);
+      if (old) Object.assign(old, row); else db.gems.rewards.push({ id: Math.max(0, ...db.gems.rewards.map(x => x.id)) + 1, event_id: null, certainty: 'confirmed', condition: '', source: '', ...row });
+    },
+    async deleteGemReward(id) { staff() || deny(); db.gems.rewards = db.gems.rewards.filter(x => x.id !== id); },
+    async saveGemEvent(row) {
+      staff() || deny();
+      if (!(row.name || '').trim()) deny(t('Give it a name.'));
+      const old = row.id && db.gems.events.find(x => x.id === row.id);
+      if (old) Object.assign(old, row); else db.gems.events.push({ id: Math.max(0, ...db.gems.events.map(x => x.id)) + 1, source: '', note: '', ...row });
+    },
+    async deleteGemEvent(id) { staff() || deny(); db.gems.events = db.gems.events.filter(x => x.id !== id); db.gems.rewards = db.gems.rewards.filter(x => x.event_id !== id); },
+    async saveGemSettings(patch) { staff() || deny(); Object.assign(db.gems.settings, patch); },
     gridBuilds: async () => clone(db.gridBuilds.filter(b => b.user_id === me || b.visibility === 'gym')).sort((a, b) => b.updated_at.localeCompare(a.updated_at)),
     async saveGridBuild(row) {
       if (!(row.name || '').trim()) deny(t('Give it a name.'));

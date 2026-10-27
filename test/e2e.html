@@ -471,6 +471,25 @@ f.onload = async () => {
     $('[data-gtab=info]').click(); await sleep(150);
     log($$('.mv').length >= 3, 'grid: moves and passives tab');
 
+    // 6k. Free Gems projection and management
+    await go('#/gems');
+    await until(() => $('.kpis'));
+    log($$('.kpis .kpi').length === 3 && $$('table.table tbody tr').length >= 1, 'gems: totals and a day-by-day table until the end of the month');
+    log(/Claim any day/.test(W().document.body.innerText) && /amount unknown|Not enough data/.test(W().document.body.innerText), 'gems: window rewards and unknown amounts are listed apart');
+    const total0 = $('.kpis .kpi b').innerText;
+    $('[data-gem-tab=manage]').click(); await sleep(200);
+    $('[data-gem-new]').click(); await sleep(150);
+    setVal($('#gem-form [name=label]'), 'Test bonus'); setVal($('#gem-form [name=kind]'), 'on_date');
+    const dayStr = new Date(Date.now() + 1 * 864e5).toISOString().slice(0, 10);
+    setVal($('#gem-form [name=start_date]'), dayStr); setVal($('#gem-form [name=free_gems]'), '1000');
+    $('#gem-form').requestSubmit(); await sleep(400);
+    log($$('.table tbody tr').some(tr => /Test bonus/.test(tr.innerText)), 'gems: staff adds a reward');
+    $('[data-gem-tab=projection]').click(); await sleep(200);
+    const sameMonth = dayStr.slice(0, 7) === new Date().toISOString().slice(0, 7), gnum = x => +x.replace(/[^\d]/g, '');
+    log(!sameMonth || gnum($('.kpis .kpi b').innerText) === gnum(total0) + 1000, 'gems: the projection includes the new reward', `${total0} → ${$('.kpis .kpi b').innerText}`);
+    $('[data-gem-month="1"]').click(); await sleep(150);
+    log(!!$('.kpis'), 'gems: next month view');
+
     // 7. Admin creates and deletes an account
     await go('#/admin');
     await until(() => $('[data-atab=accounts]'));

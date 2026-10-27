@@ -155,6 +155,16 @@ function supabaseApi(sb) {
     deleteRevision: async id => ok(await sb.from('strategy_revisions').delete().eq('id', id)),
     archiveStrategy: async (id, archived) => ok(await sb.from('strategies').update({ archived }).eq('id', id)),
 
+    gems: async () => {
+      const [settings, events, rewards] = await Promise.all([sb.from('gem_settings').select('*').maybeSingle(), all(() => sb.from('gem_events').select('*').order('start_date')), all(() => sb.from('gem_rewards').select('*').order('start_date'))]);
+      return { settings: ok(settings) || { reset_timezone: 'UTC', reset_hour: 0 }, events, rewards };
+    },
+    saveGemReward: async row => ok(row.id ? await sb.from('gem_rewards').update(row).eq('id', row.id) : await sb.from('gem_rewards').insert(row)),
+    deleteGemReward: async id => ok(await sb.from('gem_rewards').delete().eq('id', id)),
+    saveGemEvent: async row => ok(row.id ? await sb.from('gem_events').update(row).eq('id', row.id) : await sb.from('gem_events').insert(row)),
+    deleteGemEvent: async id => ok(await sb.from('gem_events').delete().eq('id', id)),
+    saveGemSettings: async patch => ok(await sb.from('gem_settings').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', 1)),
+
     gridBuilds: () => all(() => sb.from('grid_builds').select('*').order('updated_at', { ascending: false })),
     saveGridBuild: async row => ok(row.id ? await sb.from('grid_builds').update(row).eq('id', row.id).select().single() : await sb.from('grid_builds').insert(row).select().single()),
     deleteGridBuild: async id => ok(await sb.from('grid_builds').delete().eq('id', id)),

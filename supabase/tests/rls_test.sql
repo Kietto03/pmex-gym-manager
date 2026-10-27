@@ -349,6 +349,23 @@ select pg_temp.check('a build cannot be saved for someone else',   '00000000-000
 select pg_temp.check('a build needs a name',                       '00000000-0000-0000-0000-00000000000d',
   $$ insert into public.grid_builds (user_id, pair_id, name) values ('00000000-0000-0000-0000-00000000000d', 'x', '  ') $$, 'check');
 
+-- ─── Free Gems: everyone reads, staff write, no duplicates ───
+select pg_temp.check('staff adds a daily reward',                  '00000000-0000-0000-0000-00000000000b',
+  $$ insert into public.gem_rewards (label, kind, start_date, end_date, free_gems) values ('Daily login', 'daily', '2026-10-01', '2026-10-31', 10) $$);
+select pg_temp.check('member reads the rewards',                   '00000000-0000-0000-0000-00000000000d', $$ do $d$ begin if (select count(*) from public.gem_rewards) <> 1 then raise exception 'cannot read'; end if; end $d$ $$);
+select pg_temp.check('member cannot add a reward',                 '00000000-0000-0000-0000-00000000000d',
+  $$ insert into public.gem_rewards (label, kind, start_date, end_date, free_gems) values ('Mine', 'on_date', '2026-10-05', '2026-10-05', 99999) $$, 'row-level security');
+select pg_temp.check('the same reward cannot be entered twice',    '00000000-0000-0000-0000-00000000000b',
+  $$ insert into public.gem_rewards (label, kind, start_date, end_date, free_gems) values ('Daily login', 'daily', '2026-10-01', '2026-10-31', 10) $$, 'duplicate');
+select pg_temp.check('a one-day reward needs one date',            '00000000-0000-0000-0000-00000000000b',
+  $$ insert into public.gem_rewards (label, kind, start_date, end_date, free_gems) values ('Bad', 'on_date', '2026-10-05', '2026-10-06', 5) $$, 'check');
+select pg_temp.check('negative gems are refused',                  '00000000-0000-0000-0000-00000000000b',
+  $$ insert into public.gem_rewards (label, kind, start_date, end_date, free_gems) values ('Neg', 'on_date', '2026-10-05', '2026-10-05', -5) $$, 'check');
+select pg_temp.check('an unknown amount is allowed',               '00000000-0000-0000-0000-00000000000b',
+  $$ insert into public.gem_rewards (label, kind, start_date, end_date, free_gems) values ('Unknown', 'window', '2026-10-05', '2026-10-12', null) $$);
+select pg_temp.check('a member cannot change the reset settings',  '00000000-0000-0000-0000-00000000000d',
+  $$ update public.gem_settings set reset_hour = 5 $$);
+
 select format('%s  %s%s', case when ok then 'PASS' else 'FAIL' end, name, case when ok then '' else '  → ' || info end) as result
   from results order by n;
 do $$ begin
