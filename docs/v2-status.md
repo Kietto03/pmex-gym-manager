@@ -4,7 +4,7 @@ Cập nhật: 27/10/2026. Tất cả mục "Đã làm" đã chạy trên product
 
 | Mã | Nội dung | Trạng thái | Ghi chú |
 |---|---|---|---|
-| FR-01 | Sync Grid, Moves/Passives | Đã làm (một phần) | Trang Sync Grid: grid hex thật từ datamine, bật/tắt ô, kiểm tra ô kề, move level, giới hạn energy do người dùng nhập, lưu build riêng tư hoặc chia sẻ gym. Luật kiểm tra ở phía app (`src/grid.js`), chưa có ở database. Chưa có link công khai cho người chưa đăng nhập (BA chưa chốt). |
+| FR-01 | Sync Grid, Moves/Passives | Đã làm (một phần) | Danh sách mọi pair (mới nhất trước, có lọc theo hệ, role, sao, cách nhận, EX, của tôi, có grid). Trang Sync Grid: grid hex thật từ datamine, bật/tắt ô, kiểm tra ô kề, move level, giới hạn energy do người dùng nhập, lưu build riêng tư hoặc chia sẻ gym. Luật kiểm tra ở phía app (`src/grid.js`), chưa có ở database. Chưa có link công khai cho người chưa đăng nhập (BA chưa chốt). |
 | FR-01B / 01C | Damage Calculator, Battle Simulator | Chưa làm | Phase sau theo BA: cần công thức được kiểm chứng với dữ liệu trận. |
 | FR-02 | Vai trò theo mùa và lọc điểm | Đã làm | Plan → Roles: một role và một main type mỗi member mỗi mùa, lọc theo role/main type/hệ stage/leader, sao chép từ mùa khác. Hệ của stage là weakness của Gym Leader. |
 | FR-02R | Review lượt hỗ trợ | Đã làm | Mỗi lượt lưu main type tại thời điểm log; phân loại Main/Support/Unclassified; staff Confirm hoặc Needs correction; review không đổi điểm, vé, round. Các lượt cũ trước 27/10/2026 là Unclassified. Chưa có lịch sử hiệu lực nhiều khoảng (dùng bản chụp trên từng lượt). |

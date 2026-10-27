@@ -3,7 +3,7 @@ import { $, esc, fmtN, img, pairIcon, typeTag, act, api, S, profile, nameOf, own
 import { ico } from '../icons.js';
 import { t } from '../i18n.js';
 import { indexGrid, whyNot, canRemove, validate, totals, levelNeeded, otherReqs, gridHash, hexXY, COLORS } from '../grid.js';
-import { PAIRS, loadPairDetail, dexIdOf, pairById, pairName, pairImage, TYPE_COLORS, typeIcon } from '../catalog.js';
+import { PAIRS, loadPairDetail, dexIdOf, pairById, pairName, pairImage, TYPE_COLORS, TYPES, typeIcon } from '../catalog.js';
 
 // ═══════════════════════════════════════════════════════════════
 //  SYNC GRID: moves and passives of a pair, and a grid builder (rules in grid.js)
@@ -13,7 +13,6 @@ const G = { pairId: '', detail: null, err: '', ix: null, active: new Set(), move
 const gridZoom = () => { try { return +localStorage.getItem('gym-grid-zoom') || 1; } catch { return 1; } };
 const setZoom = z => { try { localStorage.setItem('gym-grid-zoom', Math.max(0.4, Math.min(2.4, z)).toFixed(2)); } catch { /* private mode */ } };
 const BUILD_WHY = { 'not-adjacent': 'next to no active tile', 'move-level': 'needs a higher move level', energy: 'over the energy limit', unknown: 'tile no longer exists' };
-let gridQuery = '';
 
 export function renderGrid(pairId = '', buildId = '') {
   if (!pairId) return gridHome();
@@ -153,18 +152,46 @@ function pairPanel() {
     <div class="mv-list">${body}</div><p class="muted">${t('Each text starts with its condition, as the game writes it.')}</p>`;
 }
 
+// ── the pair list: every sync pair, newest first, with filters ──
+const GF = { q: '', type: '', role: '', rarity: '', acq: '', ex: false, owned: false, withGrid: false, sort: 'new', shown: 48 };
+const isNew = p => p.release && Date.now() - Date.parse(p.release) < 30 * 864e5;
+function filteredPairs() {
+  const q = GF.q.trim().toLowerCase();
+  const list = PAIRS().filter(p => (!q || `${p.trainer} ${p.pokemon}`.toLowerCase().includes(q)) && (!GF.type || p.type === GF.type) && (!GF.role || p.role === GF.role)
+    && (!GF.rarity || String(p.rarity) === GF.rarity) && (!GF.acq || p.acquisition === GF.acq) && (!GF.ex || p.exRole) && (!GF.owned || ownedPair(S.me, p.id)) && (!GF.withGrid || dexIdOf(p)));
+  const by = { new: (a, b) => (b.release || '').localeCompare(a.release || ''), old: (a, b) => (a.release || '9').localeCompare(b.release || '9'), name: (a, b) => a.trainer.localeCompare(b.trainer) || a.pokemon.localeCompare(b.pokemon), type: (a, b) => (a.type || '').localeCompare(b.type || '') || (b.release || '').localeCompare(a.release || '') };
+  return list.sort((a, b) => by[GF.sort](a, b) || a.trainer.localeCompare(b.trainer));
+}
+function pairTile(p) {
+  const own = ownedPair(S.me, p.id), has = !!dexIdOf(p);
+  return `<a class="pt ${has ? '' : 'nogrid'}" href="#/grid/${encodeURIComponent(p.id)}" title="${esc(pairName(p))}${has ? '' : ` — ${t('no grid data yet')}`}">
+    <span class="pt-img">${pairIcon(p, 'md', own?.ex)}${isNew(p) ? `<b class="pt-new">${t('New')}</b>` : ''}${own ? `<b class="pt-own" title="${t('you own this pair')}">✓</b>` : ''}</span>
+    <span class="pt-name">${esc(p.trainer)}</span><span class="pt-poke">${esc(p.pokemon)}</span>
+    <span class="pt-meta">${img(typeIcon(p.type), 'ti', p.type)}<small>${esc(p.role || '')}${p.exRole ? ' · EX' : ''}</small></span>
+    <small class="pt-date">${p.release ? esc(p.release) : ''}</small></a>`;
+}
+function pairResults() {
+  const list = filteredPairs(), shown = list.slice(0, GF.shown);
+  return `<p class="muted pt-count">${t('{n} sync pairs', { n: list.length })}${GF.sort === 'new' ? ` · ${t('newest first')}` : ''}</p>
+    <div class="pt-grid">${shown.map(pairTile).join('') || `<p class="muted">${t('No sync pair matches.')}</p>`}</div>
+    ${list.length > shown.length ? `<div class="row" style="justify-content:center;margin:14px 0"><button class="btn" data-gf-more>${t('Show {n} more', { n: Math.min(48, list.length - shown.length) })} <small class="muted">(${list.length - shown.length})</small></button></div>` : ''}`;
+}
 function gridHome() {
-  const q = gridQuery.trim().toLowerCase();
-  const found = q.length >= 2 ? PAIRS().filter(p => `${p.trainer} ${p.pokemon}`.toLowerCase().includes(q)).sort((a, b) => !!ownedPair(S.me, b.id) - !!ownedPair(S.me, a.id)).slice(0, 18) : [];
-  const line = b => { const p = pairById(b.pair_id), bad = false;
+  const all = PAIRS(), roles = [...new Set(all.map(p => p.role).filter(Boolean))].sort(), acqs = [...new Set(all.map(p => p.acquisition).filter(Boolean))].sort();
+  const sel = (key, val, opts, any) => `<select data-gf="${key}"><option value="">${t(any)}</option>${opts.map(([v, l]) => `<option value="${esc(v)}" ${val === v ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
+  const line = b => { const p = pairById(b.pair_id);
     return `<a class="card pad build" href="#/grid/${encodeURIComponent(b.pair_id)}/${b.id}">${p ? pairIcon(p, 'sm') : ''}<div><b>${esc(b.name)}</b><small class="muted">${p ? esc(pairName(p)) : esc(b.pair_id)} · ${t('{n} tiles', { n: b.nodes.length })}${b.user_id !== S.me ? ` · ${esc(nameOf(profile(b.user_id)))}` : ''}${b.visibility === 'gym' ? ` · ${t('shared')}` : ''}</small>${b.purpose ? `<small>${esc(b.purpose)}</small>` : ''}</div></a>`; };
   const mine = S.builds.filter(b => b.user_id === S.me), others = S.builds.filter(b => b.user_id !== S.me);
   return `<div class="toolbar"><h1>${t('Sync Grid')}</h1></div>
-  <p class="muted">${t('Read the moves and passives of any sync pair, and plan which grid tiles to switch on. Builds are private until you share them with the gym.')}</p>
-  <div class="card pad"><input id="grid-q" placeholder="${t('Search a sync pair…')}" value="${esc(gridQuery)}" autocomplete="off">
-    <div class="lodge-pick">${found.map(p => `<a class="lodge-t" href="#/grid/${encodeURIComponent(p.id)}">${pairIcon(p, 'sm')}<small>${esc(p.trainer)}<br>${esc(p.pokemon)}${ownedPair(S.me, p.id) ? ` ✓` : ''}</small></a>`).join('')}</div></div>
-  <h2 class="section">${t('My builds')} <small>${mine.length}</small></h2><div class="res-grid">${mine.map(line).join('') || `<p class="muted">${t('No builds yet: open a sync pair and save one.')}</p>`}</div>
-  ${others.length ? `<h2 class="section">${t('Shared by the gym')} <small>${others.length}</small></h2><div class="res-grid">${others.map(line).join('')}</div>` : ''}`;
+  <p class="muted">${t('Pick any sync pair to read its moves and passives and plan which grid tiles to switch on. Builds are private until you share them with the gym.')}</p>
+  ${mine.length || others.length ? `<details class="card pad" ${mine.length ? 'open' : ''}><summary><b>${t('Builds')}</b> <small class="muted">${t('{a} yours, {b} shared by the gym', { a: mine.length, b: others.length })}</small></summary>
+    <div class="res-grid" style="margin-top:10px">${[...mine, ...others].map(line).join('')}</div></details>` : ''}
+  <div class="card pad pt-filters"><input id="grid-q" placeholder="${t('Search a sync pair…')}" value="${esc(GF.q)}" autocomplete="off">
+    ${sel('type', GF.type, TYPES.map(x => [x, t(x)]), 'All types')}${sel('role', GF.role, roles.map(x => [x, x]), 'All roles')}${sel('rarity', GF.rarity, [['5', '5★'], ['4', '4★'], ['3', '3★']], 'Any stars')}${sel('acq', GF.acq, acqs.map(x => [x, x]), 'Any way to get it')}
+    <select data-gf="sort"><option value="new" ${GF.sort === 'new' ? 'selected' : ''}>${t('Newest first')}</option><option value="old" ${GF.sort === 'old' ? 'selected' : ''}>${t('Oldest first')}</option><option value="name" ${GF.sort === 'name' ? 'selected' : ''}>${t('Name')}</option><option value="type" ${GF.sort === 'type' ? 'selected' : ''}>${t('Type')}</option></select>
+    <label class="chk"><input type="checkbox" data-gfc="ex" ${GF.ex ? 'checked' : ''}> ${t('EX role')}</label><label class="chk"><input type="checkbox" data-gfc="owned" ${GF.owned ? 'checked' : ''}> ${t('Mine')}</label><label class="chk"><input type="checkbox" data-gfc="withGrid" ${GF.withGrid ? 'checked' : ''}> ${t('Has a grid')}</label>
+    <button class="btn sm ghost" data-gf-clear>${t('Clear filters')}</button></div>
+  <div id="pair-results">${pairResults()}</div>`;
 }
 
 const redrawBoard = () => { const b = $('#grid-board'), sc = $('.grid-scroll'), l = sc?.scrollLeft, tp = sc?.scrollTop; if (b) { b.innerHTML = gridBoard(); const n = $('.grid-scroll'); if (n) { n.scrollLeft = l; n.scrollTop = tp; } } };
@@ -186,9 +213,12 @@ async function gridSave(asNew) {
   }
 }
 document.addEventListener('input', e => {
-  if (e.target.id === 'grid-q') { gridQuery = e.target.value; const pos = e.target.selectionStart; hooks.route(); const el = $('#grid-q'); el?.focus(); el?.setSelectionRange(pos, pos); }
+  if (e.target.id === 'grid-q') { GF.q = e.target.value; GF.shown = 48; const r = $('#pair-results'); if (r) r.innerHTML = pairResults(); }
 });
 document.addEventListener('change', e => {
+  const gf = e.target.dataset?.gf, gfc = e.target.dataset?.gfc;
+  if (gf) { GF[gf] = e.target.value; GF.shown = 48; const r = $('#pair-results'); if (r) r.innerHTML = pairResults(); return; }
+  if (gfc) { GF[gfc] = e.target.checked; GF.shown = 48; const r = $('#pair-results'); if (r) r.innerHTML = pairResults(); return; }
   if (e.target.id === 'g-level') { gridKeepFields(); G.moveLevel = +e.target.value; gridRedraw(); }
   if (e.target.id === 'g-cap') { gridKeepFields(); G.energyCap = e.target.value === '' ? null : Math.max(0, +e.target.value); gridRedraw(); }
   if (e.target.id === 'g-vis') { gridKeepFields(); G.visibility = e.target.value; gridRedraw(); }
@@ -196,6 +226,8 @@ document.addEventListener('change', e => {
 document.addEventListener('click', async e => {
   const tile = e.target.closest('[data-gtile]'), tog = e.target.closest('[data-gtoggle]'), panel = e.target.closest('[data-gpanel]'), sub = e.target.closest('[data-gsub]'), zoom = e.target.closest('[data-gzoom]'),
     fit = e.target.closest('[data-gfit]'), focus = e.target.closest('[data-gfocus]'), lv = e.target.closest('[data-gmlv]'), stat = e.target.closest('[data-gstat]');
+  if (e.target.closest('[data-gf-more]')) { GF.shown += 48; const r = $('#pair-results'); if (r) r.innerHTML = pairResults(); return; }
+  if (e.target.closest('[data-gf-clear]')) { Object.assign(GF, { q: '', type: '', role: '', rarity: '', acq: '', ex: false, owned: false, withGrid: false, sort: 'new', shown: 48 }); hooks.route(); return; }
   if (panel) { gridKeepFields(); G.panel = panel.dataset.gpanel; redrawSide(); return; }
   if (sub) { G.sub = sub.dataset.gsub; redrawSide(); return; }
   if (stat) { G.statLevel = stat.dataset.gstat; redrawSide(); return; }

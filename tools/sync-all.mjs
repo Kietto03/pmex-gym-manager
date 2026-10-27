@@ -38,7 +38,13 @@ export const SOURCES = [
     const j = await getJson(`${DEX_SITE}data/pair-tags.json`);
     return { items: Object.keys(j).length, note: '' };
   }),
-  fileSource('pairmap', 'Pair files of the Dex (grid, moves, passives)', 'Sync Grid, moves and passives', `${DEX_SITE}data/data.js`, 40, buildPairMap),
+  liveSource('pairindex', 'Pair index of the Dex (grid, moves, passives)', 'Sync Grid: which pairs have a grid page', `${DEX_SITE}data/pair-index.json`, 40, async () => {
+    const j = await getJson(`${DEX_SITE}data/pair-index.json`);
+    const n = Object.keys(j.pairs || {}).length;
+    if (n < 300) throw new Error(`The Dex index lists only ${n} pairs`);
+    return { items: n, note: `Dex build ${String(j.dexBuilt || '').slice(0, 10)}, versions ${(j.versions || []).join(', ')}` };
+  }),
+  fileSource('pairmap', 'Pair files of the Dex, copy kept here', 'Sync Grid fallback when the Dex index is unreachable', `${DEX_SITE}data/data.js`, 40, buildPairMap),
   fileSource('gems', 'Free Gems (community Gems sheet)', 'Free Gems projection, banners', 'https://docs.google.com/spreadsheets/d/1Vu8af6bU3hXuHCDZHr-ppVwkVjJfO2QZ3iSitcViYts/edit', 7, buildGems),
   fileSource('dcranking', 'D.C. 3v3 ranking (community sheet)', 'Strategies: best scores by type', 'https://docs.google.com/spreadsheets/d/14C_CPMRC8xHslf7id6wMqTdQeCvPA-_X4w9URrHNRzE/edit?gid=1658000195', 30, buildRanking),
   fileSource('lodge', 'Trainer Lodge topics (Serebii)', 'Trainer Lodge lookup', 'https://www.serebii.net/pokemonmasters/trainerlodgetopics.shtml', 60, buildLodge),

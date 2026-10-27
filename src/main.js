@@ -28,6 +28,17 @@ import { dataFreshness, freshnessIssues } from './pages/freshness.js';
 // ─── Chrome (header) ────────────────────────────────────────
 const NAV = [['', 'Overview', 'home'], ['log', 'Log a run', 'swords'], ['plan', 'Plan', 'plan'], ['info', 'Battle info', 'flag'], ['strategies', 'Strategies', 'trophy'], ['lodge', 'Trainer Lodge', 'star'], ['grid', 'Sync Grid', 'bolt'], ['gems', 'Free Gems', 'ticket'], ['resources', 'Resources', 'note'], ['roster', 'Roster', 'roster'],
   ['members', 'Members', 'users'], ['admin', 'Admin', 'shield']];
+// When the game adds sync pairs, the tracker lists them before the database does. The first mod or admin to open the app
+// copies the missing ones in, so members can add them without anyone pressing a button (once per visit).
+let catalogChecked = false;
+async function autoCatalog() {
+  if (catalogChecked || !isStaff() || isDemo) return;
+  catalogChecked = true;
+  try {
+    const have = await api.catalogCount();
+    if (have < PAIRS().length) { await api.syncCatalog(catalogRows()); toast(t('{n} new sync pairs were added to the database.', { n: PAIRS().length - have })); }
+  } catch { /* a member's account has no right to; the Admin page still has the button */ }
+}
 function renderHeader(active) {
   $('#nav').innerHTML = S.me ? NAV.filter(([k]) => k !== 'admin' || isStaff())
     .map(([k, label, icon]) => `<a href="#/${k}" class="${k === active ? 'on' : ''}">${ico(icon)}<span>${t(label)}</span></a>`).join('') : '';
@@ -136,6 +147,7 @@ async function signIn(username, password) {
     await api.signIn(username, password);
     S.me = await api.session();
     await loadAll();
+    autoCatalog();
     if (!location.hash || location.hash === '#/login') location.hash = '#/';
     route();
     setTimeout(greet, 600);
@@ -1839,7 +1851,7 @@ document.addEventListener('submit', async e => {
     await loadTags();
     setApi(await createApi());
     S.me = await api.session();
-    if (S.me) await loadAll();
+    if (S.me) { await loadAll(); autoCatalog(); }
   } catch (e) {
     view.innerHTML = `<div class="empty card"><h2>${t('Could not load')}</h2><p class="muted">${esc(e.message)}</p></div>`;
     return;

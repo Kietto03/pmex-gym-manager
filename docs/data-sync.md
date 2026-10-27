@@ -18,11 +18,19 @@ Serebii (Trainer Lodge)                    ┘                rồi đăng lại
 |---|---|---|---|
 | Datamine (Gym Battle, pair, grid, scout) | repo Dex build lại `site/data`; app đọc `gyms.json`, `pair-tags.json` lúc chạy | hằng ngày | 40 ngày |
 | Sync pair của tracker | app đọc `syncpairs.json` lúc chạy; bảng `pair_catalog` trong database cần đồng bộ (xem dưới) | mỗi lần mở app | 14 ngày |
-| Tệp pair của Dex (grid, move, passive) | `data/pair-map.json` | 6 giờ | 40 ngày |
+| Chỉ mục pair của Dex (grid, move, passive) | app đọc `pair-index.json` của Dex lúc chạy (Dex build ra cùng lúc với data); `data/pair-map.json` là bản dự phòng | ngay khi Dex build xong | 40 ngày |
 | Bảng Gems cộng đồng | `data/gems-sheet.json` | 6 giờ | 7 ngày |
 | Bảng xếp hạng D.C. | `data/dc-ranking.json` | 6 giờ | 30 ngày |
 | Trainer Lodge (Serebii) | `data/lodge.json` | 6 giờ | 60 ngày |
 | Tier list (TQ, Spark, Nhật) | **chưa tự động**: TQ đòi đăng nhập, Spark là hình | — | — |
+
+## Khi nguồn cập nhật thì chuyện gì xảy ra
+
+- **Game ra pair mới:** tracker liệt kê pair → trang Sync Grid hiện ngay (mặc định mới nhất trước). Bảng `pair_catalog` trong database được mod/admin đầu tiên mở app tự bổ sung (hoặc bởi workflow nếu có secret), để thành viên thêm được pair mới. Nếu Dex chưa build pair đó, ô pair hiện mờ "chưa có dữ liệu grid" cho tới lần Dex build kế tiếp (tối đa 1 ngày).
+- **Datamine có Gym Battle mới / đổi luật:** Dex build lại (hằng ngày) → app đọc `gyms.json` ngay; tab *Next rounds* hiện chênh lệch với dữ liệu mùa và staff bấm cập nhật.
+- **Cộng đồng sửa bảng Gems, D.C., Lodge:** lần chạy 6 giờ kế tiếp lấy bản mới; chỉ commit khi nội dung đổi.
+- **Một nguồn đổi bố cục hoặc chết:** nguồn đó báo lỗi, giữ bản cũ, workflow đỏ và Admin → Data updates ghi rõ; các nguồn khác vẫn chạy.
+- **Repo yên ắng:** GitHub tắt workflow theo lịch sau 60 ngày không có commit. Bên gym manager status file được cập nhật gần như mỗi ngày nên luôn có commit; bên Dex workflow tự thêm một commit rỗng nếu 25 ngày không có gì.
 
 ## Cách hoạt động và độ an toàn
 

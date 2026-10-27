@@ -456,8 +456,17 @@ f.onload = async () => {
     // 6j. Sync Grid builder
     await go('#/grid');
     await until(() => $('#grid-q'));
+    log($$('.pt').length === 48 && /newest first/i.test(W().document.body.innerText), 'grid: every pair is listed, newest first, 48 at a time', $$('.pt').length);
+    const dates = $$('.pt-date').map(x => x.innerText).filter(Boolean);
+    log(dates.length > 10 && dates.every((d, i) => !i || dates[i - 1] >= d), 'grid: the list is in release order (newest first)');
+    setVal($('[data-gf=type]'), 'Fire'); await sleep(200);
+    const fireCount = $$('.pt').length;
+    log(fireCount > 0 && $$('.pt .ti').every(i => /fire/i.test(i.alt || i.getAttribute('alt') || '')), 'grid: type filter keeps only that type');
+    setVal($('[data-gf=type]'), ''); await sleep(150);
+    $('[data-gf-more]').click(); await sleep(150);
+    log($$('.pt').length === 96, 'grid: show more adds 48');
     setVal($('#grid-q'), 'red'); await sleep(300);
-    const pikachu = $$('.lodge-t').find(a => /Pikachu/.test(a.innerText) && /1996/.test(a.innerText)) || $$('.lodge-t')[0];
+    const pikachu = $$('.pt').find(a => /Pikachu/.test(a.innerText) && /1996/.test(a.innerText)) || $$('.pt')[0];
     log(!!pikachu, 'grid: search finds a sync pair');
     pikachu.click();
     await until(() => $$('.g-tile').length > 30, 20000); await sleep(200);
