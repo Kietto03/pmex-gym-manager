@@ -819,4 +819,8 @@ export default {
   'Type the floor you reached in each tower, 0 to 40. It saves when you leave the box.': 'Gõ tầng bạn đã đạt ở mỗi tháp, từ 0 đến 40. Tự lưu khi bạn rời khỏi ô.',
   'Cleared all 40 floors': 'Đã clear đủ 40 tầng',
   'Acquisition, newest first': 'Cách nhận (AF > ExMF > MF > Ex Fair > PF), mới nhất trước',
+  'Switched on': 'Đang bật',
+  'Locked': 'Đang khóa',
+  'Can be switched on': 'Bật được',
+  'Normal form': 'Dạng thường',
 };

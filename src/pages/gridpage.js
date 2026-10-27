@@ -1,5 +1,5 @@
 // Page module (split out of main.js). Registers its own listeners when imported.
-import { $, esc, fmtN, img, pairIcon, typeTag, act, api, S, profile, nameOf, ownedPair, hooks } from '../core.js';
+import { $, esc, fmtN, img, pairIcon, typeTag, act, toast, api, S, profile, nameOf, ownedPair, hooks } from '../core.js';
 import { ico } from '../icons.js';
 import { t } from '../i18n.js';
 import { splitDescription, count } from '../moves.js';
@@ -10,7 +10,7 @@ import { PAIRS, loadPairDetail, dexIdOf, pairById, pairName, pairImage, TYPE_COL
 // ═══════════════════════════════════════════════════════════════
 //  SYNC GRID: moves and passives of a pair, and a grid builder (rules in grid.js)
 // ═══════════════════════════════════════════════════════════════
-const G = { pairId: '', detail: null, err: '', ix: null, active: new Set(), moveLevel: 5, energyCap: null, sel: null, panel: 'tile', sub: 'moves', focus: null, statLevel: '', buildId: null,
+const G = { pairId: '', detail: null, err: '', ix: null, active: new Set(), moveLevel: 5, energyCap: null, sel: null, panel: 'tile', sub: 'moves', focus: null, statLevel: '', form: 0, buildId: null,
   name: '', purpose: '', visibility: 'private', saved: null, hash: '', msg: '' };
 const gridZoom = () => { try { return +localStorage.getItem('gym-grid-zoom') || 1; } catch { return 1; } };
 const setZoom = z => { try { localStorage.setItem('gym-grid-zoom', Math.max(0.4, Math.min(2.4, z)).toFixed(2)); } catch { /* private mode */ } };
@@ -19,7 +19,7 @@ const BUILD_WHY = { 'not-adjacent': 'next to no active tile', 'move-level': 'nee
 export function renderGrid(pairId = '', buildId = '') {
   if (!pairId) return gridHome();
   if (G.pairId !== pairId || (buildId && G.buildId !== +buildId)) {
-    Object.assign(G, { pairId, detail: null, err: '', ix: null, active: new Set(), sel: null, panel: 'tile', sub: 'moves', focus: null, statLevel: '', buildId: null, name: '', purpose: '', visibility: 'private', saved: null, msg: '', moveLevel: 5, energyCap: null });
+    Object.assign(G, { pairId, detail: null, err: '', ix: null, active: new Set(), sel: null, panel: 'tile', sub: 'moves', focus: null, statLevel: '', form: 0, buildId: null, name: '', purpose: '', visibility: 'private', saved: null, msg: '', moveLevel: 5, energyCap: null });
     const mine = ownedPair(S.me, pairId);
     if (mine) G.moveLevel = Math.min(5, mine.level || 5);
     const b = buildId && S.builds.find(x => x.id === +buildId);
@@ -74,7 +74,10 @@ function gridBoard() {
       <button class="hud-b" data-gzoom="-0.2" aria-label="${t('Zoom out')}">−</button><button class="hud-b" data-gzoom="0.2" aria-label="${t('Zoom in')}">+</button><button class="hud-b wide" data-gfit>${t('Fit')}</button></div>
     <div class="gp-legend">${Object.entries(COLORS).map(([k, [l, col]]) => `<button class="lg ${G.focus === k ? 'on' : ''}" data-gfocus="${k}" style="--c:${col}"><i></i>${t(l)}</button>`).join('')}</div>
     <div class="grid-scroll"><svg viewBox="${minX} ${minY} ${maxX - minX} ${maxY - minY}" style="width:${Math.round((maxX - minX) * zoom)}px" class="${G.focus ? 'focus' : ''}" data-focus="${G.focus || ''}" role="img" aria-label="${t('Sync grid')}">
-      <defs><clipPath id="g-clip"><polygon points="${hexPts(0, 0, SIZE - 5)}"/></clipPath></defs>
+      <defs><clipPath id="g-clip"><polygon points="${hexPts(0, 0, SIZE - 5)}"/></clipPath>
+        ${Object.entries(COLORS).map(([k, [, col]]) => `<linearGradient id="gg-${k}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="color-mix(in srgb, ${col} 55%, #fff)"/><stop offset=".55" stop-color="${col}"/><stop offset="1" stop-color="color-mix(in srgb, ${col} 70%, #000)"/></linearGradient>`).join('')}
+        <linearGradient id="gg-open" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#99a3b5"/><stop offset="1" stop-color="#586174"/></linearGradient>
+        <linearGradient id="gg-lock" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5d6575"/><stop offset="1" stop-color="#3a4150"/></linearGradient></defs>
       ${pts.map(({ c, x, y }) => {
         const on = G.active.has(c.n), why = on ? null : whyNot(G.ix, G.active, c, opts), col = COLORS[c.color]?.[1] || '#999', lines = tileLines(c.title);
         const y0 = y - (lines.length - 1) * 4.6 - 1;
@@ -135,7 +138,7 @@ function describe(text) {
 function moveCard(m, sync = false) {
   if (!m) return '';
   const col = TYPE_COLORS[m.type] || '#8d99a6', cat = CAT[String(m.category || '').toLowerCase()] || [m.category || '', '#8d99a6'], gauge = count(m.gauge), limit = count(m.maxUses);
-  return `<article class="mv move ${sync || m.isSync ? 'sync' : ''}" style="--c:${col}"><header>${m.type ? img(typeIcon(m.type), 'ti', m.type) : ''}<h4>${esc(m.name || '')}</h4>
+  return `<article class="mv move ${sync || m.isSync ? 'sync' : ''}" style="--c:${col}" data-gmove="${esc(m.name || '')}"><header>${m.type ? img(typeIcon(m.type), 'ti', m.type) : ''}<h4>${esc(m.name || '')}</h4>
       ${sync || m.isSync ? `<span class="rb">${t('Sync move')}</span>` : ''}${gauge ? `<span class="pips" title="${t('Move gauge needed')}: ${gauge}" aria-label="${t('Move gauge needed')}: ${gauge}">${Array.from({ length: Math.min(gauge, 8) }, () => '<i></i>').join('')}</span>` : ''}</header>
     <dl class="mv-facts"><div><dt>${t('Category')}</dt><dd><span class="cat" style="--k:${cat[1]}">${t(cat[0])}</span></dd></div><div><dt>${t('Target')}</dt><dd>${esc(m.target || '—')}</dd></div>
       <div><dt>${t('Power')}</dt><dd>${esc(m.power || '—')}</dd></div><div><dt>${t('Accuracy')}</dt><dd>${esc(m.accuracy && m.accuracy !== '--' ? m.accuracy : '—')}</dd></div>
@@ -143,17 +146,26 @@ function moveCard(m, sync = false) {
     <div class="mv-text">${describe(m.description)}</div></article>`;
 }
 const passiveCard = (x, kind = '') => `<article class="mv passive ${kind}" style="--c:${kind === 'super' ? '#bf80ff' : '#e5b143'}"><header><h4>${esc(x.name || '')}</h4>${x.master ? `<span class="rb">${t('Master')}</span>` : kind === 'super' ? `<span class="rb">${t('Super')}</span>` : ''}</header><div class="mv-text">${describe(x.description)}</div></article>`;
+// A pair can have several forms (Mega, Tera, a form after a move…) with their own moves and stats
+function pairForms() {
+  const d = G.detail, base = { label: t('Normal form'), moves: [...(d.moves || []).filter(Boolean), ...(d.syncMove ? [d.syncMove] : [])], stats: d.stats || {} };
+  const alts = (d.altForms || []).filter(a => (a.moves || []).some(Boolean)).map(a => ({ label: a.form ? `${a.pokemon} · ${a.form}` : `${a.pokemon}${a.kind ? ` (${a.kind})` : ''}`, moves: (a.moves || []).filter(Boolean), stats: a.stats || {} }));
+  return [base, ...alts];
+}
+// The move a grid tile belongs to: its title starts with the move's name ("Glorious Thunder: Power ↑ 5")
+const moveNames = () => pairForms().flatMap(f => f.moves.map(m => m.name)).filter(Boolean).sort((a, b) => b.length - a.length);
+const tileMove = c => { const ti = String(c.title).toLowerCase(); return moveNames().find(n => ti.startsWith(`${n.toLowerCase()}:`) || ti === n.toLowerCase()) || ''; };
 function pairPanel() {
-  const d = G.detail, levels = Object.keys(d.stats || {}).sort((a, b) => +a - +b);
-  const lvl = levels.includes(G.statLevel) ? G.statLevel : (levels.includes('140') ? '140' : levels.at(-1)), st = (d.stats || {})[lvl] || {};
+  const d = G.detail, forms = pairForms(), form = forms[G.form] || forms[0], levels = Object.keys(form.stats || {}).sort((a, b) => +a - +b);
+  const lvl = levels.includes(G.statLevel) ? G.statLevel : (levels.includes('140') ? '140' : levels.at(-1)), st = (form.stats || {})[lvl] || {};
   const subs = [['moves', 'Moves'], ['passives', 'Passives'], ['team', 'Team skills'], ['facts', 'Info']];
-  const moves = (d.moves || []).filter(Boolean), pas = (d.passives || []).filter(Boolean);
-  const body = G.sub === 'moves' ? `${moves.map(m => moveCard(m)).join('')}${moveCard(d.syncMove, true)}${!moves.length && !d.syncMove ? `<p class="muted">—</p>` : ''}`
+  const moves = form.moves.filter(m => !m.isSync), syncs = form.moves.filter(m => m.isSync), pas = (d.passives || []).filter(Boolean);
+  const body = G.sub === 'moves' ? `${moves.map(m => moveCard(m)).join('')}${syncs.map(m => moveCard(m, true)).join('')}${!form.moves.length ? `<p class="muted">—</p>` : ''}`
     : G.sub === 'passives' ? `${pas.map(x => passiveCard(x)).join('')}${d.superPassive ? passiveCard(d.superPassive, 'super') : ''}${!pas.length && !d.superPassive ? `<p class="muted">—</p>` : ''}`
     : G.sub === 'team' ? ((d.teamSkills || []).length ? `<div class="chips-l">${d.teamSkills.map(x => `<span class="chip">${esc(x)}</span>`).join('')}</div>` : `<p class="muted">—</p>`)
     : `<dl class="kv">${[['Role', d.role], ['EX role', d.exRole], ['Type', d.type && t(d.type)], ['Weakness', d.weakness && t(d.weakness)], ['Acquired', d.method || d.expedition || d.collectInfo], ['Game version', d.version || (d.versions || []).at(-1)], ['Sync pair released', d.dates?.['Sync Pair'] && String(d.dates['Sync Pair']).slice(0, 10)], ['EX released', d.dates?.['EX Effect'] && String(d.dates['EX Effect']).slice(0, 10)]]
         .filter(r => r[1]).map(([k, v]) => `<dt>${t(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>${d.description ? `<p class="pre">${esc(d.description)}</p>` : ''}`;
-  return `${levels.length ? `<div class="stat-lv">${levels.map(l => `<button class="${l === lvl ? 'on' : ''}" data-gstat="${l}">${t('Lv')} ${l}</button>`).join('')}</div>
+  return `${forms.length > 1 ? `<div class="form-tabs">${forms.map((f, i) => `<button class="${i === G.form ? 'on' : ''}" data-gform="${i}">${esc(f.label)}</button>`).join('')}</div>` : ''}${levels.length ? `<div class="stat-lv">${levels.map(l => `<button class="${l === lvl ? 'on' : ''}" data-gstat="${l}">${t('Lv')} ${l}</button>`).join('')}</div>
     <div class="stat-row">${STAT_ROWS.map(([k, label, bg]) => `<div style="--bg:${bg}"><small>${label}</small><b>${st[k] ?? '—'}</b></div>`).join('')}</div>` : ''}
     <div class="gp-sub">${subs.map(([k, l]) => `<button class="${G.sub === k ? 'on' : ''}" data-gsub="${k}">${t(l)}</button>`).join('')}</div>
     <div class="mv-list">${body}</div><p class="muted">${t('Each text starts with its condition, as the game writes it.')}</p>`;
@@ -238,11 +250,21 @@ document.addEventListener('click', async e => {
   if (panel) { gridKeepFields(); G.panel = panel.dataset.gpanel; redrawSide(); return; }
   if (sub) { G.sub = sub.dataset.gsub; redrawSide(); return; }
   if (stat) { G.statLevel = stat.dataset.gstat; redrawSide(); return; }
+  const gform = e.target.closest('[data-gform]'), mvCard = e.target.closest('.mv[data-gmove]');
+  if (gform) { G.form = +gform.dataset.gform; redrawSide(); return; }
+  if (mvCard && !hoverOk()) { pinMove(mvCard.dataset.gmove); return; }   // on a touch screen a tap on a move lights its tiles
   if (zoom) { setZoom(gridZoom() + +zoom.dataset.gzoom); redrawBoard(); return; }
   if (fit) { const w = $('.grid-scroll')?.clientWidth || 600, svg = $('.grid-scroll svg'), vb = svg?.viewBox.baseVal; if (vb) setZoom(Math.max(0.4, Math.min(2.2, (w - 8) / vb.width))); redrawBoard(); return; }
   if (focus) { G.focus = G.focus === focus.dataset.gfocus ? null : focus.dataset.gfocus; redrawBoard(); return; }
   if (lv) { gridKeepFields(); G.moveLevel = +lv.dataset.gmlv; gridRedraw(); return; }
-  if (tile) { G.sel = +tile.dataset.gtile; G.panel = 'tile'; gridKeepFields(); gridRedraw(); return; }
+  if (tile) {   // one click does it: switch the tile on (or off); if it cannot be switched on, say why
+    const c = G.ix.byN.get(+tile.dataset.gtile), opts = { moveLevel: G.moveLevel, energyCap: G.energyCap };
+    gridKeepFields(); G.sel = c.n; G.msg = '';
+    if (G.active.has(c.n)) { if (canRemove(G.ix, G.active, c)) G.active.delete(c.n); else toast(t('Other tiles hang on this one: switch those off first.'), true); }
+    else { const why = whyNot(G.ix, G.active, c, opts); if (why) toast(`${c.title}: ${t(BUILD_WHY[why])}`, true); else G.active.add(c.n); }
+    gridRedraw(); const again = $(`[data-gtile="${c.n}"]`); if (again && hoverOk()) showTip(again);
+    return;
+  }
   if (tog) {
     gridKeepFields();
     const c = G.ix.byN.get(+tog.dataset.gtoggle), opts = { moveLevel: G.moveLevel, energyCap: G.energyCap };
@@ -257,5 +279,46 @@ document.addEventListener('click', async e => {
     if (confirm(t('Delete this build?')) && await act(() => api.deleteGridBuild(G.buildId), t('Build deleted.'))) { S.builds = await api.gridBuilds(); G.buildId = null; location.hash = '#/grid'; }
   }
 });
+// ── hovering: a tile shows its details, a move lights up the tiles that belong to it (and a tile lights its move) ──
+const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
+const hoverOk = () => matchMedia('(hover: hover) and (pointer: fine)').matches;
+function tipHtml(c) {
+  const on = G.active.has(c.n), why = on ? null : whyNot(G.ix, G.active, c, { moveLevel: G.moveLevel, energyCap: G.energyCap }), col = COLORS[c.color]?.[1] || '#999';
+  return `<div class="gt-h" style="--c:${col}"><span>${t(COLORS[c.color]?.[0] || c.color)}</span><b>${on ? t('Switched on') : why ? t('Locked') : t('Can be switched on')}</b></div>
+    <div class="gt-b"><h4>${esc(c.title)}</h4>${c.description ? `<p>${esc(c.description)}</p>` : ''}
+    <div class="gt-c"><span><i class="e"></i>${t('Energy')} <b>${c.energy}</b></span><span><i class="o"></i>${t('Sync orbs')} <b>${fmtN(c.orbs)}</b></span></div>
+    ${(c.req || []).length ? `<ul>${c.req.map(r => `<li>${esc(r)}</li>`).join('')}</ul>` : ''}${why ? `<p class="gt-why">${t(BUILD_WHY[why])}</p>` : ''}</div>`;
+}
+function showTip(el) {
+  let tip = $('#g-tip');
+  if (!tip) { tip = document.createElement('div'); tip.id = 'g-tip'; tip.className = 'g-tip'; tip.setAttribute('role', 'tooltip'); document.body.append(tip); }
+  const c = G.ix?.byN.get(+el.dataset.gtile); if (!c) return;
+  tip.innerHTML = tipHtml(c); tip.hidden = false;
+  const r = el.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight;
+  const left = Math.max(8, Math.min(r.left + r.width / 2 - w / 2, innerWidth - w - 8)), top = r.top - h - 8 >= 8 ? r.top - h - 8 : Math.min(r.bottom + 8, innerHeight - h - 8);
+  tip.style.left = `${Math.round(left)}px`; tip.style.top = `${Math.round(top)}px`;
+  const mv = tileMove(c); $$('.mv.ref').forEach(x => x.classList.remove('ref'));
+  if (mv) $$('.mv[data-gmove]').filter(x => x.dataset.gmove === mv).forEach(x => x.classList.add('ref'));
+}
+const hideTip = () => { const tip = $('#g-tip'); if (tip) tip.hidden = true; $$('.mv.ref').forEach(x => x.classList.remove('ref')); };
+function lightMove(name) {
+  const svg = $('.grid-scroll svg'); if (!svg) return;
+  svg.classList.toggle('hlmode', !!name);
+  $$('.g-tile', svg).forEach(g => { const c = G.ix.byN.get(+g.dataset.gtile); g.classList.toggle('hl', !!name && !!c && tileMove(c) === name); });
+}
+let pinned = '';
+function pinMove(name) { pinned = pinned === name ? '' : name; lightMove(pinned); $$('.mv.pin').forEach(x => x.classList.remove('pin')); if (pinned) $$('.mv[data-gmove]').filter(x => x.dataset.gmove === pinned).forEach(x => x.classList.add('pin')); }
+document.addEventListener('mouseover', e => {
+  if (!hoverOk() || !G.ix) return;
+  const tl = e.target.closest?.('[data-gtile]'), mv = e.target.closest?.('.mv[data-gmove]');
+  if (tl) showTip(tl);
+  if (mv) lightMove(mv.dataset.gmove);
+});
+document.addEventListener('mouseout', e => {
+  if (!hoverOk() || !G.ix) return;
+  if (e.target.closest?.('[data-gtile]') && !e.relatedTarget?.closest?.('[data-gtile]')) hideTip();
+  if (e.target.closest?.('.mv[data-gmove]') && !e.relatedTarget?.closest?.('.mv[data-gmove]')) lightMove(pinned);
+});
+document.addEventListener('scroll', hideTip, true);
 document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('[data-gtile]')) { e.preventDefault(); e.target.dispatchEvent(new MouseEvent('click', { bubbles: true })); } });
 
