@@ -804,4 +804,8 @@ export default {
   'Mine': 'Của tôi',
   'Has a grid': 'Có grid',
   'Type': 'Hệ',
+  'Battle resources': 'Tài nguyên chiến đấu',
+  'Game info': 'Thông tin game',
+  'Sections': 'Mục',
+  'Pages': 'Trang',
 };

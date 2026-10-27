@@ -1072,3 +1072,18 @@ svg[data-focus="blue"] .g-tile.k-blue, svg[data-focus="green"] .g-tile.k-green, 
 .pt-meta { display: inline-flex; align-items: center; gap: 4px; margin-top: 2px; }
 .pt-meta .ti { width: 16px; height: 16px; }
 .pt-date { font-size: 10.5px; opacity: .55; }
+
+/* two-level menu: groups on top, the pages of the open group underneath */
+.nav a.grp { font-weight: 700; }
+.subnav { flex: 0 0 100%; order: 10; display: flex; gap: 4px; overflow-x: auto; margin-top: 2px; padding: 6px 0 0; border-top: 1px solid var(--line); scrollbar-width: none; }
+.subnav::-webkit-scrollbar { display: none; }
+.subnav[hidden] { display: none; }
+.subnav a { display: inline-flex; align-items: center; gap: 6px; flex: none; padding: 5px 12px; border-radius: var(--r-pill); color: var(--text-2); font-weight: 600; font-size: 13.5px; white-space: nowrap; border: 1px solid transparent; }
+.subnav a:hover { color: var(--text); background: var(--surface-3); }
+.subnav a.on { color: var(--accent); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.subnav .ico { width: 14px; height: 14px; opacity: .8; }
+@media (max-width: 640px) {
+  .nav { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; scrollbar-width: none; order: 5; flex: 0 0 100%; }
+  .nav::-webkit-scrollbar { display: none; }
+  .nav a { flex: none; white-space: nowrap; }
+}

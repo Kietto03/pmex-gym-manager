@@ -214,9 +214,9 @@ f.onload = async () => {
     // Settings: language, style, mode
     await go('#/settings');
     setVal(W().document.getElementById('lang'), 'vi'); await sleep(200);
-    log(/Tổng quan/.test(W().document.getElementById('nav').innerText), 'switching to Vietnamese translates the menu');
+    log(/Tài nguyên chiến đấu/.test(W().document.getElementById('nav').innerText), 'switching to Vietnamese translates the menu');
     setVal(W().document.getElementById('lang'), 'en'); await sleep(200);
-    log(/Overview/.test(W().document.getElementById('nav').innerText), 'and back to English');
+    log(/Battle resources/.test(W().document.getElementById('nav').innerText), 'and back to English');
     const root = W().document.documentElement;
     $('[data-set-style=ds]').click(); await sleep(150);
     log(root.dataset.style === 'ds' && $('[data-set-style=ds]').classList.contains('on'), 'settings: switch the style to DS');
@@ -291,7 +291,7 @@ f.onload = async () => {
     // 6c. Roster sheet (admin can edit every row)
     await go('#/roster');
     await until(() => $('.troster'));
-    log(!!$('#nav a[href="#/roster"]'), 'Roster has its own menu entry');
+    log(!!$('#subnav a[href="#/roster"]') && $('#nav a.grp.on')?.dataset.grp === 'roster', 'Roster sits in the Roster group of the menu');
     $('[data-rtype=Poison]').click(); await sleep(200);
     const heads = $$('.troster thead th').map(th => th.innerText.trim().replace(/\s+/g, ' '));
     log(['Special', 'Physical', 'EX WTZ', 'Rebuff', 'Sub-DPS Physical', 'Sub-DPS Special', 'Extend WTZ', 'Support', 'Other 1'].every(h => heads.some(x => x.includes(h))) && !$('[data-core-edit]') && !$('[data-col-edit]'),
@@ -524,6 +524,15 @@ f.onload = async () => {
     await until(() => $('[data-atab=data]'));
     $('[data-atab=data]').click(); await until(() => $('#admin-body .table'));
     log($$('#admin-body tbody tr').length >= 7 && /Gems/.test($('#admin-body').innerText) && /By hand/.test($('#admin-body').innerText), 'admin: data updates lists every outside source with its state', $$('#admin-body tbody tr').length);
+
+    // 6m. The menu is grouped: GvG pages together, roster pages together, battle resources, game info
+    const groupOfPage = async hash => { await go(hash); await sleep(120); return [$('#nav a.grp.on')?.dataset.grp, $$('#subnav a').map(a => a.getAttribute('href').replace('#/', ''))]; };
+    const g1 = await groupOfPage('#/log'), g2 = await groupOfPage('#/members'), g3 = await groupOfPage('#/strategies'), g4 = await groupOfPage('#/gems');
+    log(g1[0] === 'gvg' && ['', 'log', 'plan', 'info'].every(x => g1[1].includes(x)), 'menu: Overview, Log, Plan and Battle info are one group', g1.join(' '));
+    log(g2[0] === 'roster' && ['members', 'roster', 'grid'].every(x => g2[1].includes(x)), 'menu: Members, Roster and Sync Grid are one group', g2.join(' '));
+    log(g3[0] === 'resources' && ['strategies', 'resources'].every(x => g3[1].includes(x)), 'menu: Strategies and Resources are one group', g3.join(' '));
+    log(g4[0] === 'info' && ['gems', 'lodge'].every(x => g4[1].includes(x)), 'menu: Free Gems and Trainer Lodge are one group', g4.join(' '));
+    log($$('#nav a.grp').length === 5, 'menu: five entries on the top row for an admin', $$('#nav a.grp').length);
 
     // 7. Admin creates and deletes an account
     await go('#/admin');

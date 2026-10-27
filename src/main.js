@@ -26,8 +26,16 @@ import { renderGrid } from './pages/gridpage.js';
 import { renderGems } from './pages/gemspage.js';
 import { dataFreshness, freshnessIssues } from './pages/freshness.js';
 // ─── Chrome (header) ────────────────────────────────────────
-const NAV = [['', 'Overview', 'home'], ['log', 'Log a run', 'swords'], ['plan', 'Plan', 'plan'], ['info', 'Battle info', 'flag'], ['strategies', 'Strategies', 'trophy'], ['lodge', 'Trainer Lodge', 'star'], ['grid', 'Sync Grid', 'bolt'], ['gems', 'Free Gems', 'ticket'], ['resources', 'Resources', 'note'], ['roster', 'Roster', 'roster'],
-  ['members', 'Members', 'users'], ['admin', 'Admin', 'shield']];
+// The menu: pages grouped by what they are for. The top row picks a group, the row under it lists that group's pages.
+const NAV_GROUPS = [
+  { id: 'gvg', label: 'Gym Battle', icon: 'swords', pages: [['', 'Overview', 'home'], ['log', 'Log a run', 'swords'], ['plan', 'Plan', 'plan'], ['info', 'Battle info', 'flag']] },
+  { id: 'roster', label: 'Roster', icon: 'users', pages: [['members', 'Members', 'users'], ['roster', 'Roster by type', 'roster'], ['grid', 'Sync Grid', 'bolt']] },
+  { id: 'resources', label: 'Battle resources', icon: 'trophy', pages: [['strategies', 'Strategies', 'trophy'], ['resources', 'Resources', 'note']] },
+  { id: 'info', label: 'Game info', icon: 'star', pages: [['gems', 'Free Gems', 'ticket'], ['lodge', 'Trainer Lodge', 'star']] },
+  { id: 'admin', label: 'Admin', icon: 'shield', staff: true, pages: [['admin', 'Admin', 'shield']] },
+];
+const groupOf = page => NAV_GROUPS.find(g => g.pages.some(([k]) => k === page));
+const lastInGroup = id => { try { return sessionStorage.getItem(`gym-nav-${id}`); } catch { return null; } };
 // When the game adds sync pairs, the tracker lists them before the database does. The first mod or admin to open the app
 // copies the missing ones in, so members can add them without anyone pressing a button (once per visit).
 let catalogChecked = false;
@@ -40,8 +48,14 @@ async function autoCatalog() {
   } catch { /* a member's account has no right to; the Admin page still has the button */ }
 }
 function renderHeader(active) {
-  $('#nav').innerHTML = S.me ? NAV.filter(([k]) => k !== 'admin' || isStaff())
-    .map(([k, label, icon]) => `<a href="#/${k}" class="${k === active ? 'on' : ''}">${ico(icon)}<span>${t(label)}</span></a>`).join('') : '';
+  const grp = groupOf(active), groups = NAV_GROUPS.filter(g => !g.staff || isStaff());
+  if (grp) { try { sessionStorage.setItem(`gym-nav-${grp.id}`, active); } catch { /* private mode */ } }
+  $('#nav').innerHTML = S.me ? groups.map(g => {
+    const target = g.pages.some(([k]) => k === lastInGroup(g.id)) ? lastInGroup(g.id) : g.pages[0][0];
+    return `<a href="#/${target}" class="grp ${grp === g ? 'on' : ''}" data-grp="${g.id}">${ico(g.icon)}<span>${t(g.label)}</span></a>`;
+  }).join('') : '';
+  $('#subnav').innerHTML = S.me && grp && grp.pages.length > 1 ? grp.pages.map(([k, label, icon]) => `<a href="#/${k}" class="${k === active ? 'on' : ''}">${ico(icon)}<span>${t(label)}</span></a>`).join('') : '';
+  $('#subnav').hidden = !$('#subnav').innerHTML;
   $('#userbox').innerHTML = S.me ? `<a href="#/member/${S.me}" class="user">${av(S.me)}<span>${esc(nameOf(meP()))}</span> ${rankTag(meP().role)}</a>` : '';
   $('#settings-link').innerHTML = ico('gear');
   $('#settings-link').classList.toggle('on', active === 'settings');

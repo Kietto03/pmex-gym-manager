@@ -14,6 +14,16 @@ A small web app for running a **Pokémon Masters EX** gym: member accounts, the 
 
 ## What it does
 
+The menu has two rows. The top row picks a group, the row under it lists that group's pages:
+
+| Group | Pages |
+|---|---|
+| **Gym Battle** | Overview · Log a run · Plan · Battle info |
+| **Roster** | Members · Roster by type · Sync Grid |
+| **Battle resources** | Strategies · Resources |
+| **Game info** | Free Gems · Trainer Lodge |
+| **Admin** (staff) | Admin |
+
 | Page | |
 |---|---|
 | **Overview** | Running season: score per round, which Gym Leaders are cleared, member scores, tickets left, recent runs |
