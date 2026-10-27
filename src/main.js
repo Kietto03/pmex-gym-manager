@@ -60,8 +60,6 @@ const nameOf = p => (p ? p.display_name || p.username : '');
 const season = () => S.seasons.find(s => s.id === S.sid);
 const owned = uid => S.mp.filter(x => x.user_id === uid);
 const ownedPair = (uid, pid) => S.mp.find(x => x.user_id === uid && x.pair_id === pid);
-// Tower floors are private: the database only returns your own (staff see all), so others show as unknown
-const towerKnown = uid => uid === S.me || isStaff();
 const towerFloor = (uid, type) => S.tower.find(x => x.user_id === uid && x.type === type)?.floor || 0;
 // A Gym Battle that is over is frozen: only the admin can still change its log and plans (the database enforces it too)
 const frozen = () => { const s = season(); return !!s && Date.parse(s.battle_end) <= Date.now() && !isAdmin(); };
@@ -1176,18 +1174,18 @@ const tickClocks = () => document.querySelectorAll('[data-clock]').forEach(el =>
 setInterval(tickClocks, 20000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) tickClocks(); });
 function renderMembers() {
-  if (memberView === 'types' || memberView === 'tower' || (memberView === 'dash' && !isStaff())) memberView = 'list';
+  if (memberView === 'types' || (memberView === 'dash' && !isStaff())) memberView = 'list';
   const rows = memberRows();
   const heat = (v, max, ty) => `<td class="heat" style="--h:${Math.min(1, v / max).toFixed(2)};--tc:${TYPE_COLORS[ty]}"><b>${v || '·'}</b></td>`;
 
   return `<div class="toolbar"><h1>${t('Members')} <small>${t('{n} people', { n: S.profiles.length })}</small></h1>
-    <div class="seg">${[['list', 'Cards'], ...(isStaff() ? [['dash', 'Tower dashboard']] : [])].map(([k, l]) => `<button class="${memberView === k ? 'on' : ''}" data-mview="${k}">${t(l)}</button>`).join('')}</div></div>
+    <div class="seg">${[['list', 'Cards'], ['tower', 'Tower by type'], ...(isStaff() ? [['dash', 'Tower dashboard']] : [])].map(([k, l]) => `<button class="${memberView === k ? 'on' : ''}" data-mview="${k}">${t(l)}</button>`).join('')}</div></div>
   ${memberView === 'dash' && isStaff() ? towerDashboard(rows) : memberView === 'list' ? `<div class="mgrid">${rows.map(r => `
     <article class="card mcard ${r.banned ? 'dim' : ''}">
       <div class="mtop">${av(r.p.id)}<div><a class="mname" href="#/member/${r.p.id}">${esc(nameOf(r.p))}</a>
         <small class="muted">@${esc(r.p.username)}</small> ${rankTag(r.p.role)}${r.banned ? ` <span class="badge bad">${t('locked')}</span>` : ''}</div></div>
       <div class="clock-row">${clockHtml(r.p)}</div>
-      <div class="mstats"><div><b>${r.pairs}</b>${t('pairs')}</div><div><b>${r.ex}</b>EX</div><div><b>${towerKnown(r.p.id) ? r.tower : '—'}</b>${t('floors')}</div><div><b>${fmtK(r.season?.score || 0)}</b>${t('score')}</div></div>
+      <div class="mstats"><div><b>${r.pairs}</b>${t('pairs')}</div><div><b>${r.ex}</b>EX</div><div><b>${r.tower}</b>${t('floors')}</div><div><b>${fmtK(r.season?.score || 0)}</b>${t('score')}</div></div>
       <div class="mtypes">${r.byType.slice(0, 6).map(([ty, n]) => `<span style="--tc:${TYPE_COLORS[ty]}" title="${t(ty)}">${img(typeIcon(ty), 'ti', ty)}${n}</span>`).join('')}</div>
       ${isStaff() ? `<div class="mlinks"><a class="btn sm" href="#/member/${r.p.id}/pairs">${t('Roster')}</a><a class="btn sm" href="#/member/${r.p.id}/tower">${t('Tower')}</a><a class="btn sm" href="#/member/${r.p.id}/plan">${t('Battle plan')}</a></div>` : ''}
     </article>`).join('')}</div>`
@@ -1279,7 +1277,7 @@ function typeRoster(rows) {
     <tbody>${data.map((d, i) => `<tr class="${d.r.banned ? 'dim' : ''} ${d.r.p.id === S.me ? 'me' : ''}">
       <td class="rank">${i + 1}</td>
       <td><a class="who" href="#/member/${d.r.p.id}/pairs">${av(d.r.p.id, 'xs')}${esc(nameOf(d.r.p))}</a><small class="muted count">${t('{n} pairs', { n: d.mine.filter(x => x.pair.type === ty).length })}</small></td>
-      ${row(d)}<td class="num">${towerKnown(d.r.p.id) ? `${towerFloor(d.r.p.id, ty)}<small class="muted">F</small>` : '<span class="muted">—</span>'}</td></tr>`).join('')}</tbody></table></div>`;
+      ${row(d)}<td class="num">${towerFloor(d.r.p.id, ty)}<small class="muted">F</small></td></tr>`).join('')}</tbody></table></div>`;
 }
 
 // The dropdown of one cell. It lists the pairs of the sheet's type, with the ones that fit the column
@@ -1392,7 +1390,6 @@ const MTABS = ['pairs', 'tower', 'plan', 'runs'];
 
 function renderMember(id = S.me, tab = '') {
   if (MTABS.includes(tab)) memberTab = tab;
-  if (memberTab === 'tower' && !towerKnown(id)) memberTab = 'pairs';
   const p = profile(id);
   if (!p) return `<div class="empty card"><h2>${t('Member not found')}</h2><p class="muted">${t('The account may have been deleted.')}</p></div>`;
   const edit = canEdit(id), mine = owned(id);
@@ -1429,7 +1426,7 @@ function renderMember(id = S.me, tab = '') {
   <div class="toolbar tabs">
     <div class="seg">
       <button class="${memberTab === 'pairs' ? 'on' : ''}" data-mtab="pairs">${t('Sync pairs')} (${mine.length})</button>
-      ${towerKnown(id) ? `<button class="${memberTab === 'tower' ? 'on' : ''}" data-mtab="tower">${t('Pasio Tower')}</button>` : ''}
+      <button class="${memberTab === 'tower' ? 'on' : ''}" data-mtab="tower">${t('Pasio Tower')}</button>
       <button class="${memberTab === 'plan' ? 'on' : ''}" data-mtab="plan">${t('Battle plan')}${nAsg ? ` (${nAsg})` : ''}</button>
       <button class="${memberTab === 'runs' ? 'on' : ''}" data-mtab="runs">${t('Runs this season')}</button>
     </div>

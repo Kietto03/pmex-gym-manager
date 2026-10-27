@@ -268,12 +268,12 @@ select pg_temp.check('admin changes the time after the season',     '00000000-00
 select pg_temp.check('the round and tickets stay when the time moves', '00000000-0000-0000-0000-00000000000a',
   $$ do $d$ begin if not ((select round from public.runs where member_name = 'x') = 1 and (select tickets from public.runs where member_name = 'x') = 3) then raise exception 'round or tickets changed'; end if; end $d$ $$);
 
--- ─── Tower progress is private ───
+-- ─── Tower progress: everyone reads, only the owner or staff edit ───
 insert into public.tower_progress (user_id, type, floor) values ('00000000-0000-0000-0000-00000000000d', 'Fire', 12), ('00000000-0000-0000-0000-00000000000a', 'Fire', 30) on conflict do nothing;
-select pg_temp.check('member reads only their own tower rows',     '00000000-0000-0000-0000-00000000000d',
-  $$ do $d$ begin if (select count(*) from public.tower_progress) <> (select count(*) from public.tower_progress where user_id = '00000000-0000-0000-0000-00000000000d') or (select count(*) from public.tower_progress) = 0 then raise exception 'saw others'' towers'; end if; end $d$ $$);
-select pg_temp.check('staff reads everyone''s tower',                '00000000-0000-0000-0000-00000000000b',
-  $$ do $d$ begin if (select count(distinct user_id) from public.tower_progress) < 2 then raise exception 'staff cannot see all'; end if; end $d$ $$);
+select pg_temp.check('member sees everyone''s tower',                '00000000-0000-0000-0000-00000000000d',
+  $$ do $d$ begin if (select count(distinct user_id) from public.tower_progress) < 2 then raise exception 'cannot see others'; end if; end $d$ $$);
+select pg_temp.check('member cannot edit someone else''s tower',      '00000000-0000-0000-0000-00000000000d',
+  $$ insert into public.tower_progress (user_id, type, floor) values ('00000000-0000-0000-0000-00000000000a', 'Water', 5) $$, 'row-level security');
 
 -- ─── Resources: everyone reads, staff write ───
 select pg_temp.check('member reads the resource list',            '00000000-0000-0000-0000-00000000000d', $$ do $d$ begin if (select count(*) from public.resource_links) < 5 then raise exception 'no resources'; end if; end $d$ $$);

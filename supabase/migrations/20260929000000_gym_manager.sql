@@ -497,7 +497,7 @@ alter table public.activity       enable row level security;
 create policy "read: signed in" on public.profiles       for select to authenticated using (true);
 create policy "read: signed in" on public.pair_catalog   for select to authenticated using (true);
 create policy "read: signed in" on public.member_pairs   for select to authenticated using (true);
-create policy "read: self or staff" on public.tower_progress for select to authenticated using (user_id = auth.uid() or public.is_staff());
+create policy "read: signed in" on public.tower_progress for select to authenticated using (true);
 create policy "read: signed in" on public.seasons        for select to authenticated using (true);
 create policy "read: signed in" on public.season_members for select to authenticated using (true);
 create policy "read: signed in" on public.assignments    for select to authenticated using (true);

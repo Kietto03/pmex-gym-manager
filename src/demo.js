@@ -282,7 +282,7 @@ export function createDemoApi() {
       db.sheet = db.sheet.filter(x => !(x.user_id === user_id && x.pair_id === pair_id));
     },
 
-    tower: async () => clone(db.tower.filter(x => staff() || x.user_id === me)),
+    tower: async () => clone(db.tower),
     async upsertTower(row) {
       selfOrStaff(row.user_id);
       if (!(row.floor >= 0 && row.floor <= 40)) deny(t('Tower floors go from 0 to 40.'));
