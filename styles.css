@@ -900,3 +900,20 @@ td .muted .ico { width: 14px; height: 14px; vertical-align: -2px; }
 .res-top { display: flex; gap: 6px; flex-wrap: wrap; }
 .badge.good { background: rgba(22,163,122,.18); color: #16a37a; }
 #res-q { min-width: 220px; }
+
+/* strategy library */
+.strat { cursor: pointer; display: grid; gap: 6px; align-content: start; }
+.strat:hover { border-color: var(--accent); }
+.strat h3 { margin: 2px 0 0; }
+.strat-detail { margin-bottom: 14px; }
+.strat-detail .spacer { flex: 1; }
+.st-pair { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; font-size: 10px; max-width: 64px; text-align: center; }
+.st-pair.missing img { opacity: .4; filter: grayscale(1); }
+.team .x { align-self: center; }
+.kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 8px 0; }
+.kv dt { color: var(--muted, #7a86a8); font-size: 12px; }
+.kv dd { margin: 0; }
+.pre { white-space: pre-wrap; margin: 4px 0; }
+.video { position: relative; width: min(100%, 640px); aspect-ratio: 16 / 9; margin-bottom: 8px; }
+.video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; border-radius: 12px; }
+.badge.gold { background: rgba(230,176,0,.2); color: #b88700; }

@@ -141,6 +141,20 @@ function supabaseApi(sb) {
     saveResource: async row => ok(row.id ? await sb.from('resource_links').update(row).eq('id', row.id) : await sb.from('resource_links').insert(row)),
     deleteResource: async id => ok(await sb.from('resource_links').delete().eq('id', id)),
 
+    strategies: async () => {
+      const [strategies, revisions] = await Promise.all([all(() => sb.from('strategies').select('*').order('id')), all(() => sb.from('strategy_revisions').select('*').order('strategy_id').order('rev_no'))]);
+      return { strategies, revisions };
+    },
+    createStrategy: async (mode, created_by, rev) => {
+      const st = ok(await sb.from('strategies').insert({ mode, created_by }).select().single());
+      ok(await sb.from('strategy_revisions').insert({ ...rev, strategy_id: st.id }));
+      return st;
+    },
+    addRevision: async (strategy_id, rev) => ok(await sb.from('strategy_revisions').insert({ ...rev, strategy_id }).select().single()),
+    saveRevision: async (id, patch) => ok(await sb.from('strategy_revisions').update(patch).eq('id', id).select().single()),
+    deleteRevision: async id => ok(await sb.from('strategy_revisions').delete().eq('id', id)),
+    archiveStrategy: async (id, archived) => ok(await sb.from('strategies').update({ archived }).eq('id', id)),
+
     facilitators: sid => all(() => sb.from('facilitator_plans').select('*').eq('season_id', sid).order('leader').order('user_id')),
     saveFacilitator: async row => ok(await sb.from('facilitator_plans').upsert(row)),
     removeFacilitator: async (season_id, leader, user_id) => ok(await sb.from('facilitator_plans').delete().match({ season_id, leader, user_id })),

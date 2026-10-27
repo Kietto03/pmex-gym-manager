@@ -96,7 +96,7 @@ function seedData() {
   }
   const activity = runs.slice(0, 30).map((r, i) => ({ id: i + 1, at: r.created_at, actor: r.created_by, actor_name: r.member_name,
     action: 'runs.insert', detail: { leader: r.leader, round: r.round, score: r.score } }));
-  return { profiles, catalog, memberPairs, tower, seasons, seasonMembers, runs, assignments, notes, activity, facilitators, results, resources: seedResources(), sheet: seedSheet(profiles, memberPairs) };
+  return { profiles, catalog, memberPairs, tower, seasons, seasonMembers, runs, assignments, notes, activity, facilitators, results, resources: seedResources(), ...seedStrategies(profiles, catalog), sheet: seedSheet(profiles, memberPairs) };
 }
 
 const DEMO_STRATEGY = `# 1. General requirements for all sync pairs
@@ -128,6 +128,21 @@ function seedSheet(profiles, memberPairs) {
 }
 
 // Fill a season with runs that pass validateRun, the way a gym plays it
+function seedStrategies(profiles, catalog) {
+  const pick = ty => catalog.filter(c => c.type === ty).slice(0, 3).map(c => ({ pair_id: c.id }));
+  const now = new Date().toISOString();
+  const rev = (id, strategy_id, extra) => ({ id, strategy_id, rev_no: 1, title: '', boss: '', weakness: '', season_label: '', conditions: '', team: [], grid_note: '', rotation: '', video_url: '', status: 'published',
+    author_id: profiles[3].id, review_note: '', reviewed_by: profiles[1].id, reviewed_at: now, created_at: now, updated_at: now, ...extra });
+  return {
+    strategies: [{ id: 1, mode: 'GvG', created_by: profiles[3].id, created_at: now, archived: false, published_rev: 1 },
+      { id: 2, mode: 'DC 3v1', created_by: profiles[3].id, created_at: now, archived: false, published_rev: 2 },
+      { id: 3, mode: 'GvG', created_by: profiles[5].id, created_at: now, archived: false, published_rev: null }],
+    revisions: [
+      rev(1, 1, { title: 'Roark: Grass sweep', boss: 'Roark', weakness: 'Grass', season_label: 'Pasio No. 4', conditions: 'Opponents take zero physical damage: bring Special strikers.', team: pick('Grass'), rotation: 'Turn 1: set Sunny, Turn 2: sync move, Turn 3: finisher.', video_url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' }),
+      rev(2, 2, { title: 'Dragon 3v1 safe rotation', boss: 'Clair', weakness: 'Dragon', season_label: 'D.C season 12', conditions: 'Three teams of three.', team: pick('Dragon'), rotation: 'Lead with the Fairy sync, finish with the Dragon striker.' }),
+      rev(3, 3, { title: 'Ice rush (draft for review)', boss: 'Falkner', weakness: 'Ice', status: 'pending', author_id: profiles[5].id, team: pick('Ice'), rotation: 'Fast clear in two sync moves.', reviewed_by: null, reviewed_at: null })],
+  };
+}
 function seedResources() {
   const mk = (id, category, title, url, language, scope, source, status = 'ok') => ({ id, category, title, url, language, scope, source, author: '', version: '', effective: null, checked_at: new Date(Date.now() - id * 864e5).toISOString(), status, note: '' });
   return [mk(1, 'tier_cn', 'Tier list (China) by role', 'https://docs.qq.com/sheet/demo', 'zh', 'by role', 'Tencent Docs'),
@@ -395,6 +410,59 @@ export function createDemoApi() {
       else db.resources.push({ id: Math.max(0, ...db.resources.map(x => x.id)) + 1, status: 'unchecked', checked_at: null, ...row });
     },
     async deleteResource(id) { staff() || deny(); db.resources = db.resources.filter(x => x.id !== id); },
+    strategies: async () => ({
+      strategies: clone(db.strategies),
+      revisions: clone(db.revisions.filter(r => ['published', 'superseded'].includes(r.status) || r.author_id === me || staff())),
+    }),
+    async createStrategy(mode, created_by, rev) {
+      if (!['GvG', 'DC 3v1', 'DC 3v3'].includes(mode)) deny(t('Pick a mode.'));
+      const st = { id: Math.max(0, ...db.strategies.map(x => x.id)) + 1, mode, created_by: me, created_at: new Date().toISOString(), archived: false, published_rev: null };
+      db.strategies.push(st);
+      await this.addRevision(st.id, rev);
+      return clone(st);
+    },
+    async addRevision(strategy_id, rev) {
+      if (db.revisions.some(r => r.strategy_id === strategy_id && ['draft', 'pending', 'changes_requested'].includes(r.status))) deny(t('This strategy already has a revision being written or reviewed.'));
+      if (!(rev.title || '').trim()) deny(t('Give it a title.'));
+      if (rev.video_url && !/^https?:\/\//i.test(rev.video_url)) deny(t('The link must start with http:// or https://.'));
+      const r = { review_note: '', reviewed_by: null, reviewed_at: null, boss: '', weakness: '', season_label: '', conditions: '', team: [], grid_note: '', rotation: '', video_url: '', ...rev,
+        id: Math.max(0, ...db.revisions.map(x => x.id)) + 1, strategy_id, status: rev.status === 'pending' ? 'pending' : 'draft', author_id: me,
+        rev_no: Math.max(0, ...db.revisions.filter(x => x.strategy_id === strategy_id).map(x => x.rev_no)) + 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+      db.revisions.push(r);
+      return clone(r);
+    },
+    // Same transitions as the database trigger
+    async saveRevision(id, patch) {
+      const r = db.revisions.find(x => x.id === id);
+      if (!r || !(r.author_id === me || staff())) deny();
+      const content = ['title', 'boss', 'weakness', 'season_label', 'conditions', 'team', 'grid_note', 'rotation', 'video_url'].filter(k => k in patch && JSON.stringify(patch[k]) !== JSON.stringify(r[k]));
+      if (['published', 'superseded'].includes(r.status)) deny(t('A published revision never changes: edit the strategy to open a new revision.'));
+      if (content.length && !(r.author_id === me && ['draft', 'changes_requested'].includes(r.status))) deny(t('Only the author can edit a draft or a revision that needs changes.'));
+      if (patch.title !== undefined && !patch.title.trim()) deny(t('Give it a title.'));
+      if (patch.status && patch.status !== r.status) {
+        const from = r.status, to = patch.status;
+        if (['draft', 'changes_requested'].includes(from) && to === 'pending') { if (r.author_id !== me) deny(t('Only the author can submit a revision for review.')); }
+        else if (from === 'pending' && to === 'draft') { if (r.author_id !== me) deny(t('Only the author can take a submitted revision back.')); }
+        else if (from === 'pending' && ['published', 'changes_requested'].includes(to)) {
+          staff() || deny(t('Only a mod or the admin can review a strategy.'));
+          if (to === 'changes_requested' && !(patch.review_note || '').trim()) deny(t('Say what needs to change.'));
+          patch = { ...patch, reviewed_by: me, reviewed_at: new Date().toISOString() };
+          if (to === 'published') {
+            db.revisions.filter(x => x.strategy_id === r.strategy_id && x.status === 'published').forEach(x => { x.status = 'superseded'; });
+            db.strategies.find(x => x.id === r.strategy_id).published_rev = r.id;
+          }
+        } else deny(`${from} → ${to}`);
+      }
+      Object.assign(r, patch, { updated_at: new Date().toISOString() });
+      return clone(r);
+    },
+    async deleteRevision(id) {
+      const r = db.revisions.find(x => x.id === id);
+      if (!r || !((r.author_id === me && r.status === 'draft') || staff())) deny();
+      db.revisions = db.revisions.filter(x => x.id !== id);
+      if (!db.revisions.some(x => x.strategy_id === r.strategy_id)) db.strategies = db.strategies.filter(x => x.id !== r.strategy_id);
+    },
+    async archiveStrategy(id, archived) { staff() || deny(); db.strategies.find(x => x.id === id).archived = archived; },
     facilitators: async sid => clone(db.facilitators.filter(f => f.season_id === sid)),
     async saveFacilitator(row) {
       staff() || deny();

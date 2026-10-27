@@ -286,6 +286,47 @@ select pg_temp.check('a link must be http(s)',                     '00000000-000
 select pg_temp.check('the same link cannot be added twice',        '00000000-0000-0000-0000-00000000000b',
   $$ insert into public.resource_links (category, title, url) values ('guide', 'Dup', 'https://example.com/g') $$, 'duplicate');
 
+-- ─── Strategy library: draft → review → published, revisions keep the published one until approved ───
+insert into auth.users (id, email, raw_user_meta_data, raw_app_meta_data) values ('00000000-0000-0000-0000-00000000000f', 'fay@x', '{"username":"fay"}', '{}');
+select pg_temp.check('member writes a strategy draft',            '00000000-0000-0000-0000-00000000000d',
+  $$ insert into public.strategies (mode, created_by) values ('GvG', '00000000-0000-0000-0000-00000000000d');
+     insert into public.strategy_revisions (strategy_id, title, weakness, team) select id, 'Fire rush', 'Fire', '[{"pair_id":"p-sa"}]' from public.strategies where created_by = '00000000-0000-0000-0000-00000000000d' $$);
+select pg_temp.check('other members do not see the draft',        '00000000-0000-0000-0000-00000000000f',
+  $$ do $d$ begin if (select count(*) from public.strategy_revisions) <> 0 then raise exception 'draft leaked'; end if; end $d$ $$);
+select pg_temp.check('staff sees the draft',                      '00000000-0000-0000-0000-00000000000b',
+  $$ do $d$ begin if (select count(*) from public.strategy_revisions) <> 1 then raise exception 'staff cannot see it'; end if; end $d$ $$);
+select pg_temp.check('a member cannot publish their own strategy', '00000000-0000-0000-0000-00000000000d',
+  $$ update public.strategy_revisions set status = 'published' where title = 'Fire rush' $$, 'cannot become');
+select pg_temp.check('author submits for review',                 '00000000-0000-0000-0000-00000000000d',
+  $$ update public.strategy_revisions set status = 'pending' where title = 'Fire rush' $$);
+select pg_temp.check('the author cannot edit while it is in review', '00000000-0000-0000-0000-00000000000d',
+  $$ update public.strategy_revisions set title = 'Sneaky' where title = 'Fire rush' $$, 'Only the author can edit');
+select pg_temp.check('a member cannot approve (it is not even visible)', '00000000-0000-0000-0000-00000000000f',
+  $$ update public.strategy_revisions set status = 'published' where title = 'Fire rush';
+     do $d$ begin if (select count(*) from public.strategy_revisions) <> 0 then raise exception 'visible'; end if; end $d$ $$);
+select pg_temp.check('changes need a note',                       '00000000-0000-0000-0000-00000000000b',
+  $$ update public.strategy_revisions set status = 'changes_requested' where title = 'Fire rush' $$, 'what needs to change');
+select pg_temp.check('mod asks for changes with a note',          '00000000-0000-0000-0000-00000000000b',
+  $$ update public.strategy_revisions set status = 'changes_requested', review_note = 'Add the rotation' where title = 'Fire rush' $$);
+select pg_temp.check('author fixes and resubmits',                '00000000-0000-0000-0000-00000000000d',
+  $$ update public.strategy_revisions set rotation = 'Turn 1: sync', status = 'pending' where title = 'Fire rush' $$);
+select pg_temp.check('mod publishes',                             '00000000-0000-0000-0000-00000000000b',
+  $$ update public.strategy_revisions set status = 'published' where title = 'Fire rush';
+     do $d$ begin if (select published_rev from public.strategies where created_by = '00000000-0000-0000-0000-00000000000d') is null then raise exception 'not linked'; end if; end $d$ $$);
+select pg_temp.check('everyone now sees the published strategy',  '00000000-0000-0000-0000-00000000000f',
+  $$ do $d$ begin if (select count(*) from public.strategy_revisions where status = 'published') <> 1 then raise exception 'not visible'; end if; end $d$ $$);
+select pg_temp.check('a published revision cannot be edited',     '00000000-0000-0000-0000-00000000000d',
+  $$ update public.strategy_revisions set title = 'Changed' where title = 'Fire rush' $$, 'never changes');
+select pg_temp.check('a member proposes a new revision',          '00000000-0000-0000-0000-00000000000f',
+  $$ insert into public.strategy_revisions (strategy_id, title, rotation, status) select id, 'Fire rush v2', 'Faster', 'pending' from public.strategies where created_by = '00000000-0000-0000-0000-00000000000d' $$);
+select pg_temp.check('only one open revision at a time',          '00000000-0000-0000-0000-00000000000d',
+  $$ insert into public.strategy_revisions (strategy_id, title) select id, 'Another' from public.strategies where created_by = '00000000-0000-0000-0000-00000000000d' $$, 'already has a revision');
+select pg_temp.check('the published revision stays until approval', '00000000-0000-0000-0000-00000000000f',
+  $$ do $d$ begin if (select title from public.strategy_revisions r join public.strategies s on s.published_rev = r.id) <> 'Fire rush' then raise exception 'replaced early'; end if; end $d$ $$);
+select pg_temp.check('approving the revision supersedes the old one', '00000000-0000-0000-0000-00000000000b',
+  $$ update public.strategy_revisions set status = 'published' where title = 'Fire rush v2';
+     do $d$ begin if (select count(*) from public.strategy_revisions where status = 'superseded' and title = 'Fire rush') <> 1 or (select rev_no from public.strategy_revisions r join public.strategies s on s.published_rev = r.id) <> 2 then raise exception 'not superseded'; end if; end $d$ $$);
+
 select format('%s  %s%s', case when ok then 'PASS' else 'FAIL' end, name, case when ok then '' else '  → ' || info end) as result
   from results order by n;
 do $$ begin

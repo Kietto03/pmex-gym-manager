@@ -410,6 +410,30 @@ f.onload = async () => {
     $('#res-form').requestSubmit(); await sleep(400);
     log($$('.res').length === 6, 'resources: staff adds a link');
 
+    // 6h. Strategy library: write, submit, review, publish, revise
+    await go('#/strategies');
+    await until(() => $('.strat'));
+    log($$('.strat').length === 2 && !$('[data-strat-view=review]') === false, 'strategies: published ones in the library, review tab for staff', $$('.strat').length);
+    $('[data-strat-view=review]').click(); await sleep(150);
+    log($$('.strat').length === 1, 'strategies: one waiting for review');
+    $('.strat').click(); await sleep(200);
+    log(!!$('[data-strat-approve]') && !!$('#strat-note'), 'strategies: staff can review');
+    $('[data-strat-changes]').click(); await sleep(300);
+    log(!!$('.toast.bad, .toast.err') || $$('.strat').length === 1, 'strategies: asking for changes without a note is refused');
+    setVal($('#strat-note'), 'Add the rotation'); $('[data-strat-changes]').click(); await sleep(400);
+    log($$('.strat').length === 0, 'strategies: with a note it goes back to the author');
+    $('[data-strat-view=library]').click(); await sleep(150);
+    $('.strat').click(); await sleep(200);
+    log(!!$('[data-strat-revise]') && !!$('[data-strat-apply]') && !!$('.video iframe'), 'strategies: published detail has video, suggest-change and apply-to-plan');
+    $('[data-strat-revise]').click(); await sleep(200);
+    setVal($('#strat-form [name=rotation]'), 'Faster rotation'); $('#strat-form [data-save=pending]').click(); await sleep(500);
+    $('[data-strat-view=review]').click(); await sleep(150);
+    log($$('.strat').length === 1 && /revision 2/.test($('.strat').innerText), 'strategies: editing a published one opens revision 2 for review');
+    $('.strat').click(); await sleep(200);
+    $('[data-strat-approve]').click(); await sleep(500);
+    $('[data-strat-view=library]').click(); await sleep(150);
+    log($$('.strat').length === 2 && !$$('.strat').some(c => /Waiting/.test(c.innerText)), 'strategies: approving publishes the revision');
+
     // 7. Admin creates and deletes an account
     await go('#/admin');
     await until(() => $('[data-atab=accounts]'));
