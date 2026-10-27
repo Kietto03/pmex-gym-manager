@@ -474,8 +474,20 @@ f.onload = async () => {
     log($$('.build').length === 1 && /Test build/.test($('.build').innerText), 'grid: the saved build is in My builds');
     $('.build').click(); await until(() => $$('.g-tile').length > 30, 20000); await sleep(200);
     log($$('.g-tile.on').length === 1, 'grid: reopening a build restores its tiles');
-    $('[data-gtab=info]').click(); await sleep(150);
-    log($$('.mv').length >= 3, 'grid: moves and passives tab');
+    $('[data-gpanel=pair]').click(); await sleep(150);
+    log($$('.stat-row > div').length === 6 && $$('.mv.move').length >= 3 && !!$('.mv.sync') && $$('.mv .pips i').length > 0, 'grid: pair panel with stats, move cards, sync move and uses');
+    $('[data-gsub=passives]').click(); await sleep(120);
+    log($$('.mv.passive').length >= 1, 'grid: passives listed');
+    $('[data-gsub=team]').click(); await sleep(120);
+    log($$('.mv-list .chip').length >= 1, 'grid: team skills listed');
+    $('[data-gsub=facts]').click(); await sleep(120);
+    log(/Role/.test($('.mv-list').innerText), 'grid: facts tab');
+    $('[data-gpanel=tile]').click(); await sleep(100);
+    $('[data-gfocus=blue]').click(); await sleep(100);
+    log($('svg.focus') !== null, 'grid: filtering the board by tile kind');
+    $('[data-gfocus=blue]').click(); await sleep(80);
+    $('[data-gmlv="2"]').click(); await sleep(100);
+    log($$('.mlv.on').length === 2, 'grid: move level set with the stars');
 
     // 6k. Free Gems projection and management
     await go('#/gems');
