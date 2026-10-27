@@ -957,3 +957,8 @@ td .muted .ico { width: 14px; height: 14px; vertical-align: -2px; }
 .build { display: flex; gap: 10px; align-items: center; color: inherit; text-decoration: none; }
 .build small { display: block; }
 .mv h3 { margin: 4px 0; }
+
+.dc-rank { margin: 12px 0; }
+.dc-rank summary { cursor: pointer; }
+.dc-u { display: inline-flex; align-items: center; gap: 4px; margin-right: 12px; white-space: nowrap; }
+.table-wrap { overflow-x: auto; }

@@ -29,6 +29,7 @@ jobs:
         # Each tool keeps the copy already in the repo when its source cannot be read or has changed shape.
         run: |
           node tools/sync-gems.mjs || echo "::warning::Gems sheet not refreshed, keeping the committed copy"
+          node tools/sync-ranking.mjs || echo "::warning::D.C ranking not refreshed, keeping the committed copy"
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact

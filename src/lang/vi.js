@@ -765,4 +765,10 @@ export default {
   'Banners': 'Banner',
   'Gems sheet': 'Bảng Gems',
   'Entered by staff': 'Staff nhập',
+  'Best 3v3 scores by type': 'Điểm 3v3 cao nhất theo hệ',
+  'D.C. ranking sheet, {n} types': 'bảng xếp hạng D.C., {n} hệ',
+  'community D.C. ranking': 'bảng xếp hạng D.C. của cộng đồng',
+  'Pictures are matched by name and may be wrong; the text is what the sheet says.': 'Ảnh được ghép theo tên nên có thể sai; chữ là đúng như bảng ghi.',
+  'Stage type': 'Hệ stage',
+  'Watch': 'Xem',
 };

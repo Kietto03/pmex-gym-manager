@@ -1,6 +1,7 @@
 // Page module (split out of main.js). Registers its own listeners when imported.
-import { $, esc, pairIcon, ownIcon, typeTag, toast, act, api, S, isStaff, profile, nameOf, season, owned, ownedPair, hooks } from '../core.js';
+import { $, esc, fmtN, pairIcon, ownIcon, typeTag, toast, act, api, S, isStaff, profile, nameOf, season, owned, ownedPair, hooks, fmtD } from '../core.js';
 import { ico } from '../icons.js';
+import { matchUnit } from '../ranking.js';
 import { t } from '../i18n.js';
 import { PAIRS, pairById, pairName, TYPES } from '../catalog.js';
 
@@ -32,6 +33,20 @@ const stratTeam = (team, uid) => (team || []).map(x => {
   return p ? `<span class="st-pair ${uid && !mp ? 'missing' : ''}" title="${esc(pairName(p))}${uid ? (mp ? '' : ` — ${t('you do not own this pair')}`) : ''}">${mp ? ownIcon(p, mp, 'sm') : pairIcon(p, 'sm')}<small>${esc(p.pokemon)}</small></span>` : '';
 }).join('');
 
+// Best 3v3 scores by type (community D.C. ranking sheet): the pairs used and the video. A name is shown with its
+// picture only when it matches exactly one sync pair; otherwise it stays as text.
+function dcRankingPanel() {
+  const d = S.dcRanking;
+  if (!d?.types?.length) return '';
+  const age = Math.floor((Date.now() - Date.parse(d.fetched)) / 864e5);
+  return `<details class="card pad dc-rank"><summary><b>${t('Best 3v3 scores by type')}</b> <small class="muted">${t('D.C. ranking sheet, {n} types', { n: d.types.length })}</small></summary>
+    <p class="muted">${t('Source')}: <a href="${esc(d.source)}" target="_blank" rel="noopener noreferrer">${t('community D.C. ranking')}</a> · ${t('copied on {d}', { d: fmtD(d.fetched) })}${age > 14 ? ` · <b>${t('may be out of date')}</b>` : ''} · ${t('Pictures are matched by name and may be wrong; the text is what the sheet says.')}</p>
+    <div class="table-wrap"><table class="table"><thead><tr><th>#</th><th>${t('Stage type')}</th><th class="num">${t('Score')}</th><th>${t('Team')}</th><th>${t('Video')}</th></tr></thead>
+      <tbody>${d.types.map(r => `<tr><td>${r.rank}</td><td>${typeTag(r.type)}</td><td class="num"><b>${fmtN(r.score)}</b></td>
+        <td>${r.units.map(u => { const p = matchUnit(u.name, null, PAIRS()); return `<span class="dc-u" title="${esc(p ? pairName(p) : u.name)}">${p ? pairIcon(p, 'xs') : ''}<span>${esc(u.name)}${u.level ? ` <small class="muted">${u.level}${u.ex ? ' EX' : ''}${u.exr ? ' R' : ''}</small>` : ''}</span></span>`; }).join('')}</td>
+        <td>${r.video ? `<a class="btn sm" href="${esc(r.video)}" target="_blank" rel="noopener noreferrer">${t('Watch')}</a>` : '—'}</td></tr>`).join('')}</tbody></table></div></details>`;
+}
+
 export function renderStrategies() {
   const staff = isStaff(), f = stratFilter, q = f.q.trim().toLowerCase();
   const pending = S.strats.revisions.filter(r => r.status === 'pending');
@@ -52,6 +67,7 @@ export function renderStrategies() {
     <button class="btn primary" data-strat-new>${ico('plus')} ${t('New strategy')}</button></div>
   <p class="muted">${t('Team strategies for GvG and D.C. Everyone can write one; a mod or the admin approves it before it appears in the library.')}</p>
   ${stratEdit ? stratEditor() : ''}${stratOpen && !stratEdit ? stratDetail() : ''}
+  ${dcRankingPanel()}
   <div class="seg" style="margin:10px 0">${tabs.map(([k, l]) => `<button class="${stratView === k ? 'on' : ''}" data-strat-view="${k}">${t(l.replace(/ \(\d+\)$/, ''))}${/\((\d+)\)$/.exec(l) ? ` (${/\((\d+)\)$/.exec(l)[1]})` : ''}</button>`).join('')}</div>
   <div class="card pad filters-row"><input id="strat-q" placeholder="${t('Search title, boss, rotation…')}" value="${esc(f.q)}">
     <select data-strat-f="mode"><option value="">${t('All modes')}</option>${STRAT_MODES.map(m => `<option ${f.mode === m ? 'selected' : ''}>${m}</option>`).join('')}</select>

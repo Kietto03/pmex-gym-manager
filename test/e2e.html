@@ -421,6 +421,7 @@ f.onload = async () => {
     await go('#/strategies');
     await until(() => $('.strat'));
     log($$('.strat').length === 2 && !$('[data-strat-view=review]') === false, 'strategies: published ones in the library, review tab for staff', $$('.strat').length);
+    log(!!$('.dc-rank') && $$('.dc-rank tbody tr').length >= 10, 'strategies: best 3v3 scores by type from the D.C. ranking sheet');
     $('[data-strat-view=review]').click(); await sleep(150);
     log($$('.strat').length === 1, 'strategies: one waiting for review');
     $('.strat').click(); await sleep(200);
