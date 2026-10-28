@@ -63,6 +63,7 @@ export async function loadCatalog() {
     id: idOf[i],
     trainer: trainerLabel(p.trainerName, p.trainerAlt),
     trainerName: p.trainerName,
+    region: p.syncPairRegion || '',
     alt: p.trainerAlt || '',
     pokemon: p.pokemonName,
     type: p.pokemonType,

@@ -149,7 +149,7 @@ function seedGems() {
   const r = (id, label, kind, a, b, free_gems, extra = {}) => ({ id, event_id: null, label, kind, start_date: day(a), end_date: day(b), free_gems, certainty: 'confirmed', condition: '', source: 'demo', ...extra });
   return { gems: { settings: { reset_timezone: 'UTC', reset_hour: 0 }, events: [{ id: 1, name: 'Anniversary week', start_date: day(-2), end_date: day(6), source: 'demo', note: '' }],
     rewards: [r(1, 'Daily login', 'daily', -10, 20, 10), r(2, 'Mission milestone', 'on_date', 2, 2, 300), r(3, 'Anniversary mission', 'window', -2, 6, 500, { event_id: 1, condition: 'Clear 5 missions' }),
-      r(4, 'Ranking reward', 'on_date', 4, 4, null), r(5, 'Old bonus', 'on_date', -5, -5, 100)] } };
+      r(4, 'Ranking reward', 'on_date', 1, 1, null), r(5, 'Old bonus', 'on_date', -5, -5, 100)] } };
 }
 function seedResources() {
   const mk = (id, category, title, url, language, scope, source, status = 'ok') => ({ id, category, title, url, language, scope, source, author: '', version: '', effective: null, checked_at: new Date(Date.now() - id * 864e5).toISOString(), status, note: '' });

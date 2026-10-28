@@ -1802,11 +1802,11 @@ function adminSeasons() {
     <div><button class="btn primary">${t('Create season')}</button></div><p class="form-err" id="season-err"></p>
   </form>
   <div class="card pad"><h2 class="title">${t('Seasons')}</h2>
-    <div class="scroll"><table class="table"><tbody>${S.seasons.map(x => `<tr>
-      <td>${x.is_active ? '<i class="dot"></i>' : ''}<b>${esc(x.name)}</b><br><small class="muted">${esc(x.gym_key || t('entered by hand'))} · ${t('{n} leaders', { n: x.leaders.length })}</small></td>
-      <td class="muted nowrap">${fmtDT(x.battle_start)}<br>${fmtDT(x.battle_end)}</td>
-      <td class="acts">${x.is_active ? '' : `<button class="btn sm" data-season-activate="${x.id}">${t('Set running')}</button>`}
-        ${isAdmin() ? `<button class="btn sm ghost" data-season-del="${x.id}">${t('Delete')}</button>` : ''}</td></tr>`).join('') || `<tr><td class="muted">${t('No seasons yet.')}</td></tr>`}</tbody></table></div>
+    <div class="season-list">${S.seasons.map(x => `<div class="season-row">
+      <div class="season-main">${x.is_active ? '<i class="dot"></i>' : ''}<b>${esc(x.name)}</b><br><small class="muted">${esc(x.gym_key || t('entered by hand'))} · ${t('{n} leaders', { n: x.leaders.length })}</small></div>
+      <small class="muted season-when">${fmtDT(x.battle_start)}<br>${fmtDT(x.battle_end)}</small>
+      <div class="acts">${x.is_active ? '' : `<button class="btn sm" data-season-activate="${x.id}">${t('Set running')}</button>`}
+        ${isAdmin() ? `<button class="btn sm ghost" data-season-del="${x.id}">${t('Delete')}</button>` : ''}</div></div>`).join('') || `<p class="muted">${t('No seasons yet.')}</p>`}</div>
     ${s ? `<h3 style="margin-top:18px">${t('Lock members in {s}', { s: esc(s.name) })}</h3><p class="muted">${t('Locked members cannot log new runs and do not count toward the combined score.')}</p>
       <div class="chips">${S.profiles.map(p => {
         const banned = S.sm.some(m => m.user_id === p.id && m.banned);

@@ -465,9 +465,10 @@ f.onload = async () => {
     log($$('.lodge-t').length === 58, 'lodge: every sync pair of the source is listed', $$('.lodge-t').length);
     $('[data-lodge-trainer]').click(); await sleep(200);
     log($$('.lodge-cols > div').length === 3 && /10 points/.test($('.lodge-cols').innerText) && $$('.lodge-topic').length > 20, 'lodge: topics by points for one trainer');
-    $('[data-lodge-mode=topic]').click(); await sleep(150);
-    setVal($('#lodge-q'), 'ghost types'); await sleep(250);
-    log(/Ghost types/.test($('.table').innerText) && /10 points/.test($('.table thead').innerText), 'lodge: search by topic lists who likes it');
+    log($$('.lodge-topic').every(x => x.style.getPropertyValue('--c')), 'lodge: every topic carries its category colour');
+    $('[data-lodge-mode=region]').click(); await sleep(250);
+    const regs = $$('.lodge-reg').map(x => x.innerText.split(/\s/)[0]);
+    log(regs[0] === 'Kanto' && regs.length > 3 && regs.indexOf('Kanto') < regs.indexOf('Hoenn'), 'lodge: by region lists Kanto first', regs.join());
     log(/Serebii/.test(document.body.innerText) || /Serebii/.test($('p.muted')?.innerText || ''), 'lodge: shows source and copy date');
 
     // 6j. Sync Grid builder
@@ -507,7 +508,7 @@ f.onload = async () => {
     $('.build').click(); await until(() => $$('.g-tile').length > 30, 20000); await sleep(200);
     log($$('.g-tile.on').length === 1, 'grid: reopening a build restores its tiles');
     $('[data-gpanel=pair]').click(); await sleep(150);
-    log($$('.stat-row > div').length === 6 && $$('.mv.move').length >= 3 && !!$('.mv.sync') && $$('.mv .pips i').length > 0, 'grid: pair panel with stats, move cards, sync move and gauge bar');
+    log($$('.stat-row:not(.total) > div').length === 6 && $$('.mv.move').length >= 3 && !!$('.mv.sync') && $$('.mv .pips i').length > 0, 'grid: pair panel with stats, move cards, sync move and gauge bar');
     log($$('.mv .cond.act').length > 0 && $$('.mv .cond.deact').length > 0 && !$$('.mv .pre').some(p => /Activation Condition|Deactivation Condition/.test(p.innerText)), 'grid: activation, deactivation and effect text each on their own line');
     const gauged = $$('.mv.move').find(m => m.querySelector('.pips'));
     log(!!gauged && /Move gauge needed/.test(gauged.querySelector('.pips').title) && $$('.mv-facts .lim').every(x => /Max uses/.test(x.innerText)), 'grid: the blue bar is the gauge needed; max uses appear below only for limited moves');

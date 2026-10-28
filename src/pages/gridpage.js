@@ -4,13 +4,14 @@ import { ico } from '../icons.js';
 import { t } from '../i18n.js';
 import { splitDescription, count } from '../moves.js';
 import { byAcquisition, acqLabel } from '../acquisition.js';
+import { STATS, gridBonus, totalStats } from '../stats.js';
 import { indexGrid, whyNot, canRemove, validate, totals, levelNeeded, otherReqs, gridHash, hexXY, COLORS } from '../grid.js';
 import { PAIRS, loadPairDetail, dexIdOf, pairById, pairName, pairImage, TYPE_COLORS, TYPES, typeIcon } from '../catalog.js';
 
 // ═══════════════════════════════════════════════════════════════
 //  SYNC GRID: moves and passives of a pair, and a grid builder (rules in grid.js)
 // ═══════════════════════════════════════════════════════════════
-const G = { pairId: '', detail: null, err: '', ix: null, active: new Set(), moveLevel: 5, energyCap: null, sel: null, panel: 'tile', sub: 'moves', focus: null, statLevel: '', form: 0, buildId: null,
+const G = { pairId: '', detail: null, err: '', ix: null, active: new Set(), moveLevel: 5, energyCap: null, sel: null, panel: 'tile', sub: 'moves', focus: null, statLevel: '', form: 0, extra: {}, buildId: null,
   name: '', purpose: '', visibility: 'private', saved: null, hash: '', msg: '' };
 const gridZoom = () => { try { return +localStorage.getItem('gym-grid-zoom') || 1; } catch { return 1; } };
 const setZoom = z => { try { localStorage.setItem('gym-grid-zoom', Math.max(0.4, Math.min(2.4, z)).toFixed(2)); } catch { /* private mode */ } };
@@ -19,7 +20,7 @@ const BUILD_WHY = { 'not-adjacent': 'next to no active tile', 'move-level': 'nee
 export function renderGrid(pairId = '', buildId = '') {
   if (!pairId) return gridHome();
   if (G.pairId !== pairId || (buildId && G.buildId !== +buildId)) {
-    Object.assign(G, { pairId, detail: null, err: '', ix: null, active: new Set(), sel: null, panel: 'tile', sub: 'moves', focus: null, statLevel: '', form: 0, buildId: null, name: '', purpose: '', visibility: 'private', saved: null, msg: '', moveLevel: 5, energyCap: null });
+    Object.assign(G, { pairId, detail: null, err: '', ix: null, active: new Set(), sel: null, panel: 'tile', sub: 'moves', focus: null, statLevel: '', form: 0, extra: {}, buildId: null, name: '', purpose: '', visibility: 'private', saved: null, msg: '', moveLevel: 5, energyCap: null });
     const mine = ownedPair(S.me, pairId);
     if (mine) G.moveLevel = Math.min(5, mine.level || 5);
     const b = buildId && S.builds.find(x => x.id === +buildId);
@@ -47,6 +48,9 @@ function pairHeader(p) {
     <div class="gp-own">${own ? `<span class="badge good">${t('Usable')}</span><small>${t('you own this pair')}</small>` : `<span class="badge">${t('Theoretical')}</span><small>${t('not in your roster')}</small>`}</div></section>`;
 }
 
+// A few grids end with the dataminer's separator ("=====END=====") instead of a tile name: show what the tile is instead
+const JUNK = /^[=\-\s]*END[=\-\s]*$|^[=\-_]{5,}$/;
+const tileTitle = c => (JUNK.test(String(c.title || '')) ? `${t(COLORS[c.color]?.[0] || 'Tile')} #${c.n}` : c.title);
 // ── the board ──
 const SIZE = 34;
 const hexPts = (x, y, r) => Array.from({ length: 6 }, (_, i) => { const a = Math.PI / 180 * (60 * i - 30); return `${(x + r * Math.cos(a)).toFixed(1)},${(y + r * Math.sin(a)).toFixed(1)}`; }).join(' ');
@@ -74,19 +78,15 @@ function gridBoard() {
       <button class="hud-b" data-gzoom="-0.2" aria-label="${t('Zoom out')}">−</button><button class="hud-b" data-gzoom="0.2" aria-label="${t('Zoom in')}">+</button><button class="hud-b wide" data-gfit>${t('Fit')}</button></div>
     <div class="gp-legend">${Object.entries(COLORS).map(([k, [l, col]]) => `<button class="lg ${G.focus === k ? 'on' : ''}" data-gfocus="${k}" style="--c:${col}"><i></i>${t(l)}</button>`).join('')}</div>
     <div class="grid-scroll"><svg viewBox="${minX} ${minY} ${maxX - minX} ${maxY - minY}" style="width:${Math.round((maxX - minX) * zoom)}px" class="${G.focus ? 'focus' : ''}" data-focus="${G.focus || ''}" role="img" aria-label="${t('Sync grid')}">
-      <defs><clipPath id="g-clip"><polygon points="${hexPts(0, 0, SIZE - 5)}"/></clipPath>
-        ${Object.entries(COLORS).map(([k, [, col]]) => `<linearGradient id="gg-${k}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="color-mix(in srgb, ${col} 55%, #fff)"/><stop offset=".55" stop-color="${col}"/><stop offset="1" stop-color="color-mix(in srgb, ${col} 70%, #000)"/></linearGradient>`).join('')}
-        <linearGradient id="gg-open" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#99a3b5"/><stop offset="1" stop-color="#586174"/></linearGradient>
-        <linearGradient id="gg-lock" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5d6575"/><stop offset="1" stop-color="#3a4150"/></linearGradient></defs>
+      <defs><clipPath id="g-clip"><polygon points="${hexPts(0, 0, SIZE - 5)}"/></clipPath></defs>
       ${pts.map(({ c, x, y }) => {
-        const on = G.active.has(c.n), why = on ? null : whyNot(G.ix, G.active, c, opts), col = COLORS[c.color]?.[1] || '#999', lines = tileLines(c.title);
+        const on = G.active.has(c.n), why = on ? null : whyNot(G.ix, G.active, c, opts), col = COLORS[c.color]?.[1] || '#999', lines = tileLines(tileTitle(c));
         const y0 = y - (lines.length - 1) * 4.6 - 1;
-        return `<g class="g-tile ${on ? 'on' : why ? 'locked' : 'open'} ${G.sel === c.n ? 'sel' : ''} k-${c.color}" data-gtile="${c.n}" data-color="${c.color}" tabindex="0" role="button" aria-label="${esc(c.title)}" style="--c:${col}">
+        return `<g class="g-tile ${on ? 'on' : why ? 'locked' : 'open'} ${G.sel === c.n ? 'sel' : ''} k-${c.color}" data-gtile="${c.n}" data-color="${c.color}" tabindex="0" role="button" aria-label="${esc(tileTitle(c))}" style="--c:${col}">
           <polygon class="g-out" points="${hexPts(x, y, SIZE - 1)}"/><polygon class="g-in" points="${hexPts(x, y, SIZE - 6)}"/>
           ${c.color === 'blue' ? `<path class="g-arrow" d="${ARROW(x, y - 1)}"/>` : ''}
           <text class="g-t" x="${x}" y="${y0}" text-anchor="middle">${lines.map((l, i) => `<tspan x="${x}" dy="${i ? 9.2 : 0}">${esc(l)}</tspan>`).join('')}</text>
-          ${c.energy ? `<g class="g-en"><circle cx="${x}" cy="${y + SIZE - 10}" r="8"/><text x="${x}" y="${y + SIZE - 6.8}" text-anchor="middle">${c.energy}</text></g>` : ''}
-          ${c.req?.length ? `<text class="g-lock" x="${x + SIZE * .55}" y="${y - SIZE * .5}" text-anchor="middle">Lv${levelNeeded(c)}</text>` : ''}</g>`;
+</g>`;
       }).join('')}
       <g class="g-core"><polygon class="g-ring" points="${hexPts(0, 0, SIZE + 2)}"/>${pair ? `<image href="${esc(pairImage(pair, own?.ex, own?.stars))}" x="${-(SIZE - 4)}" y="${-(SIZE - 4)}" width="${(SIZE - 4) * 2}" height="${(SIZE - 4) * 2}" clip-path="url(#g-clip)" preserveAspectRatio="xMidYMid slice"/>` : ''}</g>
     </svg></div>`;
@@ -104,7 +104,7 @@ function tilePanel() {
   const needed = Math.max(0, ...[...G.active].map(n => levelNeeded(G.ix.byN.get(n) || {})));
   const tile = c ? (() => { const why = G.active.has(c.n) ? null : whyNot(G.ix, G.active, c, opts), col = COLORS[c.color]?.[1] || '#999';
     return `<article class="tile-card" style="--c:${col}"><header><span class="tc-kind">${t(COLORS[c.color]?.[0] || c.color)}</span><span class="tc-n">#${c.n}</span></header>
-      <h3>${esc(c.title)}</h3>${c.description ? `<p class="pre">${esc(c.description)}</p>` : ''}
+      <h3>${esc(tileTitle(c))}</h3>${c.description ? `<p class="pre">${esc(c.description)}</p>` : ''}
       <div class="tc-cost"><span class="en"><i></i>${t('Energy')} <b>${c.energy}</b></span><span class="orb"><i></i>${t('Sync orbs')} <b>${fmtN(c.orbs)}</b></span></div>
       ${(c.req || []).length ? `<ul class="tc-req">${c.req.map(r => `<li>${esc(r)}</li>`).join('')}</ul>` : ''}
       ${otherReqs(c).length ? `<p class="notice">${ico('note')} ${t('This app only checks the move level; the other requirements are on you.')}</p>` : ''}
@@ -154,7 +154,7 @@ function pairForms() {
 }
 // The move a grid tile belongs to: its title starts with the move's name ("Glorious Thunder: Power ↑ 5")
 const moveNames = () => pairForms().flatMap(f => f.moves.map(m => m.name)).filter(Boolean).sort((a, b) => b.length - a.length);
-const tileMove = c => { const ti = String(c.title).toLowerCase(); return moveNames().find(n => ti.startsWith(`${n.toLowerCase()}:`) || ti === n.toLowerCase()) || ''; };
+const tileMove = c => { const ti = String(c.title).toLowerCase(); if (JUNK.test(ti)) return ''; return moveNames().find(n => ti.startsWith(`${n.toLowerCase()}:`) || ti === n.toLowerCase()) || ''; };
 function pairPanel() {
   const d = G.detail, forms = pairForms(), form = forms[G.form] || forms[0], levels = Object.keys(form.stats || {}).sort((a, b) => +a - +b);
   const lvl = levels.includes(G.statLevel) ? G.statLevel : (levels.includes('140') ? '140' : levels.at(-1)), st = (form.stats || {})[lvl] || {};
@@ -165,8 +165,14 @@ function pairPanel() {
     : G.sub === 'team' ? ((d.teamSkills || []).length ? `<div class="chips-l">${d.teamSkills.map(x => `<span class="chip">${esc(x)}</span>`).join('')}</div>` : `<p class="muted">—</p>`)
     : `<dl class="kv">${[['Role', d.role], ['EX role', d.exRole], ['Type', d.type && t(d.type)], ['Weakness', d.weakness && t(d.weakness)], ['Acquired', d.method || d.expedition || d.collectInfo], ['Game version', d.version || (d.versions || []).at(-1)], ['Sync pair released', d.dates?.['Sync Pair'] && String(d.dates['Sync Pair']).slice(0, 10)], ['EX released', d.dates?.['EX Effect'] && String(d.dates['EX Effect']).slice(0, 10)]]
         .filter(r => r[1]).map(([k, v]) => `<dt>${t(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>${d.description ? `<p class="pre">${esc(d.description)}</p>` : ''}`;
+  const bonus = gridBonus(G.ix, G.active), total = totalStats(st, bonus, G.extra), withGrid = [...G.active].length > 0, edited = STATS.some(k => +G.extra[k]);
   return `${forms.length > 1 ? `<div class="form-tabs">${forms.map((f, i) => `<button class="${i === G.form ? 'on' : ''}" data-gform="${i}">${esc(f.label)}</button>`).join('')}</div>` : ''}${levels.length ? `<div class="stat-lv">${levels.map(l => `<button class="${l === lvl ? 'on' : ''}" data-gstat="${l}">${t('Lv')} ${l}</button>`).join('')}</div>
-    <div class="stat-row">${STAT_ROWS.map(([k, label, bg]) => `<div style="--bg:${bg}"><small>${label}</small><b>${st[k] ?? '—'}</b></div>`).join('')}</div>` : ''}
+    <div class="stat-row">${STAT_ROWS.map(([k, label, bg]) => `<div style="--bg:${bg}"><small>${label}</small><b>${st[k] ?? '—'}</b></div>`).join('')}</div>
+    ${G.ix?.grid.length ? `<div class="stat-build"><h4>${t('With your build')} <small class="muted">${t('level {l} + {n} switched-on tiles', { l: lvl, n: G.active.size })}</small></h4>
+      <div class="stat-row total">${STAT_ROWS.map(([k, label, bg]) => `<div style="--bg:${bg}"><small>${label}</small><b>${total[k] || '—'}</b><em>${bonus[k] || G.extra[k] ? `+${bonus[k] + (+G.extra[k] || 0)}` : ''}</em></div>`).join('')}</div>
+      <details class="stat-extra" ${edited ? 'open' : ''}><summary>${t('Add EX / EX role bonuses')}</summary>
+        <p class="muted">${t('The datamine does not list what EX and the EX role add to the stats. Type the bonuses you know and they are added to the totals above.')}</p>
+        <div class="stat-in">${STAT_ROWS.map(([k, label]) => `<label>${label}<input type="text" inputmode="numeric" maxlength="3" data-gextra="${esc(k)}" value="${G.extra[k] || ''}" placeholder="0"></label>`).join('')}</div></details></div>` : ''}` : ''}
     <div class="gp-sub">${subs.map(([k, l]) => `<button class="${G.sub === k ? 'on' : ''}" data-gsub="${k}">${t(l)}</button>`).join('')}</div>
     <div class="mv-list">${body}</div><p class="muted">${t('Each text starts with its condition, as the game writes it.')}</p>`;
 }
@@ -234,6 +240,11 @@ async function gridSave(asNew) {
 document.addEventListener('input', e => {
   if (e.target.id === 'grid-q') { GF.q = e.target.value; GF.shown = 48; const r = $('#pair-results'); if (r) r.innerHTML = pairResults(); }
 });
+document.addEventListener('input', e => {   // EX / EX role bonuses typed by hand: digits only, totals follow
+  const k = e.target.dataset?.gextra; if (!k) return;
+  e.target.value = e.target.value.replace(/\D/g, '').slice(0, 3); G.extra[k] = +e.target.value || 0;
+  const sd = $('#grid-side'), pos = e.target.selectionStart; if (sd) { sd.innerHTML = gridSide(); const n = $(`[data-gextra="${k}"]`); n?.focus(); n?.setSelectionRange(pos, pos); }
+});
 document.addEventListener('change', e => {
   const gf = e.target.dataset?.gf, gfc = e.target.dataset?.gfc;
   if (gf) { GF[gf] = e.target.value; GF.shown = 48; const r = $('#pair-results'); if (r) r.innerHTML = pairResults(); return; }
@@ -261,7 +272,7 @@ document.addEventListener('click', async e => {
     const c = G.ix.byN.get(+tile.dataset.gtile), opts = { moveLevel: G.moveLevel, energyCap: G.energyCap };
     gridKeepFields(); G.sel = c.n; G.msg = '';
     if (G.active.has(c.n)) { if (canRemove(G.ix, G.active, c)) G.active.delete(c.n); else toast(t('Other tiles hang on this one: switch those off first.'), true); }
-    else { const why = whyNot(G.ix, G.active, c, opts); if (why) toast(`${c.title}: ${t(BUILD_WHY[why])}`, true); else G.active.add(c.n); }
+    else { const why = whyNot(G.ix, G.active, c, opts); if (why) toast(`${tileTitle(c)}: ${t(BUILD_WHY[why])}`, true); else G.active.add(c.n); }
     gridRedraw(); const again = $(`[data-gtile="${c.n}"]`); if (again && hoverOk()) showTip(again);
     return;
   }
@@ -285,7 +296,7 @@ const hoverOk = () => matchMedia('(hover: hover) and (pointer: fine)').matches;
 function tipHtml(c) {
   const on = G.active.has(c.n), why = on ? null : whyNot(G.ix, G.active, c, { moveLevel: G.moveLevel, energyCap: G.energyCap }), col = COLORS[c.color]?.[1] || '#999';
   return `<div class="gt-h" style="--c:${col}"><span>${t(COLORS[c.color]?.[0] || c.color)}</span><b>${on ? t('Switched on') : why ? t('Locked') : t('Can be switched on')}</b></div>
-    <div class="gt-b"><h4>${esc(c.title)}</h4>${c.description ? `<p>${esc(c.description)}</p>` : ''}
+    <div class="gt-b"><h4>${esc(tileTitle(c))}</h4>${c.description ? `<p>${esc(c.description)}</p>` : ''}
     <div class="gt-c"><span><i class="e"></i>${t('Energy')} <b>${c.energy}</b></span><span><i class="o"></i>${t('Sync orbs')} <b>${fmtN(c.orbs)}</b></span></div>
     ${(c.req || []).length ? `<ul>${c.req.map(r => `<li>${esc(r)}</li>`).join('')}</ul>` : ''}${why ? `<p class="gt-why">${t(BUILD_WHY[why])}</p>` : ''}</div>`;
 }

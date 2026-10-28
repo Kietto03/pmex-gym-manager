@@ -600,7 +600,7 @@ export default {
   'Trainer Lodge': 'Trainer Lodge',
   '{n} sync pairs': '{n} sync pair',
   'By trainer': 'Theo trainer',
-  'By topic': 'Theo chủ đề',
+  'By region': 'Theo vùng',
   'Topics each Sync Pair likes: 10 points is the best, 5 the least. The daily Hot Topic is not listed here.': 'Chủ đề mỗi Sync Pair thích: 10 điểm là tốt nhất, 5 là thấp nhất. Hot Topic của từng ngày không có trong danh sách này.',
   'copied on {d}': 'chép ngày {d}',
   'may be out of date': 'có thể đã cũ',
@@ -884,4 +884,9 @@ export default {
   'today': 'hôm nay',
   'ended': 'đã hết hạn',
   '{n} running': '{n} đang diễn ra',
+  'With your build': 'Với build của bạn',
+  'level {l} + {n} switched-on tiles': 'level {l} + {n} ô đã bật',
+  'Add EX / EX role bonuses': 'Thêm bonus EX / EX role',
+  'The datamine does not list what EX and the EX role add to the stats. Type the bonuses you know and they are added to the totals above.': 'Datamine không ghi EX và EX role cộng bao nhiêu stats. Hãy nhập các bonus bạn biết, chúng được cộng vào tổng ở trên.',
+  'Tile': 'Ô',
 };
