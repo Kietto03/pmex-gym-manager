@@ -1274,3 +1274,4 @@ svg.hlmode .g-tile.hl .g-out { fill: var(--c); stroke: var(--accent); stroke-wid
   .companion { bottom: calc(70px + env(safe-area-inset-bottom)) !important; }
   .toast { bottom: calc(76px + env(safe-area-inset-bottom)); }
 }
+@media (max-width: 900px) { .seasons-card { order: -1; } }

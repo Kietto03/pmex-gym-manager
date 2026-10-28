@@ -1805,7 +1805,7 @@ function adminSeasons() {
     <label>${t('Gym Leaders when entering by hand — one per line: "Name, Type, Weakness1 Weakness2"')}<textarea name="leaders" rows="3" placeholder="Roark, Rock, Grass&#10;Gardenia, Grass, Flying"></textarea></label>
     <div><button class="btn primary">${t('Create season')}</button></div><p class="form-err" id="season-err"></p>
   </form>
-  <div class="card pad"><h2 class="title">${t('Seasons')}</h2>
+  <div class="card pad seasons-card"><h2 class="title">${t('Seasons')}</h2>
     <div class="season-list">${S.seasons.map(x => `<div class="season-row">
       <div class="season-main">${x.is_active ? '<i class="dot"></i>' : ''}<b>${esc(x.name)}</b><br><small class="muted">${esc(x.gym_key || t('entered by hand'))} · ${t('{n} leaders', { n: x.leaders.length })}</small></div>
       <small class="muted season-when">${fmtDT(x.battle_start)}<br>${fmtDT(x.battle_end)}</small>
