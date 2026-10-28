@@ -5,7 +5,7 @@
 import { createApi, isDemo } from './api.js';
 import { ico } from './icons.js';
 import { STYLES, ACCENTS, MODES, getAppearance, applyAppearance } from './appearance.js';
-import { MASCOTS, MASCOT_STYLES, mascotHead, mountCompanion } from './mascot.js?v=20261027-trainers2';
+import { MASCOTS, MASCOT_STYLES, mascotHead, mountCompanion } from './mascot.js?v=20261028-crisp-pixel';
 import { t, getLang, setLang, LANGS, locale } from './i18n.js';
 import { TOWER_TOP, circuitAt, roundShort, seasonState, pointsIn, validateRun, readiness, pairWeight, levelLabel, suggestTeam } from './rules.js';
 import { project as projectGems, serverToday, monthEnd, addDays } from './gems.js';

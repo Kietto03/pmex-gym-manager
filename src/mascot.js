@@ -124,7 +124,7 @@ export function mountCompanion(root, { getTips, t = s => s }) {
       const tips = getTips() || [];
       if (boops.count === 1) say(tips.length && tipIndex % 4 !== 3 ? tips[tipIndex++ % tips.length] : (tipIndex++, t(m.cry[Math.floor(Math.random() * m.cry.length)])));
     }
-    if (!reduced()) squash.animate(SQUASH, { duration: 420, easing: 'linear' });
+    if (!reduced() && !root.classList.contains('pixel')) squash.animate(SQUASH, { duration: 420, easing: 'linear' });
   });
 
   return {
@@ -135,6 +135,7 @@ export function mountCompanion(root, { getTips, t = s => s }) {
       const m = MASCOTS.find(x => x.id === id);
       btn.setAttribute('aria-label', t('Boop {n}', { n: m.name }));
       root.classList.toggle('pixel', resolveStyle(style) === 'pixel');
+      if (root.classList.contains('pixel')) squash.getAnimations().forEach(animation => animation.cancel());
       dir.style.backgroundImage = `url(${sheet(id, style, 'directions')})`;
       react.style.backgroundImage = `url(${sheet(id, style, 'reactions')})`;   // loaded up front, never on the first click
       paint();
