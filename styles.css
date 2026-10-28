@@ -1293,11 +1293,15 @@ svg.hlmode .g-tile.hl .g-out { fill: var(--c); stroke: var(--accent); stroke-wid
   .top-right { margin-left: auto; }
 }
 @media (min-width: 641px) and (max-width: 1100px) {
-  .nav a:not(.on) span { display: none; }
-  .nav a:not(.on) { padding: 5px 10px; }
+  .nav a .ico { display: none; }      /* labels first: with little room the words stay and the icons go */
+  .topbar { padding-left: 16px; padding-right: 16px; gap: 0 12px; }
+  .subnav { margin-left: -16px; margin-right: -16px; padding: 0 16px; }
+  .nav a { padding: 6px 10px; }
+  .user .badge { display: none; }
   .user > span:not(.av):not(.badge) { display: none; }
   .user { padding: 3px; }
 }
+
 
 /* ─── Phone: slim header on top, main menu as a bottom bar ─── */
 @media (max-width: 640px) {
@@ -1321,3 +1325,18 @@ svg.hlmode .g-tile.hl .g-out { fill: var(--c); stroke: var(--accent); stroke-wid
   .toast { bottom: calc(76px + env(safe-area-inset-bottom)); }
 }
 @media (max-width: 900px) { .seasons-card { order: -1; } }
+
+/* header v3.2: labelled, livelier navigation */
+.nav a { position: relative; }
+@media (min-width: 641px) {
+  .nav a.on::after { content: ''; position: absolute; left: 50%; bottom: -3px; width: 5px; height: 5px; margin-left: -2.5px; border-radius: 50%; background: var(--accent); }
+}
+@media (max-width: 640px) {
+  .nav a { font-weight: 600; color: var(--muted); transition: color .15s, background .2s, transform .15s; }
+  .nav a::before { content: ''; position: absolute; top: -4px; left: 24%; right: 24%; height: 3px; border-radius: 0 0 3px 3px; background: var(--accent); transform: scaleX(0); transition: transform .25s cubic-bezier(.22, 1, .36, 1); }
+  .nav a.on::before { transform: scaleX(1); }
+  .nav a.on { font-weight: 800; background: color-mix(in srgb, var(--accent) 12%, transparent); }
+  .nav a:active { transform: scale(.94); }
+  .nav a.on .ico { transform: translateY(-1px) scale(1.1); }
+  .nav a .ico { transition: transform .25s cubic-bezier(.34, 1.56, .64, 1); }
+}
