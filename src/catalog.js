@@ -49,10 +49,19 @@ export function pairImage(p, ex = false, stars = null) {
   return src ? POMA + src : PLACEHOLDER;
 }
 
+// The list is ~750 KB: show the copy kept by the browser at once and refresh it in the background for the next visit
+async function fetchCatalog() {
+  const url = `${POMA}js/syncpairs.json`;
+  let store = null;
+  try { store = await caches.open('pmex-catalog'); } catch { /* private window: no cache, plain fetch */ }
+  const fresh = fetch(url).then(async r => { if (!r.ok) throw new Error(`Sync pair list unavailable (${r.status})`); if (store) await store.put(url, r.clone()).catch(() => {}); return r.json(); });
+  const hit = store && await store.match(url).catch(() => null);
+  if (hit) { fresh.catch(() => {}); try { return await hit.json(); } catch { /* damaged copy: wait for the network */ } }
+  return fresh;
+}
+
 export async function loadCatalog() {
-  const res = await fetch(`${POMA}js/syncpairs.json`);
-  if (!res.ok) throw new Error(`Sync pair list unavailable (${res.status})`);
-  const json = await res.json();
+  const json = await fetchCatalog();
   version = json.VERSION || '';
   const raw = json.SYNCPAIRS || [];
   // Stable ids from the names; the rare clash (same pair in another form) adds the internal Pokémon id
