@@ -118,6 +118,10 @@ function route() {
   after[name]?.(...args);
 }
 addEventListener('hashchange', route);
+{ // phones: the top bar slides away while reading down the page and comes back when scrolling up
+  let lastY = 0;
+  addEventListener('scroll', () => { const y = scrollY, bar = document.querySelector('.topbar'); if (bar) bar.classList.toggle('away', y > lastY + 4 && y > 120); if (Math.abs(y - lastY) > 4) lastY = y; }, { passive: true });
+}
 hooks.route = route;
 
 // A row of pixel Gym Leaders standing on platforms

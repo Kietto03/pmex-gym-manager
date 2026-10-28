@@ -1252,3 +1252,25 @@ svg.hlmode .g-tile.hl .g-out { fill: var(--c); stroke: var(--accent); stroke-wid
 .season-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(127,127,127,.2); }
 .season-row .acts { display: flex; gap: 6px; flex-wrap: wrap; }
 @media (max-width: 560px) { .season-row { grid-template-columns: 1fr; } }
+
+/* ─── Phone: slim header on top, main menu as a bottom bar ─── */
+@media (max-width: 640px) {
+  .topbar { flex-wrap: wrap; gap: 4px 8px; padding: 6px 12px 0; backdrop-filter: none; -webkit-backdrop-filter: none; background: var(--surface); transition: transform .2s; }
+  .topbar.away { transform: translateY(-100%); }
+  .brand { font-size: 16px; min-width: 0; margin-right: auto; }
+  .brand img, #brand-mascot svg, #brand-mascot img { width: 24px; height: 24px; }
+  .top-right { order: 2; width: auto; margin-left: 0; gap: 6px; }
+  .top-right #userbox { margin-right: 0; }
+  .user > span:not(.av):not(.badge) { display: none; }
+  .nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; order: 0; flex: none; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 0; overflow: visible;
+    padding: 4px 4px calc(4px + env(safe-area-inset-bottom)); background: var(--surface); border-top: 1px solid var(--line-2); box-shadow: 0 -4px 16px rgba(0,0,0,.06); }
+  .nav a, .nav a.grp { flex-direction: column; justify-content: center; gap: 2px; padding: 6px 2px; font-size: 11px; border-radius: 10px; white-space: normal; text-align: center; line-height: 1.15; min-width: 0; }
+  .nav a .ico { width: 20px; height: 20px; }
+  .nav a.on, [data-style="switch"] .nav a.on { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); box-shadow: none; }
+  .subnav { order: 3; margin: 0 -12px; padding: 4px 12px 6px; border-top: 1px solid var(--line); }
+  .subnav a { padding: 4px 10px; font-size: 13px; }
+  body { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+  .view { padding: 14px 14px 24px; }
+  .companion { bottom: calc(70px + env(safe-area-inset-bottom)) !important; }
+  .toast { bottom: calc(76px + env(safe-area-inset-bottom)); }
+}
