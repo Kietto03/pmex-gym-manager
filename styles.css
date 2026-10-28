@@ -1255,10 +1255,34 @@ svg.hlmode .g-tile.hl .g-out { fill: var(--c); stroke: var(--accent); stroke-wid
 .season-row .acts { display: flex; gap: 6px; flex-wrap: wrap; }
 @media (max-width: 560px) { .season-row { grid-template-columns: 1fr; } }
 
+/* ─── Header v3: one slim row, gym-badge strip, underline tabs, smoother moves ─── */
+.topbar { position: sticky; }
+.topbar::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--badges, var(--accent)); opacity: .9; }
+.topbar.lifted { box-shadow: 0 6px 20px rgba(0, 0, 0, .08); }
+.view.rise { animation: rise .22s cubic-bezier(.22, 1, .36, 1); }
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .view.rise { animation: none; } .topbar { transition: none !important; } }
+@media (min-width: 641px) {
+  .topbar { gap: 0 22px; padding: 9px 28px 0; flex-wrap: wrap; align-items: center; }
+  .brand { font-size: 17px; }
+  .brand img, #brand-mascot svg, #brand-mascot img { width: 26px; height: 26px; }
+  .nav { flex-wrap: nowrap; gap: 2px; padding: 3px; border-radius: var(--r-pill); background: var(--surface-2); border: var(--bw) solid var(--line); }
+  .nav a { padding: 5px 14px; font-size: 13.5px; font-weight: 600; transition: background .2s cubic-bezier(.22, 1, .36, 1), color .15s, transform .15s; }
+  .nav a:active { transform: scale(.97); }
+  .nav a.on { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0, 0, 0, .14); }
+  .nav a.on .ico { color: var(--accent); opacity: 1; }
+  .subnav { margin: 6px -28px 0; padding: 0 28px; border-top: 1px solid var(--line); gap: 2px; }
+  .subnav a { position: relative; padding: 9px 12px 10px; border: 0; border-radius: 0; background: none !important; font-size: 13px; font-weight: 600; color: var(--muted); transition: color .15s; }
+  .subnav a:hover { color: var(--text); }
+  .subnav a::after { content: ''; position: absolute; left: 12px; right: 12px; bottom: 0; height: 2px; border-radius: 2px; background: var(--accent); transform: scaleX(0); transition: transform .25s cubic-bezier(.22, 1, .36, 1); }
+  .subnav a.on { color: var(--text); }
+  .subnav a.on::after { transform: scaleX(1); }
+}
+
 /* ─── Phone: slim header on top, main menu as a bottom bar ─── */
 @media (max-width: 640px) {
-  .topbar { flex-wrap: wrap; gap: 4px 8px; padding: 6px 12px 0; backdrop-filter: none; -webkit-backdrop-filter: none; background: var(--surface); transition: transform .2s; }
-  .topbar.away { transform: translateY(-100%); }
+  .topbar { flex-wrap: wrap; gap: 4px 8px; padding: 6px 12px 0; backdrop-filter: none; -webkit-backdrop-filter: none; background: var(--surface); transition: top .2s cubic-bezier(.22, 1, .36, 1); }
+  .topbar.away { top: -96px; }
   .brand { font-size: 16px; min-width: 0; margin-right: auto; }
   .brand img, #brand-mascot svg, #brand-mascot img { width: 24px; height: 24px; }
   .top-right { order: 2; width: auto; margin-left: 0; gap: 6px; }

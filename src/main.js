@@ -64,6 +64,9 @@ function renderHeader(active) {
   const gym = (window.GYM_CONFIG || {}).gymName || 'Gym Manager';
   $('#brand-name').textContent = gym;
   document.title = `${gym} · Gym Manager`;
+  // gym-badge strip: one segment per Gym Leader of the running season, in the type's colour
+  const types = (season()?.leaders || []).map(l => l.type).filter(Boolean);
+  $('.topbar').style.setProperty('--badges', types.length ? `linear-gradient(90deg, ${types.map((ty, i) => `${tc(ty)} ${(i / types.length * 100).toFixed(1)}% ${((i + 1) / types.length * 100).toFixed(1)}%`).join(', ')})` : 'var(--accent)');
   $('#demo-flag').hidden = !isDemo;
   $('#demo-flag').textContent = t('Demo');
   $('#dex-link').href = DEX;
@@ -115,12 +118,13 @@ function route() {
   const fn = routes[name] || renderOverview;
   renderHeader(name === 'member' ? (args[0] === S.me || !args[0] ? '' : 'members') : name === 'account' ? 'settings' : name);
   view.innerHTML = fn(...args);
+  view.classList.remove('rise'); void view.offsetWidth; view.classList.add('rise');
   after[name]?.(...args);
 }
 addEventListener('hashchange', route);
 { // phones: the top bar slides away while reading down the page and comes back when scrolling up
   let lastY = 0;
-  addEventListener('scroll', () => { const y = scrollY, bar = document.querySelector('.topbar'); if (bar) bar.classList.toggle('away', y > lastY + 4 && y > 120); if (Math.abs(y - lastY) > 4) lastY = y; }, { passive: true });
+  addEventListener('scroll', () => { const y = scrollY, bar = document.querySelector('.topbar'); if (bar) { bar.classList.toggle('away', y > lastY + 4 && y > 120); bar.classList.toggle('lifted', y > 6); } if (Math.abs(y - lastY) > 4) lastY = y; }, { passive: true });
 }
 hooks.route = route;
 
