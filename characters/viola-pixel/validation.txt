@@ -1,0 +1,6 @@
+character      shift   overlap   palette    width   (at 140px rendered)
+viola-pixel  0.00 px     91.5%     45.3%     2.3%
+
+worst shift: viola-pixel moves 0.00 rendered px on boop
+weakest palette match: viola-pixel at 45.3%
+worst width change: viola-pixel at 2.3%

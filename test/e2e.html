@@ -231,6 +231,10 @@ f.onload = async () => {
     log(/gloria(-pixel)?-directions/.test($('.m-dir').style.backgroundImage) && /gloria/.test($('#brand-mascot .m-head').style.backgroundImage), 'settings: switch the mascot to Gloria');
     $('[data-set-mstyle=pixel]').click(); await sleep(150);
     log(/gloria-pixel-directions/.test($('.m-dir').style.backgroundImage) && $('#companion').classList.contains('pixel'), 'settings: pixel style of the mascot');
+    $('[data-set-mascot=viola]').click(); await sleep(150);
+    log(/viola-pixel-directions/.test($('.m-dir').style.backgroundImage) && /viola/.test($('#brand-mascot .m-head').style.backgroundImage), 'settings: Viola pixel companion and brand portrait');
+    $('[data-set-mstyle=modern]').click(); await sleep(150);
+    log(/viola-directions/.test($('.m-dir').style.backgroundImage) && /viola-reactions/.test($('.m-react').style.backgroundImage) && !$('#companion').classList.contains('pixel'), 'settings: Viola modern directions and reactions');
     $('[data-set-mstyle=auto]').click(); await sleep(100);
     $('[data-set-mascot=off]').click(); await sleep(150);
     log($('#companion').hidden, 'settings: turn the mascot off');

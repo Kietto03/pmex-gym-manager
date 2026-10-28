@@ -14,6 +14,7 @@ export const MASCOTS = [
   { id: 'momo', file: 'gloria', name: 'Gloria', cry: ['Hehe~', 'Adventure time!', 'Found you!'] },
   { id: 'sage', file: 'cynthia', name: 'Cynthia', cry: ['Hmm, interesting.', 'Let me check the data…', 'Noted!'] },
   { id: 'aria', file: 'dawn', name: 'Dawn', cry: ['Stay sharp.', 'Victory awaits.', 'Good form.'] },
+  { id: 'viola', file: 'viola', name: 'Viola', cry: ['Picture perfect!', 'Let’s capture this moment!', 'What a great shot!'] },
 ];
 export const MASCOT_STYLES = [['auto', 'Auto'], ['modern', 'Modern'], ['pixel', 'Pixel']];
 // Auto: pixel art in the DS and Game Boy themes, the modern drawing everywhere else

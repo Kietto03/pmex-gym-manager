@@ -1,0 +1,27 @@
+viola  PNG RGBA (1254, 1254)
+   alpha: ok   shoulder spread 3.1% -> n/a on an expressions sheet
+   shoulders/head 1.07 -> marginal  (target under 0.95; cat 0.66, panda 0.93)
+   mean shoulder width 318px   blobs per cell [1, 2, 2, 1, 1, 1, 2, 1, 1]
+   edge contact: ['6:top']
+viola  PNG RGBA (1254, 1254)
+   alpha: ok   shoulder spread 5.1% -> marginal
+   shoulders/head 1.11 -> TOO WIDE  (target under 0.95; cat 0.66, panda 0.93)
+   mean shoulder width 255px   blobs per cell [1, 1, 1, 1, 1, 1, 1, 1, 1]
+   edge contact: none
+building viola
+  anchor noise 4.7% -> scale clamp +-10%
+  cross-sheet fit  scale 0.900  shift -4px  overlap 95.6%
+  per-frame settle  [-6, -6, -1, -5, -2, -2, -3, -3, -5]
+  viola-directions.webp  244 KB  (anchor shoulders)
+  viola-reactions.webp  249 KB  (anchor shoulders)
+character      shift   overlap   palette    width   (at 140px rendered)
+viola        0.00 px     81.6%     79.9%     0.3%
+
+worst shift: viola moves 0.00 rendered px on boop
+weakest palette match: viola at 79.9%
+worst width change: viola at 0.3%
+
+viola is ready:
+  assets/mascots/viola-directions.webp
+  assets/mascots/viola-reactions.webp
+Now install page-mascot and put <Mascot /> on the page (SKILL.md, "Put it on the page").
