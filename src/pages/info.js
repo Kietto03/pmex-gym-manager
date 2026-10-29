@@ -30,7 +30,7 @@ export function renderInfo() {
   const hpSeries = g.stages.map(x => Math.max(0, ...x.leaders.map(l => l.units?.[0]?.hp || 0)));
   const hpTop = Math.max(1, ...hpSeries);
   const hpChart = `<div class="card pad"><h2 class="title">${t('Boss HP by circuit')} <small>${t('click a bar to open that circuit')}</small></h2>
-    <div class="bars">${hpSeries.map((v, i) => `<button class="bar ${i === infoStage ? 'on' : ''}" data-istage="${i}" title="${esc(g.stages[i].name)}: ${fmtN(v)} HP"><span class="bv">${fmtK(v)}</span><i style="height:${Math.max(2, v / hpTop * 100)}%"></i><span class="bl">${esc(roundShort(g.stages[i].name))}</span></button>`).join('')}</div></div>`;
+    <div class="bars">${hpSeries.map((v, i) => `<button class="bar ${/^C\d/.test(roundShort(g.stages[i].name)) ? 'reg' : ''} ${i === infoStage ? 'on' : ''}" data-istage="${i}" aria-pressed="${i === infoStage}" title="${esc(g.stages[i].name)}: ${fmtN(v)} HP"><span class="bv">${fmtK(v)}</span><i style="height:${Math.max(2, v / hpTop * 100)}%"></i><span class="bl">${esc(roundShort(g.stages[i].name))}</span></button>`).join('')}</div></div>`;
   const body = infoTab === 'next' ? nextRounds(s, g) : infoTab === 'schedule' ? `
     <div class="cols"><section><h2>${t('Schedule')}</h2><div class="card list">${g.phases.map(p => `<div class="run"><div><b>${esc(t(p.name))}</b><small class="muted">${fmtDT(p.start + 'Z')} → ${fmtDT(p.end + 'Z')}</small></div></div>`).join('')}</div></section>
     <section><h2>${t('Tickets and time')}</h2><div class="card scroll"><table class="table"><thead><tr><th class="num">${t('Tickets')}</th><th>${t('Time limit')}</th><th class="num">${t('Buff')}</th></tr></thead>

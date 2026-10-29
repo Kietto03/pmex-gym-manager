@@ -481,6 +481,10 @@ f.onload = async () => {
     log(regs[0] === 'Kanto' && regs.length > 3 && regs.indexOf('Kanto') < regs.indexOf('Hoenn'), 'lodge: by region lists Kanto first', regs.join());
     log(/Serebii/.test(document.body.innerText) || /Serebii/.test($('p.muted')?.innerText || ''), 'lodge: shows source and copy date');
 
+    // Unknown addresses get a clear page instead of silently showing the overview
+    await go('#/no-such-page'); await sleep(150);
+    log(/Page not found/.test($('#view').innerText) && !!$('#view a[href="#/"]'), 'unknown address shows a not-found page with a way back');
+
     // 6j. Sync Grid builder
     await go('#/grid');
     await until(() => $('#grid-q'));

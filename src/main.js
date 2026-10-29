@@ -111,11 +111,15 @@ const view = $('#view');
 const routes = { '': renderOverview, log: renderLog, plan: renderPlan, info: renderInfo, resources: renderResources, strategies: renderStrategies, lodge: renderLodge, grid: renderGrid, gems: renderGems, roster: renderRoster, members: renderMembers, member: renderMember,
   settings: renderSettings, account: renderSettings, admin: renderAdmin };
 const after = {};
+function renderNotFound() {
+  return `<div class="empty card"><h1>${t('Page not found')}</h1><p class="muted">${t('This address does not lead anywhere. It may be an old link.')}</p>
+    <p><a class="btn primary" href="#/">${t('Back to the overview')}</a></p></div>`;
+}
 
 function route() {
   if (!S.me) { renderHeader(''); renderLogin(); return; }
   const [, name = '', ...args] = location.hash.replace(/^#/, '').split('/').map(decodeURIComponent);
-  const fn = routes[name] || renderOverview;
+  const fn = Object.hasOwn(routes, name) ? routes[name] : name === 'login' ? renderOverview : renderNotFound;
   renderHeader(name === 'member' ? (args[0] === S.me || !args[0] ? '' : 'members') : name === 'account' ? 'settings' : name);
   view.innerHTML = fn(...args);
   view.classList.remove('rise'); void view.offsetWidth; view.classList.add('rise');

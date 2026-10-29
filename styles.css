@@ -1369,3 +1369,9 @@ svg.hlmode .g-tile.hl .g-out { fill: var(--c); stroke: var(--accent); stroke-wid
 }
 small { font-size: 12px; }   /* the browser default (83% of the parent) fell to 10px in many places */
 .gim-row .gim-tag { font-size: 12px; }
+
+/* Boss HP chart: regular circuits and extra battles read as two groups, the open one is outlined */
+.bar.reg i { background: var(--text-2); }
+.bar.on i { outline: 2px solid var(--text); outline-offset: 2px; }
+.bar.on .bv { opacity: 1; font-weight: 800; }
+.nav a:focus-visible, .subnav a:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }   /* keyboard focus is clearly not the "current page" mark */
