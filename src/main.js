@@ -1216,9 +1216,9 @@ function sheetPickList(d, ty, slot) {
   for (const sl of SHEET_SLOTS) if (sl.fixed && sl.k !== slot.k && sl.fixed()) (where.get(sl.fixed()) || where.set(sl.fixed(), []).get(sl.fixed())).push(t(sl.label));
   const match = x => !q || `${x.pair.trainer} ${x.pair.pokemon} ${x.pair.type} ${x.pair.role} ${x.pair.alt || ''}`.toLowerCase().includes(q);
   const inType = x => q || x.pair.type === ty;   // other types only show up when the user types something
-  // "Other" columns are for whatever is left: pairs already placed in this row are filtered out (the cell's own pair stays)
-  const isOther = slot.k.startsWith('other'), free = x => !isOther || !where.has(x.pair_id) || x.pair_id === cur;
-  const fitting = isOther ? [] : rankForSlot(d.mine, ty, slot).filter(x => match(x) && inType(x)), inFit = new Set(fitting.map(x => x.pair_id));
+  // Sub-DPS and "Other" columns are for whatever is left: pairs already placed in this row are filtered out (the cell's own pair stays)
+  const isOther = slot.k.startsWith('other'), spare = isOther || slot.k.startsWith('sub'), free = x => !spare || !where.has(x.pair_id) || x.pair_id === cur;
+  const fitting = isOther ? [] : rankForSlot(d.mine, ty, slot).filter(x => match(x) && inType(x) && free(x)), inFit = new Set(fitting.map(x => x.pair_id));
   const strongest = (a, b) => pairWeight(b) - pairWeight(a) || a.pair.trainer.localeCompare(b.pair.trainer);
   const sameType = d.mine.filter(x => match(x) && free(x) && !inFit.has(x.pair_id) && x.pair.type === ty).sort(strongest);
   const others = !q ? [] : d.mine.filter(x => match(x) && free(x) && !inFit.has(x.pair_id) && x.pair.type !== ty).sort((a, b) => TYPES.indexOf(a.pair.type) - TYPES.indexOf(b.pair.type) || strongest(a, b));
@@ -1311,15 +1311,15 @@ document.addEventListener('input', e => {
 let memberTab = 'pairs', editingInfo = false;
 // Roster filters. The shown order is frozen until a filter, the sort or the owned set changes,
 // so toggling EX / stars / level never makes a card jump away under the cursor.
-const pairFilter = { q: '', types: new Set(), role: '', status: '', sort: 'acq' };
+const pairFilter = { q: '', types: new Set(), role: '', status: '', sort: 'type' };
 let pairOrder = { key: '', ids: [] };
-const SORTS = [['acq', 'Acquisition, newest first'], ['type', 'By type'], ['strength', 'Strongest first'], ['name', 'Name A–Z'], ['new', 'Newest first'], ['rarity', 'Base rarity']];
+const SORTS = [['type', 'By type'], ['acq', 'Acquisition, newest first'], ['strength', 'Strongest first'], ['name', 'Name A–Z'], ['new', 'Newest first'], ['rarity', 'Base rarity']];
 const STATUS = [['', 'All'], ['ex', '6★ EX'], ['noex', 'Not EX yet'], ['low', 'Below 5★'], ['sa', 'Superawakened']];
 const ROLE_KEYS = ['strike', 'tech', 'support', 'sprint', 'field', 'multi'];
 const statusOk = (x, st) => !st || (st === 'ex' ? x.ex : st === 'noex' ? !x.ex : st === 'low' ? (x.stars || 5) < 5 : x.level > 5);
 const pairSort = {
   acq: (a, b) => byAcquisition(a.pair, b.pair) || a.pair.trainer.localeCompare(b.pair.trainer),
-  type: (a, b) => TYPES.indexOf(a.pair.type) - TYPES.indexOf(b.pair.type) || pairWeight(b) - pairWeight(a) || a.pair.trainer.localeCompare(b.pair.trainer),
+  type: (a, b) => TYPES.indexOf(a.pair.type) - TYPES.indexOf(b.pair.type) || byAcquisition(a.pair, b.pair) || a.pair.trainer.localeCompare(b.pair.trainer),
   strength: (a, b) => pairWeight(b) - pairWeight(a) || a.pair.trainer.localeCompare(b.pair.trainer),
   name: (a, b) => a.pair.trainer.localeCompare(b.pair.trainer) || a.pair.pokemon.localeCompare(b.pair.pokemon),
   new: (a, b) => String(b.pair.release || '').localeCompare(String(a.pair.release || '')),

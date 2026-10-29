@@ -344,6 +344,8 @@ f.onload = async () => {
     const remaining = $$('.sc-list [data-sc-pick]').length;
     log(remaining > 0 && remaining < rowPairCount && /^Remaining /.test($('.sc-sec')?.textContent || '') && !$$('.sc-list [data-sc-pick] i').length, 'the Other column lists only pairs not yet selected in the row', `${remaining} left of ${rowPairCount} of this type`);
     W().document.body.click(); await sleep(150);
+    const subBtn = cell().closest('tr').querySelector('[data-sc$="|subspec"]');
+    if (subBtn) { subBtn.click(); await sleep(200); log(!$$('.sc-list [data-sc-pick] i').length, 'the Sub-DPS column does not offer pairs already chosen in the other columns of the row'); W().document.body.click(); await sleep(150); }
     // the same pair may sit in two columns of the row
     const pickedId = cell().querySelector('.tc') && $$('.troster tbody tr').find(tr => tr.contains(cell()))?.dataset.uid;
     const rowTr = cell().closest('tr'), otherSlot = [...rowTr.querySelectorAll('[data-sc]')].find(b => b !== cell());
