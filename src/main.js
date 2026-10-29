@@ -1407,7 +1407,8 @@ function pairPop(x, edit) {
       <select data-own="${p.id}" data-k="level" ${edit ? '' : 'disabled'} title="${t('Move level')}${max === 10 ? ' · ' + t('6/5–10/5 = Superawakened') : ''}">
         ${Array.from({ length: max }, (_, i) => i + 1).map(l => `<option value="${l}" ${l === x.level ? 'selected' : ''}>${levelLabel(l)}</option>`).join('')}</select>
       ${edit ? `<button class="x" data-own-del="${p.id}" aria-label="${t('Remove')}" title="${t('Remove')}">${ico('x')}</button>` : ''}
-    </div></div>`;
+    </div>
+    ${stars < 5 ? `<p class="o-hint">${edit ? t('Tap the 5th star to raise this pair to 5★. Then 6★ EX unlocks.') : t('Needs 5★ before 6★ EX.')}</p>` : ''}</div>`;
 }
 // Keep the editor inside the window
 function placePop() {

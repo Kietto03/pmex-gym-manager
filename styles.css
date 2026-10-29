@@ -1341,3 +1341,15 @@ svg.hlmode .g-tile.hl .g-out { fill: var(--c); stroke: var(--accent); stroke-wid
   .nav a.on .ico { transform: translateY(-1px) scale(1.1); }
   .nav a .ico { transition: transform .25s cubic-bezier(.34, 1.56, .64, 1); }
 }
+
+/* the star row is a real tap target: a below-5★ pair is raised here before 6★ EX unlocks */
+.o-hint { margin: 8px 0 0; font-size: 12.5px; line-height: 1.4; color: var(--muted); }
+@media (pointer: coarse), (max-width: 640px) {
+  .stars { height: 40px; padding: 0 4px; }
+  .stars button { min-width: 34px; height: 38px; padding: 0; }
+  .stars button .ico { width: 20px; height: 20px; }
+  .stars button.up { background: color-mix(in srgb, var(--accent) 10%, transparent); border-radius: 8px; }
+  .o-ctl { gap: 8px; }
+  .o-ctl .tog, .o-ctl select, .o-ctl .x { min-height: 40px; min-width: 44px; }
+  .pop { width: min(310px, calc(100vw - 28px)); }
+}
