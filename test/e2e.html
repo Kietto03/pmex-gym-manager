@@ -503,6 +503,7 @@ f.onload = async () => {
     pikachu.click();
     await until(() => $$('.g-tile').length > 30, 20000); await sleep(200);
     log($$('.g-tile').length > 30 && $$('.g-tile.open').length >= 1 && $$('.g-tile.open').length <= 6, 'grid: only tiles next to the centre can be switched on at first', `${$$('.g-tile').length} tiles, ${$$('.g-tile.open').length} open, hash ${W().location.hash}, ${(pikachu.innerText||'').replace(/\\n/g,' ')}`);
+    log(/pmrandom\.dpdns\.org\/static\/data\/chara\/ch\d{4}_\d\d_\w+_1024\.png/.test($('.pl-art.trainer img')?.src || '') && /static\/data\/pkmn\/pm\d{4}_\d\d_/.test($('.pl-art.poke img')?.src || ''), 'grid: the plate shows the game\'s 2D trainer art and the Pokémon render', ($('.pl-art.trainer img')?.src || '').split('/').pop());
     const clickTile = el => el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     const openTile = $('.g-tile.open'); clickTile(openTile); await sleep(150);
     log($$('.g-tile.on').length === 1 && $$('.g-tile.open').length > 1 && /tiles/i.test($('.gstats')?.innerText || 'tiles'), 'grid: one click switches a tile on, and that opens its neighbours');

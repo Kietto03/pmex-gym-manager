@@ -68,7 +68,7 @@ export function formViews(d) {
 
     const mech = alt ? mechOf(alt) : mechOf(null);
     return {
-      kind, mech, sprite: alt ? alt.sprite : d.pokeSprite, teraType: alt?.teraType || '',
+      kind, mech, sprite: alt ? alt.sprite : d.pokeSprite, rawLabel: alt?.label || '', teraType: alt?.teraType || '',
       label: alt ? (formText(alt.label) || mech.name) : d.pokemon,
       stats: alt?.stats || d.stats || {},
       moves, sync, extra, passives, extraPassives,

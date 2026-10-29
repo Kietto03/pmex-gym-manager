@@ -87,6 +87,7 @@ export async function loadCatalog() {
     rarity: +p.syncPairRarity || 5,          // base stars (3–5); members raise it to 5★ before 6★ EX
     maxBonus: p.syncPairSuperawakening ? 10 : 5,
     exPose: !!p.syncPairEXPose,
+    iTrainer: p.internalTrainerName || '', iPoke: p.internalPokemonName || '',   // names of the pictures at pmrandom (src/art.js)
     dex: p.dexNumber, pnum: p.pokemonNumber,   // SyncPairsTracker backups are keyed by "<dex>|<pnum>"
     release: p.releaseDate,
     acquisition: p.syncPairAcquisition,

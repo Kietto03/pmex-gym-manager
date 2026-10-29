@@ -1437,3 +1437,21 @@ svg.hlmode .g-tile { opacity: .22; transition: opacity .12s; } svg.hlmode .g-til
 .mv.changed { border-color: color-mix(in srgb, var(--mc) 55%, var(--line-2)); }
 .mv .rb.chg { color: color-mix(in srgb, var(--mc, var(--text)) 60%, var(--text)); border-color: var(--mc, currentColor); }
 .mv.sync .rb.chg { color: inherit; border-color: currentColor; }
+
+/* the plate's stage: the game's 2D trainer art (cropped to a portrait) and the 3D render of the Pokémon in the chosen form */
+.pl-stage { min-width: 340px; padding: 12px 18px 12px; gap: 0; }
+.pl-art { position: relative; z-index: 1; display: block; flex: none; }
+.pl-art img { display: block; max-width: none; }
+.pl-art.trainer { width: 150px; height: 214px; overflow: hidden; }
+.pl-art.trainer img { position: absolute; width: 440px; height: 440px; left: -144px; top: -80px; }
+.pl-art.poke { width: 160px; height: 160px; margin-left: -14px; align-self: flex-end; margin-bottom: 4px; }
+.pl-art.poke img { width: 160px; height: 160px; }
+.pl-art.fb.trainer { width: 120px; height: 120px; align-self: flex-end; overflow: visible; }
+.pl-art.fb.poke { width: 144px; height: 144px; }
+.pl-art.fb img { position: static; width: 100%; height: 100%; image-rendering: pixelated; }
+.pl-form { position: absolute; top: 10px; right: 10px; z-index: 2; background: var(--surface); }
+@media (max-width: 720px) {
+  .pl-stage { min-width: 0; justify-content: center; }
+  .pl-art.trainer { width: 112px; height: 160px; } .pl-art.trainer img { width: 330px; height: 330px; left: -108px; top: -60px; }
+  .pl-art.poke, .pl-art.poke img { width: 124px; height: 124px; }
+}

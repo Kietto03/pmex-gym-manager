@@ -6,6 +6,7 @@ import { splitDescription, count } from '../moves.js';
 import { byAcquisition, acqLabel } from '../acquisition.js';
 import { STATS, gridBonus, totalStats } from '../stats.js';
 import { formViews, allMoveNames } from '../forms.js';
+import { trainerArt, pokeArt, formStem } from '../art.js';
 import { indexGrid, whyNot, canRemove, validate, totals, levelNeeded, otherReqs, gridHash, hexXY, COLORS } from '../grid.js';
 import { PAIRS, loadPairDetail, dexIdOf, pairById, pairName, pairImage, TYPE_COLORS, TYPES, typeIcon, roleIcon, DEX } from '../catalog.js';
 
@@ -52,13 +53,30 @@ const glyph = (k, size = 12) => `<svg class="gl" viewBox="-6 -6 12 12" width="${
 const hexPip = (on) => `<svg class="hp ${on ? 'on' : ''}" viewBox="-6 -6 12 12" width="14" height="14" aria-hidden="true"><polygon points="${hexPts(0, 0, 5.4)}"/></svg>`;
 
 // ── the header: who this pair is, as the game shows it ──
+// The game's pictures live at pmrandom: the index of their forms is read once; until then (or when it is missing) the Dex sprites stand in
+let artIdx = null;
+async function loadArt() {
+  if (artIdx !== null) return;
+  artIdx = false;
+  try { const r = await fetch('data/pkmn-art.json'); if (r.ok) artIdx = (await r.json()).pkmn; } catch { /* the Dex sprites stay */ }
+  if (artIdx && location.hash.startsWith('#/grid/') && G.detail) redrawHead();
+}
+window.plFallback = img => { img.onerror = null; if (img.dataset.fb) img.src = img.dataset.fb; img.closest('.pl-art')?.classList.add('fb'); };
+const redrawHead = () => { const h = $('#pair-head'); if (h) h.outerHTML = pairHeader(pairById(G.pairId)); };
 function pairHeader(p) {
+  loadArt();
   const d = G.detail, own = ownedPair(S.me, G.pairId), tc = TYPE_COLORS[d.type || p?.type] || '#8d99a6';
-  const spr = (src, cls, alt) => src ? `<img class="pl-sp ${cls}" src="${esc(DEX + src)}" alt="${esc(alt)}" width="${cls === 'trainer' ? 120 : 144}" height="${cls === 'trainer' ? 120 : 144}" onerror="this.remove()">` : '';
+  const view = pairForms()[G.form] || pairForms()[0];
+  // trainer: the 2D art of the game (the EX pose when the member has this pair at EX); Pokémon: the render of the form picked in the side panel
+  const tUrl = trainerArt(p, own?.ex && p?.exPose), tFb = d.trainerSprite ? DEX + d.trainerSprite : '';
+  // a form that looks like the normal form (the Dex shows the same sprite for both) takes the normal form's picture
+  const stem = p?.iPoke ? formStem(view, p.iPoke, artIdx) || (view.kind === 'form' && view.sprite === d.pokeSprite ? p.iPoke : '') : '', pFb = view.sprite ? DEX + view.sprite : (d.pokeSprite ? DEX + d.pokeSprite : '');
+  const pUrl = stem ? pokeArt(stem) : '';
+  const art = (url, fb, cls, alt) => (url || fb) ? `<span class="pl-art ${cls} ${url ? '' : 'fb'}"><img src="${esc(url || fb)}" data-fb="${esc(fb)}" alt="${esc(alt)}" referrerpolicy="no-referrer" onerror="plFallback(this)"></span>` : '';
   const fact = (k, v) => v ? `<div><dt>${t(k)}</dt><dd>${v}</dd></div>` : '';
   const stars = d.rarity ? `<span class="pl-stars" role="img" aria-label="${d.rarity}★">${Array.from({ length: 5 }, (_, i) => hexPip(i < d.rarity)).join('')}</span>` : '';
-  return `<section class="gp-head plate" style="--tc:${tc}">
-    <div class="pl-stage" aria-hidden="${d.trainerSprite || d.pokeSprite ? 'false' : 'true'}">${spr(d.trainerSprite, 'trainer', d.trainer)}${spr(d.pokeSprite, 'poke', d.pokemon)}${!d.trainerSprite && !d.pokeSprite && p ? pairIcon(p, 'lg', own?.ex) : ''}<i class="pl-base"></i></div>
+  return `<section class="gp-head plate" id="pair-head" style="--tc:${tc}">
+    <div class="pl-stage">${art(tUrl, tFb, 'trainer', d.trainer)}${art(pUrl, pFb, 'poke', view.label)}${!tUrl && !tFb && !pUrl && !pFb && p ? pairIcon(p, 'lg', own?.ex) : ''}<i class="pl-base"></i>${view.kind !== 'base' ? `<b class="pl-form mk mk-${view.mech.key}">${view.mech.short}</b>` : ''}</div>
     <div class="pl-id"><small class="pl-no">${d.number ? `№ ${String(d.number).padStart(3, '0')}` : t('Sync pair')}${d.shiny ? ` · ${t('Shiny')}` : ''}${d.form ? ` · ${esc(d.form)}` : ''}</small>
       <h2>${esc(p ? p.trainer : d.trainer)} <i>&amp;</i> ${esc(p ? p.pokemon : d.pokemon)}</h2>
       <dl class="pl-facts">
@@ -287,7 +305,7 @@ document.addEventListener('click', async e => {
   if (sub) { G.sub = sub.dataset.gsub; redrawSide(); return; }
   if (stat) { G.statLevel = stat.dataset.gstat; redrawSide(); return; }
   const gform = e.target.closest('[data-gform]'), mvCard = e.target.closest('.mv[data-gmove]');
-  if (gform) { G.form = +gform.dataset.gform; redrawSide(); return; }
+  if (gform) { G.form = +gform.dataset.gform; redrawSide(); redrawHead(); return; }
   if (mvCard && !hoverOk()) { pinMove(mvCard.dataset.gmove); return; }   // on a touch screen a tap on a move lights its tiles
   if (zoom) { setZoom(gridZoom() + +zoom.dataset.gzoom); redrawBoard(); return; }
   if (fit) { const w = $('.grid-scroll')?.clientWidth || 600, svg = $('.grid-scroll svg'), vb = svg?.viewBox.baseVal; if (vb) setZoom(Math.max(0.4, Math.min(2.2, (w - 8) / vb.width))); redrawBoard(); return; }
