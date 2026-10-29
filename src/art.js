@@ -20,22 +20,46 @@ export const pokeArt = stem => (stem ? `${ART}static/data/pkmn/${stem}_256.png` 
 const norm = s => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 // pmrandom names a Terastal picture pm<number>_7<n>_<type index>_<name>: the type index follows the game's own order
 const TYPE_INDEX = { Normal: 1, Fire: 2, Water: 3, Electric: 4, Grass: 5, Ice: 6, Fighting: 7, Poison: 8, Ground: 9, Flying: 10, Psychic: 11, Bug: 12, Rock: 13, Ghost: 14, Dragon: 15, Dark: 16, Steel: 17, Fairy: 18 };
+// Forms the site names only by a code (pm<number>_<code>_<name>). What each code is, was checked against the pictures:
+//   Deoxys 11 normal, 12 attack, 13 defense, 14 speed · Terapagos 11 normal, 12 Terastal, 13 Stellar
+//   Zygarde's complete forme (zygarde100) and Ultra Necrozma (prismdragon) are pictures of their own name
+//   Silvally 11 normal and 12–28 one per type. Thirteen types are listed; Poison and Ghost (14, 18) and Flying and Steel (19, 25)
+//   have two pictures of nearly the same colour, so they are left to the Dex sprite until someone confirms which is which.
+const FORM_CODES = [
+  [/_deoxys$/, /Normal/i, 11], [/_deoxys$/, /Attack/i, 12], [/_deoxys$/, /Defen[cs]e/i, 13], [/_deoxys$/, /Speed/i, 14],
+  [/_terapagos$/, /Terastal/i, 12], [/_terapagos$/, /Stellar/i, 13],
+  [/_pokemonZ$/, /Complete/i, null, 'zygarde100'], [/_prism(sun|moon)$/, /Ultra/i, null, 'prismdragon'],
+];
+const SILVALLY = { Fire: 12, Water: 13, Ground: 15, Rock: 16, Bug: 17, Fighting: 20, Ice: 21, Grass: 22, Electric: 23, Psychic: 24, Dragon: 26, Dark: 27, Fairy: 28 };
+const formName = view => String(view.rawLabel ?? view.label ?? '').split(' · ').slice(1).join(' ') || String(view.rawLabel ?? view.label ?? '');
+// Some Pokémon sit under another number in one place than in another (Greninja is 0725, its Mega 0658): Mega and Primal are found by name in the whole index
+const named = (pkmn, want) => Object.entries(pkmn || {}).flatMap(([num, l]) => l.filter(([c, , n]) => c[0] === '5' && norm(n) === want).map(e => [num, ...e]));
+
 // The picture stem (pm<number>_<form>_<name>) of a form of the pair, or '' when it cannot be told for sure.
 //   base, Dynamax and Gigantamax look like the normal form (the site has no art of its own for them);
 //   Tera wears its crystal when the site has that Tera type for this Pokémon, else the normal form;
-//   Mega is found by its name; another form only when the Pokémon has exactly one other in-battle form.
+//   Mega and Primal are found by their name; the forms named in FORM_CODES by their code; another form only when the Pokémon
+//   has exactly one other in-battle form (same name part, another code).
 export function formStem(view, baseStem, pkmn) {
   if (!baseStem || !/^pm\d{4}_\d\d_/.test(baseStem)) return '';
-  const num = baseStem.slice(2, 6), baseCode = baseStem.slice(7, 9), list = pkmn?.[num] || [];
+  const num = baseStem.slice(2, 6), baseCode = baseStem.slice(7, 9), baseName = baseStem.slice(10), list = pkmn?.[num] || [];
   const full = ([c, s]) => `pm${num}_${c}_${s}`;
   const only = hits => (hits.length === 1 ? full(hits[0]) : '');
+  const byCode = (code, name = baseName) => only(list.filter(([c, s]) => (code == null ? c !== baseCode : +c === code) && s === name));
+  if (view.kind === 'base' || view.kind === 'dynamax' || view.kind === 'gigantamax') return baseStem;
+  const label = formName(view);
+  if (view.kind === 'form' || view.kind === 'tera') {
+    const rule = FORM_CODES.find(([b, l]) => b.test(baseStem) && l.test(label));
+    if (rule) return byCode(rule[2], rule[3]);
+    if (baseName === 'gryps2') { const t = /Type Change:\s*(\w+)/i.exec(label)?.[1]; return t && SILVALLY[t] ? byCode(SILVALLY[t]) : ''; }
+  }
   switch (view.kind) {
-    case 'base': case 'dynamax': case 'gigantamax': return baseStem;
     case 'tera': return only(list.filter(([c, s]) => c[0] === '7' && TYPE_INDEX[view.teraType] && +s.slice(0, 2) === TYPE_INDEX[view.teraType])) || baseStem;
-    case 'mega': { const want = norm(String(view.rawLabel ?? view.label).split(' · ')[0]); return only(list.filter(([c, , n]) => c[0] === '5' && norm(n) === want)); }
-    case 'form': {   // a named one first ("Primal Groudon"), else the only other in-battle form
-      const want = norm(String(view.rawLabel ?? view.label).split(' · ')[0]);
-      return only(list.filter(([c, , n]) => c[0] === '5' && norm(n) === want)) || only(list.filter(([c]) => c !== baseCode && !'567'.includes(c[0])));
+    case 'mega': { const hits = named(pkmn, norm(String(view.rawLabel ?? view.label).split(' · ')[0])); return hits.length === 1 ? `pm${hits[0][0]}_${hits[0][1]}_${hits[0][2]}` : ''; }
+    case 'form': {
+      const hits = named(pkmn, norm(String(view.rawLabel ?? view.label).split(' · ')[0]));
+      if (hits.length === 1) return `pm${hits[0][0]}_${hits[0][1]}_${hits[0][2]}`;   // "Primal Groudon"
+      return only(list.filter(([c, s]) => c !== baseCode && s === baseName && !'567'.includes(c[0])));
     }
     default: return '';
   }

@@ -34,6 +34,32 @@ assert.equal(formStem({ kind: 'form', rawLabel: 'Primal Groudon' }, 'pm0383_00_g
 assert.equal(formStem({ kind: 'weird' }, base, pkmn), '');
 assert.equal(formStem({ kind: 'base' }, '', pkmn), '');
 assert.equal(formStem({ kind: 'mega', label: 'Mega Charizard X' }, base, null), '', 'no index yet: nothing guessed');
+// forms the site tells apart only by a code
+const dx = { '0386': [['11', 'deoxys', 'Deoxys'], ['12', 'deoxys', 'Deoxys'], ['13', 'deoxys', 'Deoxys'], ['14', 'deoxys', 'Deoxys']] };
+const deo = l => formStem({ kind: 'form', rawLabel: l }, 'pm0386_11_deoxys', dx);
+assert.equal(deo('Deoxys · Attack Forme'), 'pm0386_12_deoxys');
+assert.equal(deo('Deoxys · Defense Forme'), 'pm0386_13_deoxys');
+assert.equal(deo('Deoxys · Speed Forme'), 'pm0386_14_deoxys');
+assert.equal(deo('Deoxys · Normal Forme (After “Try This!”)'), 'pm0386_11_deoxys');
+assert.equal(deo('Deoxys · Mystery'), '', 'a Deoxys form that is not named is not guessed');
+const tp = { '1024': [['11', '00_terapagos', 'Terapagos'], ['12', '00_terapagos', 'Terapagos'], ['13', '00_terapagos', 'Terapagos']] };
+assert.equal(formStem({ kind: 'form', rawLabel: 'Terapagos · Terastal Form' }, 'pm1024_11_00_terapagos', tp), 'pm1024_12_00_terapagos');
+assert.equal(formStem({ kind: 'tera', rawLabel: 'Terapagos · Tera Stellar', teraType: 'Stellar' }, 'pm1024_11_00_terapagos', tp), 'pm1024_13_00_terapagos', 'Stellar is its own picture, not the normal form');
+const sv = { '0862': [['11', 'gryps2', 'Silvally'], ['12', 'gryps2', 'Silvally'], ['13', 'gryps2', 'Silvally'], ['14', 'gryps2', 'Silvally'], ['26', 'gryps2', 'Silvally'], ['00', '31_tachifusaguma', 'Other']] };
+assert.equal(formStem({ kind: 'form', rawLabel: 'Silvally · Type Change: Fire' }, 'pm0862_11_gryps2', sv), 'pm0862_12_gryps2');
+assert.equal(formStem({ kind: 'form', rawLabel: 'Silvally · Type Change: Dragon' }, 'pm0862_11_gryps2', sv), 'pm0862_26_gryps2');
+assert.equal(formStem({ kind: 'form', rawLabel: 'Silvally · Type Change: Poison' }, 'pm0862_11_gryps2', sv), '', 'two pictures of the same colour: left to the Dex sprite');
+const nz = { '0865': [['12', 'prismsun', 'Necrozma'], ['14', 'prismdragon', 'Necrozma']] };
+assert.equal(formStem({ kind: 'form', rawLabel: 'Necrozma · Ultra Necrozma' }, 'pm0865_12_prismsun', nz), 'pm0865_14_prismdragon');
+const zg = { '0770': [['00', 'pokemonZ', 'Zygarde'], ['15', 'zygarde100', 'Zygarde']] };
+assert.equal(formStem({ kind: 'form', rawLabel: 'Zygarde · Complete Forme' }, 'pm0770_00_pokemonZ', zg), 'pm0770_15_zygarde100');
+const mm = { '0819': [['11', 'horror', 'Mimikyu'], ['12', 'horror', 'Mimikyu'], ['00', '00_hoshigarisu', 'Other']] };
+assert.equal(formStem({ kind: 'form', rawLabel: 'Mimikyu · Busted Form' }, 'pm0819_11_horror', mm), 'pm0819_12_horror', 'another Pokémon under the same number does not count');
+// a Mega that the site keeps under another number than the base
+const gr = { '0725': [['00', 'frog3', 'Greninja']], '0658': [['51', '00_megagekkouga', 'Mega Greninja']] };
+assert.equal(formStem({ kind: 'mega', rawLabel: 'Mega Greninja' }, 'pm0725_00_frog3', gr), 'pm0658_51_00_megagekkouga');
+assert.equal(formStem({ kind: 'form', rawLabel: 'Greninja · Sync Move: Dark' }, 'pm0725_00_frog3', gr), '', 'looks like the normal form: the page falls back to it');
+
 // backups: Serebii's pictures, and what kind of picture an address is
 assert.equal(SEREBII, 'https://www.serebii.net/pokemonmasters/');
 assert.equal(trainerBackup('hau-arcsuit'), 'https://www.serebii.net/pokemonmasters/syncpairs/hau-arcsuit.png');
