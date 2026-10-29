@@ -54,7 +54,12 @@ async function fetchCatalog() {
   const url = `${POMA}js/syncpairs.json`;
   let store = null;
   try { store = await caches.open('pmex-catalog'); } catch { /* private window: no cache, plain fetch */ }
-  const fresh = fetch(url).then(async r => { if (!r.ok) throw new Error(`Sync pair list unavailable (${r.status})`); if (store) await store.put(url, r.clone()).catch(() => {}); return r.json(); });
+  const fresh = fetch(url).then(async r => {
+    if (!r.ok) throw new Error(`Sync pair list unavailable (${r.status})`);
+    const copy = r.clone(), data = await r.json();
+    if (store) store.put(url, copy).catch(() => {});   // kept for the next visit; never holds this one up
+    return data;
+  });
   const hit = store && await store.match(url).catch(() => null);
   if (hit) { fresh.catch(() => {}); try { return await hit.json(); } catch { /* damaged copy: wait for the network */ } }
   return fresh;
