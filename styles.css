@@ -659,7 +659,7 @@ body { letter-spacing: 0; }
 .icon-btn .ico { width: 16px; height: 16px; }
 .user span { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .x .ico { width: 11px; height: 11px; }
-.cell span .ico { width: 13px; height: 13px; }
+.cell span .ico { width: 16px; height: 16px; }
 .stand small .ico, .lp small .ico { width: 10px; height: 10px; vertical-align: -1px; }
 .planned .ico { width: 13px; height: 13px; }
 .planned::before { display: none; }
