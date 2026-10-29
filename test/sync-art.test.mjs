@@ -9,7 +9,7 @@ const html = `
 <div class="image-item"><a><img id="normal_pm0679_00_hitomoshi" data-src="static/data/pkmn/pm0679_00_hitomoshi_256.png" alt="Honedge &amp; Co"></a></div>`;
 const a = parseArt(html);
 assert.deepEqual(Object.keys(a), ['0006', '0679']);
-assert.deepEqual(a['0006'], [['00', 'lizardon', 'Charizard'], ['51', 'megalizardonX', 'Mega Charizard X'], ['71', '15_lizardon', 'Charizard']]);   // shiny twins are not listed
+assert.deepEqual(a['0006'], [['00', 'lizardon', 'Charizard', 1], ['51', 'megalizardonX', 'Mega Charizard X'], ['71', '15_lizardon', 'Charizard']]);   // a shiny twin is a flag on its picture, not an entry of its own
 assert.equal(a['0679'][0][2], 'Honedge & Co');
 assert.deepEqual(parseArt('<html>nothing</html>'), {});
 // Serebii backups: the names a picture could have there
@@ -25,5 +25,6 @@ assert.deepEqual(serebiiPokemonNames({ internalPokemonName: 'pm0892_11_00_wulaos
 assert.deepEqual(serebiiPokemonNames({ internalPokemonName: 'pm0892_12_00_wulaosu' }), ['892-r']);
 assert.deepEqual(serebiiPokemonNames({ internalPokemonName: 'pm0026_61_araichu' }), [], 'a form that cannot be named for sure is not guessed');
 assert.deepEqual(serebiiPokemonNames({ internalPokemonName: '' }), []);
+assert.deepEqual(serebiiPokemonNames({ internalPokemonName: 'pm0857_00_00_tebrim_rare' }), [], 'Serebii has no shiny pictures');
 assert.deepEqual([...parseIds('static/data/chara/ch0098_00_hau_1024.png static/data/chara/ch0098_00_hau_expose_1024.png', /static\/data\/chara\/(ch\d{4}_\d\d_[A-Za-z0-9]+)_1024\.png/g)], ['ch0098_00_hau']);
 console.log('art index: all passed');

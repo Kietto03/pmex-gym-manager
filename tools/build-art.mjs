@@ -9,9 +9,11 @@ export const SEREBII = 'https://www.serebii.net/pokemonmasters/';
 
 export function parseArt(html) {
   const pkmn = {};
+  // a picture that also has a shiny twin (…_rare_256.png) is marked with a 1 as its fourth item
+  const shiny = new Set([...html.matchAll(/<img id="shiny_(pm\d{4}_\d\d_[^"]+)"/g)].map(m => m[1]));
   for (const m of html.matchAll(/<img id="normal_pm(\d{4})_(\d\d)_([^"]+)" data-src="[^"]+" alt="([^"]*)"/g)) {
     const [, num, code, stem, name] = m;
-    (pkmn[num] ||= []).push([code, stem, name.replace(/&amp;/g, '&').replace(/&#0?39;/g, '’').trim()]);
+    (pkmn[num] ||= []).push([code, stem, name.replace(/&amp;/g, '&').replace(/&#0?39;/g, '’').trim(), ...(shiny.has(`pm${num}_${code}_${stem}`) ? [1] : [])]);
   }
   return pkmn;
 }
@@ -27,7 +29,7 @@ export function serebiiTrainerSlugs(p) {
 const POKE_FORMS = { '0892_11': '892', '0892_12': '892-r' };
 export function serebiiPokemonNames(p) {
   const m = /^pm(\d{4})_(\d\d)_/.exec(p.internalPokemonName || '');
-  if (!m) return [];
+  if (!m || /_rare$/.test(p.internalPokemonName)) return [];   // Serebii has no shiny pictures
   const named = POKE_FORMS[`${m[1]}_${m[2]}`];
   if (named) return [named];
   return m[2] === '00' ? [String(+m[1]).padStart(3, '0')] : [];

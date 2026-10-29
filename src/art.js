@@ -36,11 +36,12 @@ const formName = view => String(view.rawLabel ?? view.label ?? '').split(' · ')
 const named = (pkmn, want) => Object.entries(pkmn || {}).flatMap(([num, l]) => l.filter(([c, , n]) => c[0] === '5' && norm(n) === want).map(e => [num, ...e]));
 
 // The picture stem (pm<number>_<form>_<name>) of a form of the pair, or '' when it cannot be told for sure.
+//   (a shiny pair keeps its colours: see formStem below)
 //   base, Dynamax and Gigantamax look like the normal form (the site has no art of its own for them);
 //   Tera wears its crystal when the site has that Tera type for this Pokémon, else the normal form;
 //   Mega and Primal are found by their name; the forms named in FORM_CODES by their code; another form only when the Pokémon
 //   has exactly one other in-battle form (same name part, another code).
-export function formStem(view, baseStem, pkmn) {
+function plainFormStem(view, baseStem, pkmn) {
   if (!baseStem || !/^pm\d{4}_\d\d_/.test(baseStem)) return '';
   const num = baseStem.slice(2, 6), baseCode = baseStem.slice(7, 9), baseName = baseStem.slice(10), list = pkmn?.[num] || [];
   const full = ([c, s]) => `pm${num}_${c}_${s}`;
@@ -63,4 +64,16 @@ export function formStem(view, baseStem, pkmn) {
     }
     default: return '';
   }
+}
+
+// A shiny pair (its picture ends in _rare) shows every form as shiny too. pmrandom has the shiny twin of most forms; where it has none the
+// answer is '' so that the page falls back to the Dex sprite of that form, which is shiny as well — never to the normal colours.
+export function formStem(view, baseStem, pkmn) {
+  const shiny = /_rare$/.test(baseStem || ''), plain = shiny ? baseStem.slice(0, -5) : baseStem;
+  const stem = plainFormStem(view, plain, pkmn);
+  if (!stem || !shiny) return stem;
+  if (stem === plain) return baseStem;
+  const [, num, code, name] = /^pm(\d{4})_(\d\d)_(.+)$/.exec(stem) || [];
+  const entry = (pkmn?.[num] || []).find(e => e[0] === code && e[1] === name);
+  return entry?.[3] ? `${stem}_rare` : '';
 }

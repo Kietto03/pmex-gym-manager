@@ -60,6 +60,17 @@ const gr = { '0725': [['00', 'frog3', 'Greninja']], '0658': [['51', '00_megagekk
 assert.equal(formStem({ kind: 'mega', rawLabel: 'Mega Greninja' }, 'pm0725_00_frog3', gr), 'pm0658_51_00_megagekkouga');
 assert.equal(formStem({ kind: 'form', rawLabel: 'Greninja · Sync Move: Dark' }, 'pm0725_00_frog3', gr), '', 'looks like the normal form: the page falls back to it');
 
+// a shiny pair keeps its colours in every form
+const sh = { '0383': [['00', 'groudon', 'Groudon', 1], ['51', 'groudonsp', 'Primal Groudon', 1]], '0865': [['12', 'prismsun', 'Necrozma', 1], ['14', 'prismdragon', 'Necrozma']],
+  '0248': [['00', 'bangiras', 'Tyranitar', 1], ['51', 'megabangiras', 'Mega Tyranitar', 1]], '0006': [['00', 'lizardon', 'Charizard', 1], ['51', 'megalizardonX', 'Mega Charizard X']] };
+assert.equal(formStem({ kind: 'base' }, 'pm0383_00_groudon_rare', sh), 'pm0383_00_groudon_rare');
+assert.equal(formStem({ kind: 'form', rawLabel: 'Primal Groudon' }, 'pm0383_00_groudon_rare', sh), 'pm0383_51_groudonsp_rare', 'the shiny Primal form');
+assert.equal(formStem({ kind: 'mega', rawLabel: 'Mega Tyranitar' }, 'pm0248_00_bangiras_rare', sh), 'pm0248_51_megabangiras_rare');
+assert.equal(formStem({ kind: 'mega', rawLabel: 'Mega Charizard X' }, 'pm0006_00_lizardon_rare', sh), '', 'no shiny twin on the site: the Dex sprite (shiny too), never the normal colours');
+assert.equal(formStem({ kind: 'form', rawLabel: 'Necrozma · Ultra Necrozma' }, 'pm0865_12_prismsun_rare', sh), '', 'Ultra Necrozma has no shiny twin');
+assert.equal(formStem({ kind: 'mega', rawLabel: 'Mega Charizard X' }, 'pm0006_00_lizardon', sh), 'pm0006_51_megalizardonX', 'a normal pair is unchanged');
+assert.equal(formStem({ kind: 'tera', teraType: 'Fire' }, 'pm0383_00_groudon_rare', sh), 'pm0383_00_groudon_rare', 'Tera that looks like the normal form keeps the shiny colours');
+
 // backups: Serebii's pictures, and what kind of picture an address is
 assert.equal(SEREBII, 'https://www.serebii.net/pokemonmasters/');
 assert.equal(trainerBackup('hau-arcsuit'), 'https://www.serebii.net/pokemonmasters/syncpairs/hau-arcsuit.png');
