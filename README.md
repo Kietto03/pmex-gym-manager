@@ -1,5 +1,7 @@
 # PMEX Gym Manager
 
+> Documentation: [architecture and system design](docs/architecture.md) · [automatic data updates](docs/data-sync.md) · [v2.0 status](docs/v2-status.md)
+
 A small web app for running a **Pokémon Masters EX** gym: member accounts, the sync pairs each member owns, Pasio Tower progress, and a shared log and plan for every **Gym Battle** season.
 
 **Live demo:** <https://kietto03.github.io/pmex-gym-manager/?demo> (sample data kept in your browser, nothing is saved)
