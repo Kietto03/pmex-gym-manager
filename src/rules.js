@@ -9,22 +9,9 @@ export const TOWER_TOP = 40;
 const DAY = 864e5;
 
 // ─── Circuits ───────────────────────────────────────────────
-// Round n of a season. Past the last circuit, an "… and onward" circuit repeats
-// (Extra Battle 12, 13, …); anything else ends the season.
-export function circuitAt(season, n) {
-  const C = season.circuits || [];
-  const last = C[C.length - 1];
-  const onward = last && /and onward/i.test(last.name);
-  const from = onward ? +(last.name.match(/(\d+)/)?.[1] || 0) : 0;
-  const regular = c => /^regular/i.test(c.kind || '');
-  if (n >= 1 && n <= C.length) {
-    const c = C[n - 1];
-    return { ...c, n, fixed: regular(c) ? 3 : null, label: onward && n === C.length ? `Extra Battle ${from}` : c.name };
-  }
-  if (onward && n > C.length) return { ...last, n, fixed: regular(last) ? 3 : null, repeat: true, label: `Extra Battle ${from + n - C.length}` };
-  return null;
-}
-export const roundShort = label => String(label).replace(/^Circuit (\d+)/, 'C$1').replace(/^Extra Battle (\d+).*/, 'EX$1');
+// (circuitAt, circuitGuide and roundShort live in circuits.js, which has no DOM and can be tested alone)
+import { circuitAt } from './circuits.js';
+export { circuitAt, circuitGuide, roundShort } from './circuits.js';
 
 // ─── Tickets ────────────────────────────────────────────────
 // day1 when Battle opens, +daily every 24 h until Battle ends, capped per member

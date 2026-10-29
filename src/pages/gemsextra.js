@@ -1,8 +1,9 @@
 // Free Gems: what was earned (history), the year in numbers (overview) and the event calendar.
 // All three read the community Gems sheet (data/gems-sheet.json) and, for the calendar, the scouts of the Dex (data/events.json).
-import { esc, fmtN, fmtD, img, pairIcon, S, hooks } from '../core.js';
+import { esc, fmtN, fmtD, fmtDT, fmtLeft, img, pairIcon, S, hooks } from '../core.js';
 import { t, locale } from '../i18n.js';
-import { addDays, monthEnd } from '../gems.js';
+import { addDays, monthEnd, groupEvents, eventStatus } from '../gems.js';
+import { eventBanner } from '../art.js';
 import { PAIRS, typeIcon } from '../catalog.js';
 
 const ui = { period: '', cal: '' };
@@ -52,12 +53,37 @@ export function gemOverview(today) {
 // ── Calendar: one month, the gems of each day and the scouts running ──
 const EVENT_COLORS = ['#e8741f', '#3c8de8', '#3ca06e', '#b45bd6', '#d6384f', '#c9a000'];
 function monthEvents(from, to) {
-  const scouts = (S.events?.events || []).map(e => ({ title: e.title, type: e.type, start: e.start.slice(0, 10), end: (e.end || e.start).slice(0, 10), open: !e.end, rateUp: e.rateUp }));
+  const scouts = (S.events?.events || []).map(e => ({ id: e.id, banner: e.banner === 1, title: e.title, type: e.type, start: e.start.slice(0, 10), startAt: e.start.length > 10 ? e.start : undefined, end: (e.end || e.start).slice(0, 10), endAt: e.end && e.end.length > 10 ? e.end : undefined, open: !e.end, rateUp: e.rateUp }));
   const firstScout = scouts[0]?.start || '9999';
   const banners = (sheet()?.banners || []).filter(b => b.start < firstScout).map(b => ({ title: b.name, type: b.type, start: b.start, end: b.end || b.start, rateUp: [] }));   // the sheet fills the months before the datamine's scouts
   return [...banners, ...scouts].filter(e => e.end >= from && e.start <= to).sort((a, b) => a.start.localeCompare(b.start) || a.title.localeCompare(b.title));
 }
 const pairOf = r => PAIRS().find(p => p.trainer.toLowerCase() === r.trainer.toLowerCase() && p.pokemon.toLowerCase() === r.pokemon.toLowerCase());
+// ── The event list: grouped by the moment events start, with the banner, a clear start time and where each one stands ──
+const startText = e => (e.startAt ? fmtDT(`${e.startAt}Z`) : day(e.start));
+const endText = e => (e.open ? t('no end date') : e.endAt ? fmtDT(`${e.endAt}Z`) : day(e.end));
+function statusChip(e) {
+  const st = eventStatus(e);
+  return st.state === 'running' ? `<span class="ev-st running">${t('Running')}${st.ms != null ? ` · ${t('ends in {t}', { t: fmtLeft(st.ms) })}` : ''}</span>`
+    : st.state === 'upcoming' ? `<span class="ev-st soon">${t('Starts in {t}', { t: fmtLeft(st.ms) })}</span>` : `<span class="ev-st ended">${t('Ended')}</span>`;
+}
+function eventCard(e, colorOf, i) {
+  const pairs = (e.rateUp || []).map(r => pairOf(r)).filter(Boolean);
+  return `<article class="ev" style="--c:${colorOf(i)}">${e.banner ? `<img class="ev-banner" src="${esc(eventBanner(e.id))}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}
+    <div class="ev-body"><div class="ev-top"><span class="chip">${esc(e.type)}</span>${statusChip(e)}</div>
+      <h4>${esc(e.title)}</h4>
+      <p class="ev-when"><b>${t('Starts')} ${esc(startText(e))}</b><span>${t('Ends')} ${esc(endText(e))}</span></p>
+      ${pairs.length ? `<div class="ev-pairs">${pairs.slice(0, 4).map(p => `<span title="${esc(`${p.trainer} & ${p.pokemon}`)}">${pairIcon(p, 'xs')}<small>${esc(p.trainer.replace(/\s*\(.*\)/, ''))}</small></span>`).join('')}${pairs.length > 4 ? `<small class="muted">+${pairs.length - 4}</small>` : ''}</div>` : ''}</div></article>`;
+}
+function eventList(events, first, last, title, colorOf) {
+  const { running, groups } = groupEvents(events, first, last), idx = new Map(events.map((e, i) => [e, i]));
+  const runLine = e => `<div class="ev-run"><i style="background:${colorOf(idx.get(e))}"></i><b>${esc(e.title)}</b><small class="muted">${esc(e.type)} · ${t('Ends')} ${esc(endText(e))}</small></div>`;
+  return `<h2 class="section">${t('Events in {m}', { m: title })} <small>${events.length}</small></h2>
+  ${events.length ? '' : `<p class="muted pad">${t('No events listed for this month.')}</p>`}
+  ${running.length ? `<details class="ev-day running"><summary><h3><b>${t('Already running at the start of the month')}</b><small>${running.length}</small></h3></summary><div class="card list">${running.map(runLine).join('')}</div></details>` : ''}
+  ${groups.map(g => `<section class="ev-day"><h3><b>${esc(g.events[0].startAt ? fmtDT(`${g.events[0].startAt}Z`) : day(g.date))}</b><small>${t('{n} events', { n: g.events.length })}</small></h3>
+    <div class="ev-grid">${g.events.map(e => eventCard(e, colorOf, idx.get(e))).join('')}</div></section>`).join('')}`;
+}
 export function gemCalendar(today) {
   const month = ui.cal || today.slice(0, 7), first = `${month}-01`, last = monthEnd(first), sh = sheet(), byDate = new Map((sh?.days || []).map(d => [d.date, d]));
   const lead = (new Date(`${first}T00:00:00Z`).getUTCDay() + 6) % 7, cells = [...Array(lead).fill(null), ...Array.from({ length: +last.slice(8) }, (_, i) => `${month}-${String(i + 1).padStart(2, '0')}`)];
@@ -72,9 +98,7 @@ export function gemCalendar(today) {
     return `<div class="gx-d ${d === today ? 'today' : ''} ${d < today ? 'past' : ''}"><div class="top"><span class="n">${+d.slice(8)}</span>${g ? `<span class="g ${d > today ? 'plan' : ''}" title="${t('Free Gems')}">${fmtN(g.gems)}</span>` : ''}</div>
       <div class="evs">${starts.slice(0, 2).map(([e, i]) => `<em style="--c:${colorOf(i)}" title="${esc(e.title)}">${esc(e.title.replace(/ ?(Scout|Tiered|One-Time-Only|5★-Guaranteed)/g, '').trim().slice(0, 22))}</em>`).join('')}${starts.length > 2 ? `<small class="muted">+${starts.length - 2}</small>` : ''}${running && !starts.length ? `<small class="muted">${t('{n} running', { n: running })}</small>` : ''}</div></div>`;
   }).join('')}</div>
-  <h2 class="section">${t('Events this month')} <small>${events.length}</small></h2>
-  <div class="card list">${events.map((e, i) => `<div class="run gx-ev"><i class="gx-dot" style="background:${colorOf(i)}"></i><div><b>${esc(e.title)}</b><small class="muted">${esc(e.type)} · ${esc(day(e.start))}${e.open ? ` · ${t('no end date')}` : ` → ${esc(day(e.end))}`}</small></div>
-    <span class="gx-pairs">${(e.rateUp || []).slice(0, 4).map(r => { const p = pairOf(r); return p ? pairIcon(p, 'xs') : ''; }).join('')}</span></div>`).join('') || `<p class="muted pad">${t('No events listed for this month.')}</p>`}</div>
+  ${eventList(events, first, last, title, colorOf)}
   <p class="muted">${t('Gems per day come from the community Gems sheet (planned days are in italics). Scouts come from the datamine; the months before it come from the sheet’s banner list.')}</p>`;
 }
 

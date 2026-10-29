@@ -21,7 +21,7 @@ Serebii (Trainer Lodge)                    ┘                rồi đăng lại
 | Chỉ mục pair của Dex (grid, move, passive) | app đọc `pair-index.json` của Dex lúc chạy (Dex build ra cùng lúc với data); `data/pair-map.json` là bản dự phòng | ngay khi Dex build xong | 40 ngày |
 | Bảng Gems cộng đồng | `data/gems-sheet.json` | 6 giờ | 7 ngày |
 | Clear D.C. (3v3, 3v1) và GvG | `data/clears.json` (từ hai bảng Google của cộng đồng) | 6 giờ | 30 ngày |
-| Lịch scout (banner) | `data/events.json` (từ datamine qua Dex) | 6 giờ | 40 ngày |
+| Lịch scout (banner) | `data/events.json` (từ datamine qua Dex; kèm cờ `banner` kiểm tra ảnh ở brybry) | 6 giờ | 40 ngày |
 | Trainer Lodge (Serebii) | `data/lodge.json` | 6 giờ | 60 ngày |
 | Tier list (TQ, Spark, Nhật) | **chưa tự động**: TQ đòi đăng nhập, Spark là hình | — | — |
 

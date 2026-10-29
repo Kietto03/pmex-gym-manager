@@ -57,3 +57,26 @@ export function resolveUnit(unit, pairs) {
   cands = [...cands].sort((a, b) => score(b) - score(a));
   return cands.length ? { pair: cands[0], approx: !(exact && (cands.length === 1 || quals.length > 0 && cands.length <= 2)), candidates: cands.length } : null;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   The meta of the clears: which weakness type scores highest and with which team, and which pairs turn up most in the best teams.
+   ═══════════════════════════════════════════════════════════════ */
+// One row per weakness type, the strongest first: how many clears there are, the best one and the best `top`.
+export function metaByType(clears, { mode = '', top = 5 } = {}) {
+  const by = new Map();
+  for (const x of clears) { if ((mode && x.mode !== mode) || !x.type) continue; (by.get(x.type) || by.set(x.type, []).get(x.type)).push(x); }
+  const rows = [...by.entries()].map(([type, list]) => {
+    const sorted = [...list].sort((a, b) => b.score - a.score), best = sorted.slice(0, top);
+    return { type, count: list.length, best: sorted[0], top: best, avgTop: Math.round(best.reduce((a, x) => a + x.score, 0) / best.length) };
+  }).sort((a, b) => b.best.score - a.best.score || a.type.localeCompare(b.type));
+  return { rows, max: rows[0]?.best.score || 0 };
+}
+// The units that appear in the top clears of the types, most often first (a unit counts once per clear). `key` names a unit (a pair id).
+export function metaPairs(rows, key, limit = 12) {
+  const m = new Map();
+  for (const r of rows) for (const x of r.top) {
+    const seen = new Set();
+    for (const u of x.units) { const k = key(u); if (!k || seen.has(k)) continue; seen.add(k); const e = m.get(k) || { key: k, count: 0, types: new Set(), unit: u }; e.count++; e.types.add(r.type); m.set(k, e); }
+  }
+  return [...m.values()].sort((a, b) => b.count - a.count || b.types.size - a.types.size || String(a.key).localeCompare(String(b.key))).slice(0, limit).map(e => ({ key: e.key, unit: e.unit, count: e.count, types: e.types.size }));
+}

@@ -1,6 +1,6 @@
 // Run: node test/gems.test.mjs — Free Gems projection rules (src/gems.js)
 import assert from 'node:assert/strict';
-import { project, serverToday, monthEnd, addDays } from '../src/gems.js';
+import { groupEvents, eventStatus, project, serverToday, monthEnd, addDays } from '../src/gems.js';
 
 const R = (id, kind, start_date, end_date, free_gems, extra = {}) => ({ id, label: `r${id}`, kind, start_date, end_date, free_gems, ...extra });
 assert.equal(monthEnd('2026-10-26'), '2026-10-31');
@@ -41,4 +41,25 @@ assert.equal(whole.totals.earned, 25 * 10 + 300, 'days before the 26th are earne
 assert.equal(whole.totals.ahead, 6 * 10 + 500, 'the 26th on, with the one-off still open');
 assert.equal(whole.totals.all, 31 * 10 + 300 + 500);
 assert.equal(whole.windows[0].state, 'open');
+// the column "still to come": what is left after each day, to the end of the month
+assert.equal(whole.rows[0].left, 31 * 10 + 300 - 10, 'after the 1st everything but its 10 is left');
+assert.equal(whole.rows[4].left, 31 * 10 + 300 - (5 * 10 + 300), 'after the 5th, with the 300 of that day in');
+assert.equal(whole.rows[30].left, 0, 'after the last day nothing is left');
+assert.ok(whole.rows.every((r, i, a) => !i || r.left <= a[i - 1].left), 'it only goes down');
+assert.ok(whole.rows.every(r => r.left + r.cumulative === whole.totals.days), 'what is behind plus what is left is the month');
+// the event list: grouped by the moment an event starts, what began earlier first
+const E = (title, start, end, extra = {}) => ({ title, start: start.slice(0, 10), startAt: start.length > 10 ? start : undefined, end: end.slice(0, 10), endAt: end.length > 10 ? end : undefined, ...extra });
+const evs = [E('Late', '2026-11-12T06:00', '2026-12-01T06:00'), E('Early A', '2026-11-02T06:00', '2026-11-20T06:00'), E('Early B', '2026-11-02T06:00', '2026-11-09T06:00'), E('Before', '2026-10-20T06:00', '2026-11-05T06:00'), E('Sheet only', '2026-11-12', '2026-11-30'), E('After', '2026-12-03T06:00', '2026-12-20T06:00')];
+const gr = groupEvents(evs.filter(e => e.end >= '2026-11-01' && e.start <= '2026-11-30'), '2026-11-01', '2026-11-30');
+assert.deepEqual(gr.running.map(e => e.title), ['Before'], 'started before the month, still running');
+assert.deepEqual(gr.groups.map(g => `${g.date} ${g.time}`), ['2026-11-02 06:00', '2026-11-12 ', '2026-11-12 06:00'].sort(), 'by start moment, in order');
+assert.deepEqual(gr.groups.find(g => g.date === '2026-11-02').events.map(e => e.title), ['Early A', 'Early B'], 'events that start together share a group');
+assert.equal(gr.groups.find(g => g.key === '2026-11-12').time, '', 'an event known only by its day has no time');
+const now = Date.parse('2026-11-10T00:00:00Z');
+assert.deepEqual(eventStatus(E('x', '2026-11-12T06:00', '2026-12-01T06:00'), now), { state: 'upcoming', ms: Date.parse('2026-11-12T06:00Z') - now });
+assert.equal(eventStatus(E('x', '2026-11-02T06:00', '2026-11-20T06:00'), now).state, 'running');
+assert.equal(eventStatus(E('x', '2026-11-02T06:00', '2026-11-20T06:00'), now).ms, Date.parse('2026-11-20T06:00Z') - now);
+assert.equal(eventStatus(E('x', '2026-10-02T06:00', '2026-11-05T06:00'), now).state, 'ended');
+assert.equal(eventStatus(E('x', '2026-11-02', '2026-11-10'), now).state, 'running', 'a day-only event runs to the end of its last day');
+assert.equal(eventStatus({ title: 'x', start: '2026-11-02', end: '2026-11-02', open: true }, now).ms, null, 'no end date: no countdown');
 console.log('gems projection: all passed');

@@ -32,6 +32,7 @@ f.onload = async () => {
     log(!!$('.progress tbody tr.active'), 'progress matrix highlights the open round');
     log($$('.gim-board .gim-card').length === 8 && /Gimmicks this round/.test($('.gim-board').innerText), 'overview: the gimmick of every Gym Leader for the open round');
     log(!$$('.progress tbody tr').some(tr => false), 'overview: progress rows carry the gimmick tags');
+    log(!!$('#circuit-guide') && $$('.cg tbody tr').length >= 5 && !!$('.cg tr.target') && !!$('.cg tr.active') && /To reach/.test($('#circuit-guide p').innerText) && $$('.cg-g .gim-tag').length > 8, 'overview: the circuit guide lists the rounds with the running total, the round that reaches the target and each leader\'s rules');
     log(!$('#nav a[href="#/admin"]'), 'member does not see the admin menu');
     const hash0 = W().location.hash;
     log(!$('#companion').hidden && /red-directions/.test($('.m-dir').style.backgroundImage) && !!$('#brand-mascot .m-head'), 'trainer companion (Red) + logo from the page-mascot sheets');
@@ -436,6 +437,12 @@ f.onload = async () => {
     await until(() => $('.cl-card'));
     log($$('.cl-card').length > 20 && $$('.strat-modes button').length === 3, 'D.C. library: clears listed, three tabs (D.C., GvG, team strategies)', $$('.cl-card').length);
     log($$('.cl-u').length > 0 && $$('.cl-ph').length === 0, 'D.C. library: every pair of the listed clears has its icon (no placeholder letters)', $$('.cl-ph').length);
+    log($$('.cl-card img[src*="ytimg"], .cl-card img[src*="youtube"]').length === 0 && $$('.cl-watch').length > 5, 'D.C. library: a video is only a link, no picture is cut from it');
+    const metaScores = $$('.meta-score').map(x => +x.innerText.replace(/,/g, ''));
+    log($$('.meta-row').length >= 5 && $$('.meta-pair').length > 3 && metaScores.every((v, i) => !i || metaScores[i - 1] >= v), 'D.C. library: the meta board lists the types by their best score, strongest first, with the team and the pairs that recur');
+    const metaType = $('.meta-row').dataset.clType.split(':')[1]; $('.meta-row').click(); await sleep(200);
+    log($$('.cl-card').length > 0 && $$('.cl-card').every(c => (c.querySelector('.type')?.innerText || '').includes(metaType)) && $('.meta-row.on')?.dataset.clType === `dc:${metaType}`, 'D.C. library: a row of the meta board shows the clears of that type', metaType);
+    $('[data-cl-type="dc:"]').click(); await sleep(150);
     const dcAll = $$('.cl-card').length;
     $('[data-cl-type^="dc:Fire"]').click(); await sleep(150);
     log($$('.cl-card').length > 0 && $$('.cl-card').length < dcAll && $$('.cl-card').every(c => /Fire/.test(c.querySelector('.type')?.innerText || '')), 'D.C. library: filter by weakness type', `${dcAll} → ${$$('.cl-card').length}`);
@@ -587,12 +594,17 @@ f.onload = async () => {
     $('[data-gem-tab=overview]').click(); await sleep(250);
     log($$('.gx-m').length >= 9 && /Average per month/.test($('.kpis').innerText) && !!$('.gx-col u'), 'gems overview: the months of the year with the average line');
     $('[data-gem-tab=calendar]').click(); await sleep(250);
-    log($$('.gx-d').length >= 28 && $$('.gx-d .g').length > 10 && $$('.gx-ev').length > 0, 'gems calendar: gems per day and the events of the month', `${$$('.gx-d').length} days, ${$$('.gx-ev').length} events`);
+    log($$('.gx-d').length >= 28 && $$('.gx-d .g').length > 10 && $$('.ev').length > 0, 'gems calendar: gems per day and the events of the month', `${$$('.gx-d').length} days, ${$$('.ev').length} events`);
     $$('[data-gx-cal]')[0].click(); await sleep(200);
     log($$('.gx-d').length >= 28, 'gems calendar: previous month');
+    $$('[data-gx-cal]')[1].click(); await sleep(200); $$('[data-gx-cal]')[1].click(); await sleep(200);
+    log(/Events in/.test($('h2.section:last-of-type, h2.section').innerText) && !/this month/i.test(document.body ? W().document.body.innerText.match(/Events (in|this) [^\n]*/)?.[0] || '' : '') && $$('.ev').length > 0 && $$('.ev-when b').every(b => /Starts/.test(b.innerText)) && $$('.ev-day h3').length > 1, 'gems calendar: the list under it follows the month, grouped by start with the start time on every event');
+    $$('[data-gx-cal]')[0].click(); await sleep(150); $$('[data-gx-cal]')[0].click(); await sleep(150);
     $('[data-gem-tab=projection]').click(); await sleep(150);
     $('[data-gem-month="0"]').click(); await sleep(120); $('[data-gem-source=sheet]').click(); await sleep(150);
     log(/Earned so far/.test($('.kpis').innerText) && /Still to come/.test($('.kpis').innerText) && $$('tr.gx-past').length > 0 && $$('tr.gx-today').length === 1, 'gems projection: the whole month, past days marked, today highlighted');
+    const lefts = $$('td.gx-left').map(x => +x.innerText.replace(/,/g, ''));
+    log(lefts.length >= 28 && lefts.at(-1) === 0 && lefts.every((v, i) => !i || lefts[i - 1] >= v) && /Still to come/.test($('table.table thead').innerText), 'gems projection: a column with what is still to come to the end of the month, going down to 0');
 
     // 6l. Admin → Data updates
     await go('#/admin');

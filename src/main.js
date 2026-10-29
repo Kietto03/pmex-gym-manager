@@ -7,7 +7,7 @@ import { ico } from './icons.js';
 import { STYLES, ACCENTS, MODES, getAppearance, applyAppearance } from './appearance.js';
 import { MASCOTS, MASCOT_STYLES, mascotHead, mountCompanion } from './mascot.js?v=20261028-viola';
 import { t, getLang, setLang, LANGS, locale } from './i18n.js';
-import { TOWER_TOP, circuitAt, roundShort, seasonState, pointsIn, validateRun, readiness, pairWeight, levelLabel, suggestTeam } from './rules.js';
+import { TOWER_TOP, circuitAt, circuitGuide, roundShort, seasonState, pointsIn, validateRun, readiness, pairWeight, levelLabel, suggestTeam } from './rules.js';
 import { project as projectGems, serverToday, monthEnd, addDays } from './gems.js';
 import { indexGrid, whyNot, canRemove, validate, totals, levelNeeded, otherReqs, gridHash, hexXY, COLORS } from './grid.js';
 import { browserTz, allTimezones, validTz, toLocalInput, fromLocalInput, clockIn } from './time.js';
@@ -140,6 +140,21 @@ new MutationObserver(() => requestAnimationFrame(labelControls)).observe(view, {
   addEventListener('scroll', () => { const y = scrollY, bar = document.querySelector('.topbar'); if (bar) { bar.classList.toggle('away', y > lastY + 4 && y > 120); bar.classList.toggle('lifted', y > 6); } if (Math.abs(y - lastY) > 4) lastY = y; }, { passive: true });
 }
 hooks.route = route;
+
+// The road through the circuits: what each round is worth, the running total towards the season's target, and the rules of every Gym Leader in each round
+function circuitGuideSection(s, st) {
+  const g = circuitGuide(s);
+  if (!g.rows.length) return '';
+  const rules = !!s.gym_data?.stages?.length, hit = g.rows.find(r => r.reached);
+  return `<section class="section" id="circuit-guide"><h2>${t('Circuit guide')} <small>${t('what each round is worth, and its rules')}</small></h2>
+    <p class="muted">${hit ? t('To reach {target}: clear every Gym Leader up to {label}, {total} in all.', { target: fmtK(g.target), label: esc(hit.label), total: fmtK(hit.cumulative) }) : g.target ? t('The target of {target} is not reached within the rounds listed.', { target: fmtK(g.target) }) : t('No target score is set for this season.')}</p>
+    <div class="card scroll"><table class="table cg"><thead><tr><th>${t('Round')}</th><th class="num">${t('Per leader')}</th><th class="num">${t('Round total')}</th><th class="num">${t('Running total')}</th>${rules ? s.leaders.map(l => `<th class="lh" style="--tc:${tc(l.type)}">${leaderImg(s, l.name)}<b>${esc(l.name)}</b></th>`).join('') : ''}</tr></thead>
+      <tbody>${g.rows.map(r => `<tr class="${r.n === st.active ? 'active' : ''} ${r.reached ? 'target' : ''} ${st.active && r.n < st.active ? 'past' : ''}">
+        <th>${esc(r.label)}${r.n === st.active ? ` <span class="badge good">${t('open')}</span>` : ''}${r.reached ? ` <span class="badge gold">${t('target')}</span>` : ''}</th>
+        <td class="num">${fmtK(r.pts)}</td><td class="num">${fmtK(r.total)}</td>
+        <td class="num cg-run"><span class="cg-bar"><i style="width:${Math.min(100, r.cumulative / (g.target || g.rows.at(-1).cumulative) * 100)}%"></i></span><b>${fmtK(r.cumulative)}</b></td>
+        ${rules ? s.leaders.map(l => `<td class="cg-g"><span class="gim-row">${gimTags(s, l.name, r.n)}</span></td>`).join('') : ''}</tr>`).join('')}</tbody></table></div></section>`;
+}
 
 // A row of pixel Gym Leaders standing on platforms
 const lineup = (items) => `<div class="lineup">${items.map(x => `
@@ -326,6 +341,8 @@ function renderOverview() {
       </table>
     </div>
   </section>
+
+  ${circuitGuideSection(s, st)}
 
   <div class="cols section">
     <section>

@@ -375,4 +375,5 @@ for (const [name, map] of Object.entries(MAPS)) {
 }
 // The tick is the one drawn as a line, not as pixels: at small sizes a 12×12 pixel check blurs and looks crooked
 SVG.check = '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.6l4.6 4.6L19 7.4"/></svg>';
+SVG.play = '<svg class="ico" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l12.5-7.5z"/></svg>';
 export const ico = name => SVG[name] || '';

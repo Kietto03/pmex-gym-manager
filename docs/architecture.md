@@ -417,7 +417,7 @@ stateDiagram-v2
   Published --> Draft: sửa chiến thuật = mở revision mới (bản cũ vẫn hiển thị)
 ```
 
-Một chiến thuật có nhiều **bản (revision)** với trạng thái `draft`, `pending`, `published`, `changes_requested`, `superseded`; `published_rev` trỏ bản công khai, nên đang sửa bản mới thì bản cũ vẫn hiển thị. Tại một thời điểm chỉ có một bản đang viết hoặc đang duyệt. Chiến thuật áp vào kế hoạch chỉ với pair thành viên sở hữu. Thư viện **D.C.** và **GvG** (đội clear của cộng đồng) được đọc từ `data/clears.json`, lọc theo cơ chế và hệ, đánh dấu đội mà người xem có thể dựng.
+Một chiến thuật có nhiều **bản (revision)** với trạng thái `draft`, `pending`, `published`, `changes_requested`, `superseded`; `published_rev` trỏ bản công khai, nên đang sửa bản mới thì bản cũ vẫn hiển thị. Tại một thời điểm chỉ có một bản đang viết hoặc đang duyệt. Chiến thuật áp vào kế hoạch chỉ với pair thành viên sở hữu. Thư viện **D.C.** và **GvG** (đội clear của cộng đồng) được đọc từ `data/clears.json`, lọc theo cơ chế và hệ, đánh dấu đội mà người xem có thể dựng. Video chỉ là **đường dẫn** (ghi tên site), không hiển thị ảnh cắt từ video. Tab D.C. có **bảng Meta theo hệ yếu điểm** (`metaByType`, `metaPairs` trong `ranking.js`): mỗi hệ một dòng xếp theo điểm cao nhất, kèm đội đạt điểm đó, số clear, và danh sách pair xuất hiện nhiều nhất trong top 5 của mọi hệ; bấm một dòng để lọc thư viện theo hệ đó.
 
 ### 8.5 Review lượt hỗ trợ
 
@@ -425,7 +425,7 @@ Mỗi mùa mỗi thành viên có một **battle role** và một **main type**.
 
 ### 8.6 Free Gems
 
-`gems.js` dự phóng gems đến cuối tháng. Nguồn mặc định là **bảng Gems của cộng đồng** (`data/gems-sheet.json`, kiểm tra tổng khớp bảng); có thể chuyển sang phần thưởng staff tự nhập. Phần thưởng nhận trong cả một khoảng ngày được tách riêng khỏi phần thưởng theo ngày; số tiền chưa biết nằm ở mục "chưa đủ dữ liệu". Lịch sự kiện (banner scout) hiển thị trên lịch tháng.
+`gems.js` dự phóng gems đến cuối tháng. Nguồn mặc định là **bảng Gems của cộng đồng** (`data/gems-sheet.json`, kiểm tra tổng khớp bảng); có thể chuyển sang phần thưởng staff tự nhập. Phần thưởng nhận trong cả một khoảng ngày được tách riêng khỏi phần thưởng theo ngày; số tiền chưa biết nằm ở mục "chưa đủ dữ liệu". Bảng Day by day có thêm cột **Still to come** (gems còn lại sau ngày đó tới hết tháng, không tính phần thưởng nhận ngày nào cũng được). Lịch sự kiện hiển thị trên lịch tháng, và **danh sách bên dưới đi theo tháng đang xem**: nhóm theo thời điểm bắt đầu (ngày và giờ theo múi giờ người xem, như trang lịch của game), mỗi sự kiện có banner nếu có, giờ bắt đầu và kết thúc, trạng thái (đang chạy, sắp bắt đầu sau bao lâu, đã kết thúc) và pair nổi bật; sự kiện đã chạy từ trước đầu tháng nằm trong một nhóm thu gọn. Banner là ảnh của game lấy từ trang lịch của brybry (`pokemon.brybry.ch`, tên ảnh trùng id sự kiện); `tools/build-events.mjs` kiểm tra (HEAD) ảnh nào tồn tại và ghi cờ `banner` vào `data/events.json` (1 có, 0 đã kiểm tra không có; sự kiện mới hoặc sắp tới được hỏi lại).
 
 ### 8.7 Sync Grid
 
@@ -460,7 +460,7 @@ Tra cứu tĩnh các chủ đề mỗi pair thích (5/7/10 điểm), dữ liệu
 
 ### 8.9 Resources, Info, Admin
 
-`resource_links` là kho link do staff quản lý. **Battle info** hiển thị dữ liệu Gym Battle của datamine (HP boss theo circuit, leader, luật, passive, điều kiện, lịch vé, phần thưởng, round kế tiếp) và so sánh với dữ liệu mùa đã lưu để staff cập nhật. **Admin** gồm quản lý mùa, tài khoản, danh mục pair, **Data updates** (trạng thái từng nguồn đồng bộ) và nhật ký.
+`resource_links` là kho link do staff quản lý. **Battle info** hiển thị dữ liệu Gym Battle của datamine (HP boss theo circuit, leader, luật, passive, điều kiện, lịch vé, phần thưởng, round kế tiếp) và so sánh với dữ liệu mùa đã lưu để staff cập nhật. **Overview** có thêm **Circuit guide** (`circuitGuide` trong `circuits.js`): mỗi round là một dòng với điểm mỗi leader, tổng khi clear cả round, tổng cộng dồn, dòng đánh dấu round đạt điểm mục tiêu của mùa, và luật (SPEC/PHYS/P+5/SE) của từng Gym Leader ở round đó. **Admin** gồm quản lý mùa, tài khoản, danh mục pair, **Data updates** (trạng thái từng nguồn đồng bộ) và nhật ký.
 
 ---
 
@@ -518,6 +518,7 @@ Repo `pmex-supez-dex` chạy mỗi ngày: lấy datamine, build `site/data` (g�
 | Dex | Gym Battle, grid, chiêu, tag | Sync Grid dùng `pair-map.json` dự phòng; Battle info hiện thông báo; dữ liệu mùa đã lưu trong database vẫn dùng được |
 | pmrandom.dpdns.org | ảnh trainer 2D và Pokémon 3D | tự chuyển sang Serebii, rồi sprite pixel của Dex; chức năng không ảnh hưởng. Là **hot-link** tới site của bên thứ ba |
 | Serebii (ảnh) | ảnh dự phòng cho pair pmrandom chưa có | bỏ qua, dùng sprite pixel của Dex; cũng là hot-link |
+| brybry (banner sự kiện) | ảnh banner của scout trong lịch sự kiện | không hiện banner, phần còn lại của thẻ sự kiện vẫn đầy đủ; hot-link |
 | Google Sheets, Serebii | Gems, D.C./GvG, Trainer Lodge | giữ file cũ, báo lỗi trong Data updates |
 | jsDelivr | thư viện `supabase-js` | không đăng nhập được thật; demo vẫn chạy |
 | Supabase | toàn bộ dữ liệu gym | app hiện lỗi tải; không có chế độ offline |
@@ -669,7 +670,8 @@ Nguyên tắc: logic mới đi kèm test thuần trước; thay đổi giao di�
 | `core.js` | Trạng thái `S`, quyền, helper hiển thị, toast, `act`, `loadAll`, `state()` |
 | `api.js` / `demo.js` | Truy cập dữ liệu: Supabase thật / demo trong bộ nhớ |
 | `catalog.js` | Danh sách pair (tracker, Cache API), Dex (gyms, tag, bản đồ pair, chi tiết pair), loại hệ và role |
-| `rules.js` | Circuit, vé, giới hạn điểm, trạng thái mùa (bản trình duyệt của `check_run`) |
+| `rules.js` | Vé, giới hạn điểm, trạng thái mùa (bản trình duyệt của `check_run`) |
+| `circuits.js` | Circuit của mùa, điểm mỗi round và bảng cộng dồn tới mục tiêu (thuần, test được trong Node) |
 | `grid.js` | Luật Sync Grid, hình học lục giác, chọn trước (`settle`, `linkGap`) |
 | `forms.js` | Gộp bộ chiêu/passive theo dạng (Mega, Tera, Dynamax…) |
 | `stats.js` | Chỉ số từ ô Stat, tổng với bonus nhập tay |

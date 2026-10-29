@@ -38,6 +38,26 @@ export function project(rewards, from, to, today = from) {
     run += total;
     rows.push({ date: d, items, total, cumulative: run, past: d < today });
   }
+  for (const r of rows) r.left = run - r.cumulative;   // what is still to come after that day, to the end of the month (rewards claimable any day are not in it)
   const fixed = run, oneOff = windows.reduce((a, w) => a + w.reward.free_gems, 0), earned = rows.filter(r => r.past).reduce((a, r) => a + r.total, 0);
   return { rows, windows, incomplete, past, totals: { days: fixed, windows: oneOff, all: fixed + oneOff, earned, ahead: fixed - earned + oneOff } };
+}
+
+// ── Events of one month, the way the game's schedule reads: by the moment they start ──
+// Events that began before the month and still run into it come first; the rest are grouped by their start (day and time).
+// Each event: { start: 'YYYY-MM-DD', startAt?: 'YYYY-MM-DDTHH:MM' (UTC), end, endAt?, open? (no end date) }
+export function groupEvents(events, first, last) {
+  const running = events.filter(e => e.start < first);
+  const by = new Map();
+  for (const e of events.filter(x => x.start >= first && x.start <= last)) { const k = e.startAt || e.start; (by.get(k) || by.set(k, []).get(k)).push(e); }
+  const groups = [...by.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([key, list]) => ({ key, date: key.slice(0, 10), time: key.length > 10 ? key.slice(11, 16) : '', events: list }));
+  return { running, groups };
+}
+// Where an event stands now: upcoming (ms until it starts), running (ms until it ends; null without an end date) or ended
+export function eventStatus(e, now = Date.now()) {
+  const at = (iso, endOfDay) => Date.parse(iso.length > 10 ? `${iso}Z` : `${iso}T${endOfDay ? '23:59:59' : '00:00:00'}Z`);
+  const start = at(e.startAt || e.start, false), end = e.open ? null : at(e.endAt || e.end, !e.endAt);
+  if (now < start) return { state: 'upcoming', ms: start - now };
+  if (end != null && now > end) return { state: 'ended', ms: now - end };
+  return { state: 'running', ms: end == null ? null : end - now };
 }
