@@ -601,6 +601,7 @@ export default {
   '{n} sync pairs': '{n} sync pair',
   'By trainer': 'Theo trainer',
   'By region': 'Theo vùng',
+  'Bars along the bottom of a cell mark that round’s rules:': 'Các vạch dưới đáy mỗi ô là luật của vòng đó:',
   'Page not found': 'Không tìm thấy trang',
   'This address does not lead anywhere. It may be an old link.': 'Địa chỉ này không dẫn tới trang nào. Có thể đây là một liên kết cũ.',
   'Back to the overview': 'Về trang tổng quan',

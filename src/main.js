@@ -305,6 +305,7 @@ function renderOverview() {
 
   <section class="section">
     <h2>${t('Progress by Gym Leader')} <small>${t('click a cell to log a run')}</small></h2>
+    ${s.gym_data?.stages?.length ? `<p class="gim-legend">${t('Bars along the bottom of a cell mark that round’s rules:')} ${GIM.map(([, tag, cls, tip]) => `<span title="${esc(t(tip))}"><i class="gim-tag ${cls}"></i><b>${tag}</b> ${esc(t(tip))}</span>`).join('')}</p>` : ''}
     <div class="card scroll">
       <table class="progress">
         <thead><tr><th>${t('Round')}</th>${s.leaders.map(l => `<th class="lh" style="--tc:${tc(l.type)}"><div class="head">${leaderImg(s, l.name)}</div><b>${esc(l.name)}</b>
@@ -317,7 +318,8 @@ function renderOverview() {
           return `<tr class="${n === st.active ? 'active' : ''}"><th>${esc(c.label)}<small>${fmtK(c.pts)}</small></th>
             ${s.leaders.map(l => {
               const v = pointsIn(st, n, l.name), full = v >= c.pts;
-              return `<td><a class="cell ${full ? 'full' : v ? 'part' : ''}" href="#/log/${encodeURIComponent(l.name)}/${n}" title="${esc(l.name)} · ${esc(c.label)}: ${fmtN(v)} / ${fmtN(c.pts)}">
+              const rules = s.gym_data?.stages?.length ? gimmickTags(leaderRule(s, l.name, n)).map(x => x[0]).join(' + ') : '';
+              return `<td><a class="cell ${full ? 'full' : v ? 'part' : ''}" href="#/log/${encodeURIComponent(l.name)}/${n}" title="${esc(l.name)} · ${esc(c.label)}: ${fmtN(v)} / ${fmtN(c.pts)}${rules ? ` · ${rules}` : ''}">
                 <i style="width:${Math.min(100, v / c.pts * 100)}%"></i><span>${full ? ico('check') : v ? fmtK(v) : ''}</span>${s.gym_data?.stages?.length ? `<em class="gim-row">${gimTags(s, l.name, n)}</em>` : ''}</a></td>`;
             }).join('')}</tr>`;
         }).join('')}</tbody>
