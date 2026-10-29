@@ -26,4 +26,21 @@ assert.deepEqual(validate(ix, [1, 99]).map(p => p.code), ['unknown']);
 assert.deepEqual(validate(ix, [1, 3], { energyCap: 3 }).map(p => p.code), ['energy']);
 assert.deepEqual(totals(ix, new Set([1, 3, 5])), { energy: 9, orbs: 72, tiles: 3, byColor: { blue: 3 } });
 assert.notEqual(gridHash(grid), gridHash([...grid.slice(0, 4), cell(5, -1, 0, { energy: 6 })]), 'a changed tile changes the fingerprint');
+
+// layout: flat-topped hexagons, tile n=1 at the upper right, the ring running clockwise (as in the game)
+import { hexXY } from '../src/grid.js';
+const xy = (q, r) => hexXY({ q, r }, 10);
+const near = (a, b) => Math.abs(a - b) < 1e-9;
+assert.ok(xy(0, -1).y > 0 && near(xy(0, -1).x, 0), 'one step down: straight below the centre');
+assert.ok(xy(0, 1).y < 0 && near(xy(0, 1).x, 0), 'and straight above');
+const ring = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]].map(([q, r]) => xy(q, r));
+assert.ok(ring[0].x > 0 && ring[0].y < 0, 'n=1 is at the upper right');
+// clockwise on screen (y grows downward): the angle keeps increasing
+const ang = ring.map(p => Math.atan2(p.y, p.x));
+assert.ok(ang.every((a, i) => i === 0 || ((a - ang[i - 1] + 2 * Math.PI) % (2 * Math.PI)) < Math.PI), 'the ring turns clockwise');
+// neighbours are all the same distance apart: √3 × size for flat-topped hexagons of that size
+for (const [q, r, dq, dr] of [[0, 0, 1, 0], [2, -1, 0, 1], [-1, 3, -1, 1]]) {
+  const a = xy(q, r), b = xy(q + dq, r + dr);
+  assert.ok(near(Math.hypot(a.x - b.x, a.y - b.y), 10 * Math.sqrt(3)), 'adjacent tiles are √3 × size apart');
+}
 console.log('grid rules: all passed');

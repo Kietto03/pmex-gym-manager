@@ -94,7 +94,7 @@ const JUNK = /^[=\-\s]*END[=\-\s]*$|^[=\-_]{5,}$/;
 const tileTitle = c => (JUNK.test(String(c.title || '')) ? `${t(COLORS[c.color]?.[0] || 'Tile')} #${c.n}` : c.title);
 // ── the board ──
 const SIZE = 38;
-const hexPts = (x, y, r) => Array.from({ length: 6 }, (_, i) => { const a = Math.PI / 180 * (60 * i - 30); return `${(x + r * Math.cos(a)).toFixed(1)},${(y + r * Math.sin(a)).toFixed(1)}`; }).join(' ');
+const hexPts = (x, y, r) => Array.from({ length: 6 }, (_, i) => { const a = Math.PI / 180 * (60 * i); return `${(x + r * Math.cos(a)).toFixed(1)},${(y + r * Math.sin(a)).toFixed(1)}`; }).join(' ');
 // A tile's name, broken into at most three short lines that fit inside a hex
 function tileLines(title) {
   const words = String(title).replace(/\s+/g, ' ').trim().split(' '), lines = [''];

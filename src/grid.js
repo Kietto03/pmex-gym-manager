@@ -77,4 +77,9 @@ export function gridHash(grid) {
   return h.toString(36);
 }
 // Pixel position of a tile (pointy-top hexes)
-export const hexXY = (c, size) => ({ x: size * Math.sqrt(3) * (c.q + c.r / 2), y: size * 1.5 * c.r });
+// Where a tile sits on screen. The game draws its grid with flat-topped hexagons (a tile straight above and below the centre).
+// The datamine's axial (q, r) are laid out as: q to the right, r up and to the left, so the six tiles around the centre
+// (n = 1…6) run clockwise from the upper right. Checked against a screenshot of the game (the player's Pikachu grid): the
+// 12 tiles of the second ring and 11 of the third land where the game shows them (the other orientation that also fits the
+// second ring gets 5 of those 11 wrong).
+export const hexXY = (c, size) => ({ x: size * 1.5 * c.q, y: -size * Math.sqrt(3) * (c.r + c.q / 2) });

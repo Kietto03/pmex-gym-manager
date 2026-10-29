@@ -140,7 +140,9 @@ export async function loadPairMap() {
     try { const r = await fetch(url); if (r.ok) { const m = (await r.json()).pairs; if (m && Object.keys(m).length > 300) { pairMap = m; return; } } } catch { /* try the next one */ }
   }
 }
-export const dexIdOf = p => pairMap[`${p.trainer}|${p.pokemon}`.toLowerCase()] || null;
+// The tracker calls the player character "Player"; the Dex (the datamine) calls it "Scottie"
+const DEX_TRAINER = { player: 'scottie' };
+export const dexIdOf = p => pairMap[`${p.trainer}|${p.pokemon}`.toLowerCase()] || pairMap[`${DEX_TRAINER[String(p.trainer).toLowerCase()]}|${p.pokemon}`.toLowerCase()] || null;
 // ─── Full detail of one pair (moves, passives, stats, grid) — one small script per pair in the Dex build ───
 const pending = new Map(), details = new Map();
 export function loadPairDetail(id) {
