@@ -505,11 +505,11 @@ f.onload = async () => {
     log($$('.g-tile').length > 30 && $$('.g-tile.open').length >= 1 && $$('.g-tile.open').length <= 6, 'grid: only tiles next to the centre can be switched on at first', `${$$('.g-tile').length} tiles, ${$$('.g-tile.open').length} open, hash ${W().location.hash}, ${(pikachu.innerText||'').replace(/\\n/g,' ')}`);
     const clickTile = el => el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     const openTile = $('.g-tile.open'); clickTile(openTile); await sleep(150);
-    log($$('.g-tile.on').length === 1 && $$('.g-tile.open').length > 1 && /tiles/.test($('.gstats')?.innerText || 'tiles'), 'grid: one click switches a tile on, and that opens its neighbours');
+    log($$('.g-tile.on').length === 1 && $$('.g-tile.open').length > 1 && /tiles/i.test($('.gstats')?.innerText || 'tiles'), 'grid: one click switches a tile on, and that opens its neighbours');
     const far = $$('.g-tile.locked')[0]; clickTile(far); await sleep(150);
     log($$('.g-tile.on').length === 1 && !!$('.toast.show.bad'), 'grid: a tile that touches nothing active stays off and says why');
     const onTile = $('.g-tile.on'); onTile.dispatchEvent(new MouseEvent('mouseover', { bubbles: true })); await sleep(120);
-    log(!!$('#g-tip') && !$('#g-tip').hidden && /Energy/.test($('#g-tip').innerText) && /Switched on/.test($('#g-tip').innerText), 'grid: hovering a tile shows its details');
+    log(!!$('#g-tip') && !$('#g-tip').hidden && /Energy/i.test($('#g-tip').innerText) && /Switched on/i.test($('#g-tip').innerText), 'grid: hovering a tile shows its details');
     onTile.dispatchEvent(new MouseEvent('mouseout', { bubbles: true })); await sleep(80);
     log($('#g-tip').hidden, 'grid: the details go away when the pointer leaves');
     clickTile($('.g-tile.on')); await sleep(150);

@@ -6,7 +6,7 @@ import { splitDescription, count } from '../moves.js';
 import { byAcquisition, acqLabel } from '../acquisition.js';
 import { STATS, gridBonus, totalStats } from '../stats.js';
 import { indexGrid, whyNot, canRemove, validate, totals, levelNeeded, otherReqs, gridHash, hexXY, COLORS } from '../grid.js';
-import { PAIRS, loadPairDetail, dexIdOf, pairById, pairName, pairImage, TYPE_COLORS, TYPES, typeIcon } from '../catalog.js';
+import { PAIRS, loadPairDetail, dexIdOf, pairById, pairName, pairImage, TYPE_COLORS, TYPES, typeIcon, roleIcon, DEX } from '../catalog.js';
 
 // ═══════════════════════════════════════════════════════════════
 //  SYNC GRID: moves and passives of a pair, and a grid builder (rules in grid.js)
@@ -38,14 +38,36 @@ export function renderGrid(pairId = '', buildId = '') {
     : `<div class="grid-layout"><div class="gp-board card" id="grid-board">${gridBoard()}</div><aside class="gp-panel card" id="grid-side">${gridSide()}</aside></div>`}`;
 }
 
+
+// ── small drawn marks: one per tile kind, so a tile is told apart by shape as well as by colour ──
+const GLYPH = {
+  blue: '<path d="M0 -4.6 L4 0.4 H1.6 V4.6 H-1.6 V0.4 H-4 Z"/>',
+  green: '<path fill="none" d="M-3.8 0.6 L0 -3.2 L3.8 0.6 M-3.8 4.6 L0 0.8 L3.8 4.6"/>',
+  red: '<path d="M0 -4.8 L1.3 -1.3 L4.8 0 L1.3 1.3 L0 4.8 L-1.3 1.3 L-4.8 0 L-1.3 -1.3Z"/>',
+  yellow: '<circle r="3.6" fill="none"/><circle r="1.2"/>',
+  rainbow: '<path fill="none" d="M0 -4.8 L4.2 -2.4 V2.4 L0 4.8 L-4.2 2.4 V-2.4Z"/><path d="M0 -1.8 L1.6 -0.9 V0.9 L0 1.8 L-1.6 0.9 V-0.9Z"/>',
+};
+const glyph = (k, size = 12) => `<svg class="gl" viewBox="-6 -6 12 12" width="${size}" height="${size}" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">${GLYPH[k] || ''}</svg>`;
+const hexPip = (on) => `<svg class="hp ${on ? 'on' : ''}" viewBox="-6 -6 12 12" width="14" height="14" aria-hidden="true"><polygon points="${hexPts(0, 0, 5.4)}"/></svg>`;
+
 // ── the header: who this pair is, as the game shows it ──
 function pairHeader(p) {
-  const d = G.detail, own = ownedPair(S.me, G.pairId);
-  return `<section class="gp-head card"><div class="gp-portrait">${p ? pairIcon(p, 'lg', own?.ex) : ''}</div>
-    <div class="gp-id"><h2>${esc(p ? pairName(p) : d.trainer)}</h2>
-      <div class="gp-tags">${typeTag(d.type || p?.type)}${d.role ? `<span class="gp-tag">${esc(d.role)}</span>` : ''}${d.exRole ? `<span class="gp-tag ex">EX · ${esc(d.exRole)}</span>` : ''}
-        ${d.weakness ? `<span class="gp-tag weak">${t('Weak to')} ${esc(t(d.weakness))}</span>` : ''}${d.rarity ? `<span class="gp-tag star">${'★'.repeat(d.rarity)}</span>` : ''}</div></div>
-    <div class="gp-own">${own ? `<span class="badge good">${t('Usable')}</span><small>${t('you own this pair')}</small>` : `<span class="badge">${t('Theoretical')}</span><small>${t('not in your roster')}</small>`}</div></section>`;
+  const d = G.detail, own = ownedPair(S.me, G.pairId), tc = TYPE_COLORS[d.type || p?.type] || '#8d99a6';
+  const spr = (src, cls, alt) => src ? `<img class="pl-sp ${cls}" src="${esc(DEX + src)}" alt="${esc(alt)}" width="${cls === 'trainer' ? 120 : 144}" height="${cls === 'trainer' ? 120 : 144}" onerror="this.remove()">` : '';
+  const fact = (k, v) => v ? `<div><dt>${t(k)}</dt><dd>${v}</dd></div>` : '';
+  const stars = d.rarity ? `<span class="pl-stars" role="img" aria-label="${d.rarity}★">${Array.from({ length: 5 }, (_, i) => hexPip(i < d.rarity)).join('')}</span>` : '';
+  return `<section class="gp-head plate" style="--tc:${tc}">
+    <div class="pl-stage" aria-hidden="${d.trainerSprite || d.pokeSprite ? 'false' : 'true'}">${spr(d.trainerSprite, 'trainer', d.trainer)}${spr(d.pokeSprite, 'poke', d.pokemon)}${!d.trainerSprite && !d.pokeSprite && p ? pairIcon(p, 'lg', own?.ex) : ''}<i class="pl-base"></i></div>
+    <div class="pl-id"><small class="pl-no">${d.number ? `№ ${String(d.number).padStart(3, '0')}` : t('Sync pair')}${d.shiny ? ` · ${t('Shiny')}` : ''}${d.form ? ` · ${esc(d.form)}` : ''}</small>
+      <h2>${esc(p ? p.trainer : d.trainer)} <i>&amp;</i> ${esc(p ? p.pokemon : d.pokemon)}</h2>
+      <dl class="pl-facts">
+        ${fact('Type', `${img(typeIcon(d.type || p?.type), 'ti', d.type)}${esc(t(d.type || p?.type || ''))}`)}
+        ${fact('Role', d.role ? `${img(roleIcon(d.role), 'ri', d.role)}${esc(d.role)}` : '')}
+        ${fact('EX role', d.exRole ? `${img(roleIcon(d.exRole, true), 'ri', d.exRole)}${esc(d.exRole)}` : '')}
+        ${fact('Weak to', d.weakness ? `${img(typeIcon(d.weakness), 'ti', d.weakness)}${esc(t(d.weakness))}` : '')}
+        ${fact('Rarity', stars)}
+      </dl></div>
+    <div class="pl-stamp ${own ? 'own' : ''}">${own ? `<b>${t('Usable')}</b><small>${t('you own this pair')}</small>` : `<b>${t('Theoretical')}</b><small>${t('not in your roster')}</small>`}</div></section>`;
 }
 
 // A few grids end with the dataminer's separator ("=====END=====") instead of a tile name: show what the tile is instead
@@ -65,30 +87,30 @@ function tileLines(title) {
   }
   return lines.filter(Boolean);
 }
-const ARROW = (x, y) => `M${x} ${y - 13} l11 14 h-6.5 v10 h-9 v-10 h-6.5 z`;
 function gridBoard() {
   const zoom = gridZoom(), pts = G.ix.grid.map(c => ({ c, ...hexXY(c, SIZE) })), pad = SIZE * 1.5;
   const minX = Math.min(0, ...pts.map(p => p.x)) - pad, maxX = Math.max(0, ...pts.map(p => p.x)) + pad, minY = Math.min(0, ...pts.map(p => p.y)) - pad, maxY = Math.max(0, ...pts.map(p => p.y)) + pad;
   const opts = { moveLevel: G.moveLevel, energyCap: G.energyCap }, t0 = totals(G.ix, G.active), pair = pairById(G.pairId), own = ownedPair(S.me, G.pairId);
-  const stars = [1, 2, 3, 4, 5].map(n => `<button class="mlv ${n <= G.moveLevel ? 'on' : ''}" data-gmlv="${n}" aria-label="${t('Move level')} ${n}" title="${t('Move level')} ${n}">★</button>`).join('');
-  return `<div class="gp-hud"><span class="hud-i orb"><i></i>${t('Sync orbs')} <b>${fmtN(t0.orbs)}</b></span>
-      <span class="hud-i en"><i></i>${t('Energy')} <b>${t0.energy}</b>${G.energyCap != null ? `<small> / ${G.energyCap}</small>` : ''}</span>
-      <span class="hud-i lv" title="${t('Move level')}">${stars}</span>
+  const pips = [1, 2, 3, 4, 5].map(n => `<button class="mlv ${n <= G.moveLevel ? 'on' : ''}" data-gmlv="${n}" aria-label="${t('Move level')} ${n}" title="${t('Move level')} ${n}">${hexPip(n <= G.moveLevel)}</button>`).join('');
+  const per = {}; for (const c of G.ix.grid) { (per[c.color] ||= { all: 0, on: 0 }).all++; if (G.active.has(c.n)) per[c.color].on++; }
+  return `<div class="gp-hud"><div class="hud-i orb"><small>${t('Sync orbs')}</small><b>${fmtN(t0.orbs)}</b></div>
+      <div class="hud-i en"><small>${t('Energy')}</small><b>${t0.energy}</b>${G.energyCap != null ? `<span class="cap"> / ${G.energyCap}</span>` : ''}</div>
+      <div class="hud-i lv" title="${t('Move level')}"><small>${t('Move level')}</small><span class="mlvs">${pips}</span></div>
       <span class="hud-sp"></span>
-      <button class="hud-b" data-gzoom="-0.2" aria-label="${t('Zoom out')}">−</button><button class="hud-b" data-gzoom="0.2" aria-label="${t('Zoom in')}">+</button><button class="hud-b wide" data-gfit>${t('Fit')}</button></div>
-    <div class="gp-legend">${Object.entries(COLORS).map(([k, [l, col]]) => `<button class="lg ${G.focus === k ? 'on' : ''}" data-gfocus="${k}" style="--c:${col}"><i></i>${t(l)}</button>`).join('')}</div>
+      <div class="hud-zoom"><button class="hud-b" data-gzoom="-0.2" aria-label="${t('Zoom out')}">−</button><button class="hud-b" data-gzoom="0.2" aria-label="${t('Zoom in')}">+</button><button class="hud-b wide" data-gfit>${t('Fit')}</button></div></div>
+    <div class="gp-legend">${Object.entries(COLORS).filter(([k]) => per[k]).map(([k, [l]]) => `<button class="lg k-${k} ${G.focus === k ? 'on' : ''}" data-gfocus="${k}">${glyph(k, 13)}<span>${t(l)}</span><small>${per[k].on}/${per[k].all}</small></button>`).join('')}</div>
     <div class="grid-scroll"><svg viewBox="${minX} ${minY} ${maxX - minX} ${maxY - minY}" style="width:${Math.round((maxX - minX) * zoom)}px" class="${G.focus ? 'focus' : ''}" data-focus="${G.focus || ''}" role="img" aria-label="${t('Sync grid')}">
       <defs><clipPath id="g-clip"><polygon points="${hexPts(0, 0, SIZE - 5)}"/></clipPath></defs>
       ${pts.map(({ c, x, y }) => {
-        const on = G.active.has(c.n), why = on ? null : whyNot(G.ix, G.active, c, opts), col = COLORS[c.color]?.[1] || '#999', lines = tileLines(tileTitle(c));
-        const y0 = y - (lines.length - 1) * 4.6 - 1;
-        return `<g class="g-tile ${on ? 'on' : why ? 'locked' : 'open'} ${G.sel === c.n ? 'sel' : ''} k-${c.color}" data-gtile="${c.n}" data-color="${c.color}" tabindex="0" role="button" aria-label="${esc(tileTitle(c))}" style="--c:${col}">
-          <polygon class="g-out" points="${hexPts(x, y, SIZE - 1)}"/><polygon class="g-in" points="${hexPts(x, y, SIZE - 6)}"/>
-          ${c.color === 'blue' ? `<path class="g-arrow" d="${ARROW(x, y - 1)}"/>` : ''}
+        const on = G.active.has(c.n), why = on ? null : whyNot(G.ix, G.active, c, opts), lines = tileLines(tileTitle(c));
+        const y0 = y - (lines.length - 1) * 5.3 + 5;
+        return `<g class="g-tile ${on ? 'on' : why ? 'locked' : 'open'} ${G.sel === c.n ? 'sel' : ''} k-${c.color}" data-gtile="${c.n}" data-color="${c.color}" tabindex="0" role="button" aria-label="${esc(tileTitle(c))}">
+          <polygon class="g-out" points="${hexPts(x, y, SIZE - 1)}"/><polygon class="g-in" points="${hexPts(x, y, SIZE - 5.5)}"/>
+          <g class="g-gl" transform="translate(${x} ${y - 19}) scale(1.05)" fill="currentColor" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round">${GLYPH[c.color] || ''}</g>
           <text class="g-t" x="${x}" y="${y0}" text-anchor="middle">${lines.map((l, i) => `<tspan x="${x}" dy="${i ? 10.6 : 0}">${esc(l)}</tspan>`).join('')}</text>
 </g>`;
       }).join('')}
-      <g class="g-core"><polygon class="g-ring" points="${hexPts(0, 0, SIZE + 2)}"/>${pair ? `<image href="${esc(pairImage(pair, own?.ex, own?.stars))}" x="${-(SIZE - 4)}" y="${-(SIZE - 4)}" width="${(SIZE - 4) * 2}" height="${(SIZE - 4) * 2}" clip-path="url(#g-clip)" preserveAspectRatio="xMidYMid slice"/>` : ''}</g>
+      <g class="g-core"><polygon class="g-ring" points="${hexPts(0, 0, SIZE + 2)}"/><polygon class="g-ring2" points="${hexPts(0, 0, SIZE - 3)}"/>${pair ? `<image href="${esc(pairImage(pair, own?.ex, own?.stars))}" x="${-(SIZE - 7)}" y="${-(SIZE - 7)}" width="${(SIZE - 7) * 2}" height="${(SIZE - 7) * 2}" clip-path="url(#g-clip)" preserveAspectRatio="xMidYMid slice"/>` : ''}</g>
     </svg></div>`;
 }
 
@@ -102,10 +124,10 @@ function tilePanel() {
   const own = ownedPair(S.me, G.pairId), problems = validate(G.ix, [...G.active], opts);
   const changed = G.saved && G.saved.grid_hash && G.saved.grid_hash !== G.hash;
   const needed = Math.max(0, ...[...G.active].map(n => levelNeeded(G.ix.byN.get(n) || {})));
-  const tile = c ? (() => { const why = G.active.has(c.n) ? null : whyNot(G.ix, G.active, c, opts), col = COLORS[c.color]?.[1] || '#999';
-    return `<article class="tile-card" style="--c:${col}"><header><span class="tc-kind">${t(COLORS[c.color]?.[0] || c.color)}</span><span class="tc-n">#${c.n}</span></header>
+  const tile = c ? (() => { const why = G.active.has(c.n) ? null : whyNot(G.ix, G.active, c, opts);
+    return `<article class="tile-card k-${c.color}"><header><span class="tc-kind">${glyph(c.color, 14)}${t(COLORS[c.color]?.[0] || c.color)}</span><span class="tc-n">#${c.n}</span></header>
       <h3>${esc(tileTitle(c))}</h3>${c.description ? `<p class="pre">${esc(c.description)}</p>` : ''}
-      <div class="tc-cost"><span class="en"><i></i>${t('Energy')} <b>${c.energy}</b></span><span class="orb"><i></i>${t('Sync orbs')} <b>${fmtN(c.orbs)}</b></span></div>
+      <dl class="tc-cost"><div class="en"><dt>${t('Energy')}</dt><dd>${c.energy}</dd></div><div class="orb"><dt>${t('Sync orbs')}</dt><dd>${fmtN(c.orbs)}</dd></div></dl>
       ${(c.req || []).length ? `<ul class="tc-req">${c.req.map(r => `<li>${esc(r)}</li>`).join('')}</ul>` : ''}
       ${otherReqs(c).length ? `<p class="notice">${ico('note')} ${t('This app only checks the move level; the other requirements are on you.')}</p>` : ''}
       ${why ? `<p class="notice">${ico('lock')} ${t(BUILD_WHY[why])}</p>` : ''}
@@ -114,7 +136,7 @@ function tilePanel() {
   return `${tile}
   <div class="build-card form"><h3>${t('Your build')}</h3>
     <div class="gstats"><span><b>${t0.tiles}</b><small>${t('tiles')}</small></span><span><b>${t0.energy}</b><small>${t('energy')}${G.energyCap != null ? ` / ${G.energyCap}` : ''}</small></span><span><b>${fmtN(t0.orbs)}</b><small>${t('sync orbs')}</small></span></div>
-    <div class="chips-l">${Object.entries(t0.byColor).map(([k, n]) => `<span class="chip" style="border-left:4px solid ${COLORS[k]?.[1]}">${n} ${t(COLORS[k]?.[0] || k)}</span>`).join('')}</div>
+    <div class="chips-l">${Object.entries(t0.byColor).map(([k, n]) => `<span class="chip kind k-${k}">${glyph(k, 11)}${n} ${t(COLORS[k]?.[0] || k)}</span>`).join('')}</div>
     <div class="grid2" style="margin-top:8px"><label>${t('Move level')}<select id="g-level">${[1, 2, 3, 4, 5].map(n => `<option ${n === G.moveLevel ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
       <label>${t('Energy limit')}<input id="g-cap" type="number" min="0" max="999" placeholder="${t('none')}" value="${G.energyCap ?? ''}"></label></div>
     ${own && needed > (own.level || 1) && own.level < 5 ? `<p class="notice">${ico('lock')} ${t('Not usable yet')}: ${t('your move level is {n}', { n: Math.min(5, own.level) })}</p>` : ''}
@@ -140,7 +162,7 @@ function moveCard(m, sync = false) {
   const col = TYPE_COLORS[m.type] || '#8d99a6', cat = CAT[String(m.category || '').toLowerCase()] || [m.category || '', '#8d99a6'], gauge = count(m.gauge), limit = count(m.maxUses);
   return `<article class="mv move ${sync || m.isSync ? 'sync' : ''}" style="--c:${col}" data-gmove="${esc(m.name || '')}"><header>${m.type ? img(typeIcon(m.type), 'ti', m.type) : ''}<h4>${esc(m.name || '')}</h4>
       ${sync || m.isSync ? `<span class="rb">${t('Sync move')}</span>` : ''}${gauge ? `<span class="pips" title="${t('Move gauge needed')}: ${gauge}" aria-label="${t('Move gauge needed')}: ${gauge}">${Array.from({ length: Math.min(gauge, 8) }, () => '<i></i>').join('')}</span>` : ''}</header>
-    <dl class="mv-facts"><div><dt>${t('Category')}</dt><dd><span class="cat" style="--k:${cat[1]}">${t(cat[0])}</span></dd></div><div><dt>${t('Target')}</dt><dd>${esc(m.target || '—')}</dd></div>
+    <dl class="mv-facts"><div><dt>${t('Category')}</dt><dd><span class="cat cat-${String(m.category || '').toLowerCase()}" style="--k:${cat[1]}">${t(cat[0])}</span></dd></div><div><dt>${t('Target')}</dt><dd>${esc(m.target || '—')}</dd></div>
       <div><dt>${t('Power')}</dt><dd>${esc(m.power || '—')}</dd></div><div><dt>${t('Accuracy')}</dt><dd>${esc(m.accuracy && m.accuracy !== '--' ? m.accuracy : '—')}</dd></div>
       ${limit ? `<div class="lim"><dt>${t('Max uses')}</dt><dd>${limit}</dd></div>` : ''}${m.effectTag && m.effectTag !== '--' ? `<div><dt>${t('Effect')}</dt><dd>${esc(m.effectTag)}</dd></div>` : ''}</dl>
     <div class="mv-text">${describe(m.description)}</div></article>`;
@@ -148,8 +170,8 @@ function moveCard(m, sync = false) {
 const passiveCard = (x, kind = '') => `<article class="mv passive ${kind}" style="--c:${kind === 'super' ? '#bf80ff' : '#e5b143'}"><header><h4>${esc(x.name || '')}</h4>${x.master ? `<span class="rb">${t('Master')}</span>` : kind === 'super' ? `<span class="rb">${t('Super')}</span>` : ''}</header><div class="mv-text">${describe(x.description)}</div></article>`;
 // A pair can have several forms (Mega, Tera, a form after a move…) with their own moves and stats
 function pairForms() {
-  const d = G.detail, base = { label: t('Normal form'), moves: [...(d.moves || []).filter(Boolean), ...(d.syncMove ? [d.syncMove] : [])], stats: d.stats || {} };
-  const alts = (d.altForms || []).filter(a => (a.moves || []).some(Boolean)).map(a => ({ label: a.form ? `${a.pokemon} · ${a.form}` : `${a.pokemon}${a.kind ? ` (${a.kind})` : ''}`, moves: (a.moves || []).filter(Boolean), stats: a.stats || {} }));
+  const d = G.detail, base = { sprite: d.pokeSprite, label: t('Normal form'), moves: [...(d.moves || []).filter(Boolean), ...(d.syncMove ? [d.syncMove] : [])], stats: d.stats || {} };
+  const alts = (d.altForms || []).map((a, i) => ({ ...a, sprite: d.altSprites?.[i]?.sprite })).filter(a => (a.moves || []).some(Boolean)).map(a => ({ sprite: a.sprite, label: a.form ? `${a.pokemon} · ${a.form}` : `${a.pokemon}${a.kind ? ` (${a.kind})` : ''}`, moves: (a.moves || []).filter(Boolean), stats: a.stats || {} }));
   return [base, ...alts];
 }
 // The move a grid tile belongs to: its title starts with the move's name ("Glorious Thunder: Power ↑ 5")
@@ -166,10 +188,10 @@ function pairPanel() {
     : `<dl class="kv">${[['Role', d.role], ['EX role', d.exRole], ['Type', d.type && t(d.type)], ['Weakness', d.weakness && t(d.weakness)], ['Acquired', d.method || d.expedition || d.collectInfo], ['Game version', d.version || (d.versions || []).at(-1)], ['Sync pair released', d.dates?.['Sync Pair'] && String(d.dates['Sync Pair']).slice(0, 10)], ['EX released', d.dates?.['EX Effect'] && String(d.dates['EX Effect']).slice(0, 10)]]
         .filter(r => r[1]).map(([k, v]) => `<dt>${t(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>${d.description ? `<p class="pre">${esc(d.description)}</p>` : ''}`;
   const bonus = gridBonus(G.ix, G.active), total = totalStats(st, bonus, G.extra), withGrid = [...G.active].length > 0, edited = STATS.some(k => +G.extra[k]);
-  return `${forms.length > 1 ? `<div class="form-tabs">${forms.map((f, i) => `<button class="${i === G.form ? 'on' : ''}" data-gform="${i}">${esc(f.label)}</button>`).join('')}</div>` : ''}${levels.length ? `<div class="stat-lv">${levels.map(l => `<button class="${l === lvl ? 'on' : ''}" data-gstat="${l}">${t('Lv')} ${l}</button>`).join('')}</div>
-    <div class="stat-row">${STAT_ROWS.map(([k, label, bg]) => `<div style="--bg:${bg}"><small>${label}</small><b>${st[k] ?? '—'}</b></div>`).join('')}</div>
+  return `${forms.length > 1 ? `<div class="form-tabs">${forms.map((f, i) => `<button class="${i === G.form ? 'on' : ''}" data-gform="${i}">${f.sprite ? `<img src="${esc(DEX + f.sprite)}" alt="" width="28" height="28" loading="lazy" onerror="this.remove()">` : ''}<span>${esc(f.label)}</span></button>`).join('')}</div>` : ''}${levels.length ? `<div class="stat-lv">${levels.map(l => `<button class="${l === lvl ? 'on' : ''}" data-gstat="${l}">${t('Lv')} ${l}</button>`).join('')}</div>
+    <div class="stat-row">${STAT_ROWS.map(([k, label]) => `<div><small>${label}</small><b>${st[k] ?? '—'}</b><s style="--w:${Math.round((+st[k] || 0) / Math.max(1, ...STAT_ROWS.map(([j]) => +st[j] || 0)) * 100)}%"></s></div>`).join('')}</div>
     ${G.ix?.grid.length ? `<div class="stat-build"><h4>${t('With your build')} <small class="muted">${t('level {l} + {n} switched-on tiles', { l: lvl, n: G.active.size })}</small></h4>
-      <div class="stat-row total">${STAT_ROWS.map(([k, label, bg]) => `<div style="--bg:${bg}"><small>${label}</small><b>${total[k] || '—'}</b><em>${bonus[k] || G.extra[k] ? `+${bonus[k] + (+G.extra[k] || 0)}` : ''}</em></div>`).join('')}</div>
+      <div class="stat-row total">${STAT_ROWS.map(([k, label]) => `<div><small>${label}</small><b>${total[k] || '—'}</b><s style="--w:${Math.round((+total[k] || 0) / Math.max(1, ...STAT_ROWS.map(([j]) => +total[j] || 0)) * 100)}%"></s><em>${bonus[k] || G.extra[k] ? `+${bonus[k] + (+G.extra[k] || 0)}` : ''}</em></div>`).join('')}</div>
       <details class="stat-extra" ${edited ? 'open' : ''}><summary>${t('Add EX / EX role bonuses')}</summary>
         <p class="muted">${t('The datamine does not list what EX and the EX role add to the stats. Type the bonuses you know and they are added to the totals above.')}</p>
         <div class="stat-in">${STAT_ROWS.map(([k, label]) => `<label>${label}<input type="text" inputmode="numeric" maxlength="3" data-gextra="${esc(k)}" value="${G.extra[k] || ''}" placeholder="0"></label>`).join('')}</div></details></div>` : ''}` : ''}
@@ -294,8 +316,8 @@ document.addEventListener('click', async e => {
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 const hoverOk = () => matchMedia('(hover: hover) and (pointer: fine)').matches;
 function tipHtml(c) {
-  const on = G.active.has(c.n), why = on ? null : whyNot(G.ix, G.active, c, { moveLevel: G.moveLevel, energyCap: G.energyCap }), col = COLORS[c.color]?.[1] || '#999';
-  return `<div class="gt-h" style="--c:${col}"><span>${t(COLORS[c.color]?.[0] || c.color)}</span><b>${on ? t('Switched on') : why ? t('Locked') : t('Can be switched on')}</b></div>
+  const on = G.active.has(c.n), why = on ? null : whyNot(G.ix, G.active, c, { moveLevel: G.moveLevel, energyCap: G.energyCap });
+  return `<div class="gt-h k-${c.color}"><span>${glyph(c.color, 12)}${t(COLORS[c.color]?.[0] || c.color)}</span><b>${on ? t('Switched on') : why ? t('Locked') : t('Can be switched on')}</b></div>
     <div class="gt-b"><h4>${esc(tileTitle(c))}</h4>${c.description ? `<p>${esc(c.description)}</p>` : ''}
     <div class="gt-c"><span><i class="e"></i>${t('Energy')} <b>${c.energy}</b></span><span><i class="o"></i>${t('Sync orbs')} <b>${fmtN(c.orbs)}</b></span></div>
     ${(c.req || []).length ? `<ul>${c.req.map(r => `<li>${esc(r)}</li>`).join('')}</ul>` : ''}${why ? `<p class="gt-why">${t(BUILD_WHY[why])}</p>` : ''}</div>`;
