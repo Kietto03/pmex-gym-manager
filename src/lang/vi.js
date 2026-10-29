@@ -601,6 +601,8 @@ export default {
   '{n} sync pairs': '{n} sync pair',
   'By trainer': 'Theo trainer',
   'By region': 'Theo vùng',
+  'Show {n} more': 'Xem thêm {n}',
+  '{a} of {b} runs': '{a} / {b} lượt',
   'Tap the 5th star to raise this pair to 5★. Then 6★ EX unlocks.': 'Bấm ngôi sao thứ 5 để nâng pair lên 5★, sau đó mới bật được 6★ EX.',
   'Needs 5★ before 6★ EX.': 'Cần 5★ trước khi lên 6★ EX.',
   'Topics each Sync Pair likes: 10 points is the best, 5 the least. The daily Hot Topic is not listed here.': 'Chủ đề mỗi Sync Pair thích: 10 điểm là tốt nhất, 5 là thấp nhất. Hot Topic của từng ngày không có trong danh sách này.',

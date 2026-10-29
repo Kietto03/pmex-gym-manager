@@ -52,16 +52,16 @@ function pairHeader(p) {
 const JUNK = /^[=\-\s]*END[=\-\s]*$|^[=\-_]{5,}$/;
 const tileTitle = c => (JUNK.test(String(c.title || '')) ? `${t(COLORS[c.color]?.[0] || 'Tile')} #${c.n}` : c.title);
 // ── the board ──
-const SIZE = 34;
+const SIZE = 38;
 const hexPts = (x, y, r) => Array.from({ length: 6 }, (_, i) => { const a = Math.PI / 180 * (60 * i - 30); return `${(x + r * Math.cos(a)).toFixed(1)},${(y + r * Math.sin(a)).toFixed(1)}`; }).join(' ');
 // A tile's name, broken into at most three short lines that fit inside a hex
 function tileLines(title) {
   const words = String(title).replace(/\s+/g, ' ').trim().split(' '), lines = [''];
   for (const w of words) {
     const cur = lines.at(-1);
-    if ((cur + ' ' + w).trim().length <= 11) lines[lines.length - 1] = (cur + ' ' + w).trim();
-    else if (lines.length < 3) lines.push(w.length > 11 ? `${w.slice(0, 10)}…` : w);
-    else { lines[2] = `${lines[2].slice(0, 10)}…`; break; }
+    if ((cur + ' ' + w).trim().length <= 10) lines[lines.length - 1] = (cur + ' ' + w).trim();
+    else if (lines.length < 3) lines.push(w.length > 10 ? `${w.slice(0, 9)}…` : w);
+    else { lines[2] = `${lines[2].slice(0, 9)}…`; break; }
   }
   return lines.filter(Boolean);
 }
@@ -85,7 +85,7 @@ function gridBoard() {
         return `<g class="g-tile ${on ? 'on' : why ? 'locked' : 'open'} ${G.sel === c.n ? 'sel' : ''} k-${c.color}" data-gtile="${c.n}" data-color="${c.color}" tabindex="0" role="button" aria-label="${esc(tileTitle(c))}" style="--c:${col}">
           <polygon class="g-out" points="${hexPts(x, y, SIZE - 1)}"/><polygon class="g-in" points="${hexPts(x, y, SIZE - 6)}"/>
           ${c.color === 'blue' ? `<path class="g-arrow" d="${ARROW(x, y - 1)}"/>` : ''}
-          <text class="g-t" x="${x}" y="${y0}" text-anchor="middle">${lines.map((l, i) => `<tspan x="${x}" dy="${i ? 9.2 : 0}">${esc(l)}</tspan>`).join('')}</text>
+          <text class="g-t" x="${x}" y="${y0}" text-anchor="middle">${lines.map((l, i) => `<tspan x="${x}" dy="${i ? 10.6 : 0}">${esc(l)}</tspan>`).join('')}</text>
 </g>`;
       }).join('')}
       <g class="g-core"><polygon class="g-ring" points="${hexPts(0, 0, SIZE + 2)}"/>${pair ? `<image href="${esc(pairImage(pair, own?.ex, own?.stars))}" x="${-(SIZE - 4)}" y="${-(SIZE - 4)}" width="${(SIZE - 4) * 2}" height="${(SIZE - 4) * 2}" clip-path="url(#g-clip)" preserveAspectRatio="xMidYMid slice"/>` : ''}</g>

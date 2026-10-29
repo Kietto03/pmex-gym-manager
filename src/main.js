@@ -57,7 +57,7 @@ function renderHeader(active) {
   }).join('') : '';
   $('#subnav').innerHTML = S.me && grp && grp.pages.length > 1 ? grp.pages.map(([k, label, icon]) => `<a href="#/${k}" class="${k === active ? 'on' : ''}">${ico(icon)}<span>${t(label)}</span></a>`).join('') : '';
   $('#subnav').hidden = !$('#subnav').innerHTML;
-  $('#userbox').innerHTML = S.me ? `<a href="#/member/${S.me}" class="user">${av(S.me)}<span>${esc(nameOf(meP()))}</span> ${rankTag(meP().role)}</a>` : '';
+  $('#userbox').innerHTML = S.me ? `<a href="#/member/${S.me}" class="user" aria-label="${esc(nameOf(meP()))}">${av(S.me)}<span>${esc(nameOf(meP()))}</span> ${rankTag(meP().role)}</a>` : '';
   $('#settings-link').innerHTML = ico('gear');
   $('#settings-link').classList.toggle('on', active === 'settings');
   $('#settings-link').title = t('Settings');
@@ -122,6 +122,15 @@ function route() {
   after[name]?.(...args);
 }
 addEventListener('hashchange', route);
+// Every form control gets an accessible name: its placeholder, title or, for a drop-down, its first option
+function labelControls() {
+  view.querySelectorAll('input:not([type=hidden]), select, textarea').forEach(e => {
+    if (e.hasAttribute('aria-label') || e.hasAttribute('aria-labelledby') || e.closest('label') || (e.id && document.querySelector(`label[for="${e.id}"]`))) return;
+    const name = e.placeholder || e.title || (e.tagName === 'SELECT' && e.options[0]?.text);
+    if (name) e.setAttribute('aria-label', name.trim());
+  });
+}
+new MutationObserver(() => requestAnimationFrame(labelControls)).observe(view, { childList: true, subtree: true });
 { // phones: the top bar slides away while reading down the page and comes back when scrolling up
   let lastY = 0;
   addEventListener('scroll', () => { const y = scrollY, bar = document.querySelector('.topbar'); if (bar) { bar.classList.toggle('away', y > lastY + 4 && y > 120); bar.classList.toggle('lifted', y > 6); } if (Math.abs(y - lastY) > 4) lastY = y; }, { passive: true });
@@ -379,7 +388,8 @@ function runLine(r) {
 //  LOG A RUN + HISTORY
 // ═══════════════════════════════════════════════════════════════
 let form = null;
-const logFilter = { member: '', leader: '', round: '' };
+const LOG_PAGE = 40;   // run history is drawn 40 at a time
+const logFilter = { member: '', leader: '', round: '', limit: 0 };
 
 // Until the team is touched by hand it follows the plan: the assigned team for this
 // leader if there is one, else the member's latest team.
@@ -411,6 +421,7 @@ function renderLog(leader = '', round = '', member = '') {
 }
 function logPage() {
   return `${seasonBar()}
+  <h1 class="sr-only">${t('Log a run')}</h1>
   <div class="log-layout">
     <section class="card pad" id="run-form">${lockCtx ? `<h2 class="title">${t('Log a run')}</h2><p class="muted">${ico('lock')} ${t('This Gym Battle is over. Only the admin can change it now.')}</p>` : runForm()}</section>
     <section>
@@ -561,17 +572,23 @@ function logTable() {
   if (!list.length) return `<p class="muted pad">${t('No runs yet.')}</p>`;
   return `<table class="table">
     <thead><tr><th>${t('When')}</th><th>${t('Member')}</th><th>${t('Gym Leader')}</th><th>${t('Round')}</th><th class="num">${t('Tickets')}</th><th class="num">${t('Score')}</th><th>${t('Team')}</th><th></th></tr></thead>
-    <tbody>${list.map(r => `<tr>
+    <tbody>${list.slice(0, f.limit || LOG_PAGE).map(r => `<tr>
       <td class="muted nowrap" title="${r.occurred_inferred ? t('Time estimated from when the run was entered') : ''}">${fmtDT(r.occurred_at || r.created_at)}${r.occurred_inferred ? '*' : ''}</td><td>${esc(r.member_name)}</td><td>${esc(r.leader)}</td>
       <td class="nowrap">${esc(roundShort(circuitAt(season(), r.round)?.label || r.round))}</td><td class="num">${r.tickets}</td>
       <td class="num"><b>${fmtN(r.score)}</b></td><td class="team">${teamIcons(r.team)}${r.note ? ` <span class="muted" title="${esc(r.note)}">${ico('note')}</span>` : ''}</td>
       <td class="acts">${canEdit(r.user_id) ? `<button class="btn sm ghost" data-run-edit="${r.id}">${t('Edit')}</button><button class="btn sm ghost" data-run-del="${r.id}" aria-label="${t('Delete')}">${ico('x')}</button>` : ''}</td></tr>`).join('')}
-    </tbody></table>`;
+    </tbody></table>${list.length > (f.limit || LOG_PAGE) ? `<div class="pad center"><button class="btn" data-log-more>${t('Show {n} more', { n: Math.min(LOG_PAGE, list.length - (f.limit || LOG_PAGE)) })} <small class="muted">${t('{a} of {b} runs', { a: f.limit || LOG_PAGE, b: list.length })}</small></button></div>` : ''}`;
 }
+document.addEventListener('click', e => {
+  if (!e.target.closest('[data-log-more]')) return;
+  logFilter.limit = (logFilter.limit || LOG_PAGE) + LOG_PAGE;
+  setLock(frozen());
+  try { $('#log-table').innerHTML = logTable(); } finally { setLock(false); }
+});
 document.addEventListener('change', e => {
   const k = e.target.dataset.lf;
   if (!k) return;
-  logFilter[k] = e.target.value;
+  logFilter[k] = e.target.value; logFilter.limit = 0;
   setLock(frozen());
   try { $('#log-table').innerHTML = logTable(); } finally { setLock(false); }
 });
