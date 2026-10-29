@@ -1,6 +1,6 @@
 // Run: node test/grid.test.mjs   — rules of the Sync Grid (src/grid.js), no browser needed
 import assert from 'node:assert/strict';
-import { indexGrid, whyNot, canRemove, validate, totals, levelNeeded, gridHash } from '../src/grid.js';
+import { indexGrid, whyNot, canRemove, validate, totals, levelNeeded, gridHash, settle, linkGap } from '../src/grid.js';
 
 const cell = (n, q, r, extra = {}) => ({ n, q, r, s: -q - r, energy: 2, orbs: 24, req: [], color: 'blue', title: `T${n}`, description: '', ...extra });
 // centre is (0,0); ring 1: 1=(1,0) 2=(0,1); ring 2 hangs off ring 1: 3=(2,0) 4=(1,1)+level; 5=(-1,0)
@@ -26,6 +26,32 @@ assert.deepEqual(validate(ix, [1, 99]).map(p => p.code), ['unknown']);
 assert.deepEqual(validate(ix, [1, 3], { energyCap: 3 }).map(p => p.code), ['energy']);
 assert.deepEqual(totals(ix, new Set([1, 3, 5])), { energy: 9, orbs: 72, tiles: 3, byColor: { blue: 3 } });
 assert.notEqual(gridHash(grid), gridHash([...grid.slice(0, 4), cell(5, -1, 0, { energy: 6 })]), 'a changed tile changes the fingerprint');
+
+// picking ahead: far tiles wait, and switch on together once a chain of active tiles reaches them
+const line = indexGrid([cell(1, 1, 0), cell(2, 2, 0), cell(3, 3, 0), cell(4, 4, 0), cell(5, 5, 0, { energy: 10 })]);   // a straight chain out from the centre
+let r = settle(line, new Set(), new Set([4, 3]));
+assert.deepEqual([...r.active], [], 'nothing switches on while the chain is broken');
+assert.deepEqual([...r.pending].sort(), [3, 4]);
+assert.equal(r.blocked.get(4), 'not-adjacent');
+assert.equal(linkGap(line, new Set(), new Set([4, 3]), 4), 2, 'two tiles (1 and 2) still to pick');
+assert.equal(linkGap(line, new Set(), new Set([4, 3]), 3), 2);
+assert.equal(linkGap(line, new Set(), new Set([4, 3, 2]), 4), 1, 'picked tiles count for nothing');
+assert.equal(linkGap(line, new Set([1]), new Set([4, 3]), 4), 1, 'an active tile shortens the chain');
+assert.equal(linkGap(line, new Set(), new Set(), 1), 0, 'a tile at the centre needs nothing');
+r = settle(line, new Set([1]), new Set([4, 3, 2]));
+assert.deepEqual([...r.active].sort(), [1, 2, 3, 4], 'tile 2 links the rest: all of them switch on at once');
+assert.equal(r.pending.size, 0);
+// the order of picking decides who gets the energy when there is a cap, and the rest keeps waiting
+r = settle(line, new Set([1]), new Set([2, 3]), { energyCap: 4 });
+assert.deepEqual([...r.active].sort(), [1, 2]);
+assert.equal(r.blocked.get(3), 'energy');
+r = settle(line, new Set([1]), new Set([5]), { moveLevel: 1 });
+assert.equal(r.blocked.get(5), 'not-adjacent');
+assert.deepEqual([...settle(line, new Set([1]), new Set([99])).pending], [], 'a tile that does not exist is dropped');
+assert.deepEqual([...settle(line, new Set([1]), new Set([1])).pending], [], 'an active tile is not pending');
+// gaps around a bend: the shorter way round is counted
+const bend = indexGrid([cell(1, 1, 0), cell(2, 1, 1), cell(3, 0, 2), cell(4, 2, 0), cell(5, 2, 1), cell(6, 1, 2)]);
+assert.equal(linkGap(bend, new Set(), new Set([6]), 6), 2, '6 → 2 → 1: tiles 2 and 1 are still to pick');
 
 // layout: flat-topped hexagons, tile n=1 at the upper right, the ring running clockwise (as in the game)
 import { hexXY } from '../src/grid.js';

@@ -56,6 +56,38 @@ export function canRemove(ix, active, c) {
   const rest = new Set(active); rest.delete(c.n);
   return connected(ix, rest).size === rest.size;
 }
+// ── Picking tiles ahead: a far tile can be picked before the tiles that link it to the centre. It waits ("pending") and switches
+//    on for real, together with the others, as soon as a chain of switched-on tiles reaches it.
+// Moves every pending tile that can be switched on now into the active set, again and again (a tile that just switched on can
+// free the next one). Tiles go in the order they were picked, which decides who gets the energy when a cap is set.
+// `blocked` says why each tile that is still waiting waits: 'not-adjacent', 'move-level' or 'energy'.
+export function settle(ix, active, pending, opts = {}) {
+  const act = new Set(active), pen = new Set([...pending].filter(n => ix.byN.has(n) && !act.has(n)));
+  for (let moved = true; moved;) {
+    moved = false;
+    for (const n of [...pen]) if (!whyNot(ix, act, ix.byN.get(n), opts)) { act.add(n); pen.delete(n); moved = true; }
+  }
+  const blocked = new Map([...pen].map(n => [n, whyNot(ix, act, ix.byN.get(n), opts)]));
+  return { active: act, pending: pen, blocked };
+}
+// How many more tiles must be picked before tile n can switch on: the shortest chain from n to a tile that touches the centre
+// or an active tile, counting only tiles that are not picked yet (picked ones cost nothing). 0 = n switches on as it is.
+export function linkGap(ix, active, pending, n) {
+  const start = ix.byN.get(n);
+  if (!start) return Infinity;
+  const touches = c => nextToCentre(c) || neighbors(ix, c).some(x => active.has(x.n));
+  const picked = c => active.has(c.n) || pending.has(c.n);
+  const dist = new Map([[start.n, 0]]), done = new Set();   // Dijkstra: the grid has a few hundred tiles at most
+  for (;;) {
+    let cur = null;
+    for (const [k, d] of dist) if (!done.has(k) && (cur === null || d < dist.get(cur))) cur = k;
+    if (cur === null) return Infinity;
+    done.add(cur);
+    const c = ix.byN.get(cur), d = dist.get(cur);
+    if (touches(c)) return d;
+    for (const x of neighbors(ix, c)) { const nd = d + (picked(x) ? 0 : 1); if (nd < (dist.get(x.n) ?? Infinity)) dist.set(x.n, nd); }
+  }
+}
 // A saved build checked as a whole: [] means valid, else a list of { n, code }
 export function validate(ix, nodes, opts = {}) {
   const problems = [], active = new Set(nodes);
@@ -76,7 +108,6 @@ export function gridHash(grid) {
   for (const c of grid) for (const ch of `${c.n}|${c.q}|${c.r}|${c.energy}|${c.orbs}|${c.title}|${(c.req || []).join('+')};`) h = ((h * 33) ^ ch.charCodeAt(0)) >>> 0;
   return h.toString(36);
 }
-// Pixel position of a tile (pointy-top hexes)
 // Where a tile sits on screen. The game draws its grid with flat-topped hexagons (a tile straight above and below the centre).
 // The datamine's axial (q, r) are laid out as: q to the right, r up and to the left, so the six tiles around the centre
 // (n = 1…6) run clockwise from the upper right. Checked against a screenshot of the game (the player's Pikachu grid): the

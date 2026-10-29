@@ -7,13 +7,13 @@ import { byAcquisition, acqLabel } from '../acquisition.js';
 import { STATS, gridBonus, totalStats } from '../stats.js';
 import { formViews, allMoveNames } from '../forms.js';
 import { trainerArt, pokeArt, formStem } from '../art.js';
-import { indexGrid, whyNot, canRemove, validate, totals, levelNeeded, otherReqs, gridHash, hexXY, COLORS } from '../grid.js';
+import { indexGrid, whyNot, canRemove, validate, totals, levelNeeded, otherReqs, gridHash, hexXY, settle, linkGap, COLORS } from '../grid.js';
 import { PAIRS, loadPairDetail, dexIdOf, pairById, pairName, pairImage, TYPE_COLORS, TYPES, typeIcon, roleIcon, DEX } from '../catalog.js';
 
 // ═══════════════════════════════════════════════════════════════
 //  SYNC GRID: moves and passives of a pair, and a grid builder (rules in grid.js)
 // ═══════════════════════════════════════════════════════════════
-const G = { pairId: '', detail: null, err: '', ix: null, active: new Set(), moveLevel: 5, energyCap: null, sel: null, panel: 'tile', sub: 'moves', focus: null, statLevel: '', form: 0, extra: {}, buildId: null,
+const G = { pairId: '', detail: null, err: '', ix: null, active: new Set(), pending: new Set(), blocked: new Map(), moveLevel: 5, energyCap: null, sel: null, panel: 'tile', sub: 'moves', focus: null, statLevel: '', form: 0, extra: {}, buildId: null,
   name: '', purpose: '', visibility: 'private', saved: null, hash: '', msg: '' };
 const gridZoom = () => { try { return +localStorage.getItem('gym-grid-zoom') || 1; } catch { return 1; } };
 const setZoom = z => { try { localStorage.setItem('gym-grid-zoom', Math.max(0.4, Math.min(2.4, z)).toFixed(2)); } catch { /* private mode */ } };
@@ -22,7 +22,7 @@ const BUILD_WHY = { 'not-adjacent': 'next to no active tile', 'move-level': 'nee
 export function renderGrid(pairId = '', buildId = '') {
   if (!pairId) return gridHome();
   if (G.pairId !== pairId || (buildId && G.buildId !== +buildId)) {
-    Object.assign(G, { pairId, detail: null, err: '', ix: null, active: new Set(), sel: null, panel: 'tile', sub: 'moves', focus: null, statLevel: '', form: 0, extra: {}, buildId: null, name: '', purpose: '', visibility: 'private', saved: null, msg: '', moveLevel: 5, energyCap: null });
+    Object.assign(G, { pairId, detail: null, err: '', ix: null, active: new Set(), pending: new Set(), blocked: new Map(), sel: null, panel: 'tile', sub: 'moves', focus: null, statLevel: '', form: 0, extra: {}, buildId: null, name: '', purpose: '', visibility: 'private', saved: null, msg: '', moveLevel: 5, energyCap: null });
     const mine = ownedPair(S.me, pairId);
     if (mine) G.moveLevel = Math.min(5, mine.level || 5);
     const b = buildId && S.builds.find(x => x.id === +buildId);
@@ -106,6 +106,26 @@ function tileLines(title) {
   }
   return lines.filter(Boolean);
 }
+// ── picking tiles: a tile next to the centre or an active tile switches on; a far one is picked ahead and waits until the tiles
+//    between it and the centre are on (src/grid.js settle) ──
+const gOpts = () => ({ moveLevel: G.moveLevel, energyCap: G.energyCap });
+function gSettle() { const r = settle(G.ix, G.active, G.pending, gOpts()); G.active = r.active; G.pending = r.pending; G.blocked = r.blocked; }
+const gGap = n => linkGap(G.ix, G.active, G.pending, n);
+function pickTile(c) {
+  if (G.active.has(c.n)) {
+    if (canRemove(G.ix, G.active, c)) G.active.delete(c.n); else toast(t('Other tiles hang on this one: switch those off first.'), true);
+  } else if (G.pending.has(c.n)) G.pending.delete(c.n);
+  else {
+    const why = whyNot(G.ix, G.active, c, gOpts());
+    if (!why) G.active.add(c.n);
+    else if (why === 'not-adjacent' && levelNeeded(c) <= G.moveLevel) {
+      G.pending.add(c.n);
+      const gap = gGap(c.n);
+      toast(gap ? t('{tile} is picked and waits: {n} more tiles to link it to the centre.', { tile: tileTitle(c), n: gap }) : t('{tile} is picked.', { tile: tileTitle(c) }));
+    } else toast(`${tileTitle(c)}: ${t(BUILD_WHY[why === 'not-adjacent' ? 'move-level' : why])}`, true);
+  }
+  gSettle();
+}
 function gridBoard() {
   const zoom = gridZoom(), pts = G.ix.grid.map(c => ({ c, ...hexXY(c, SIZE) })), pad = SIZE * 1.5;
   const minX = Math.min(0, ...pts.map(p => p.x)) - pad, maxX = Math.max(0, ...pts.map(p => p.x)) + pad, minY = Math.min(0, ...pts.map(p => p.y)) - pad, maxY = Math.max(0, ...pts.map(p => p.y)) + pad;
@@ -114,16 +134,18 @@ function gridBoard() {
   const per = {}; for (const c of G.ix.grid) { (per[c.color] ||= { all: 0, on: 0 }).all++; if (G.active.has(c.n)) per[c.color].on++; }
   return `<div class="gp-hud"><div class="hud-i orb"><small>${t('Sync orbs')}</small><b>${fmtN(t0.orbs)}</b></div>
       <div class="hud-i en"><small>${t('Energy')}</small><b>${t0.energy}</b>${G.energyCap != null ? `<span class="cap"> / ${G.energyCap}</span>` : ''}</div>
+      ${G.pending.size ? `<div class="hud-i pd" title="${t('Picked tiles waiting to be linked to the centre')}"><small>${t('Waiting')}</small><b>${G.pending.size}</b></div>` : ''}
       <div class="hud-i lv" title="${t('Move level')}"><small>${t('Move level')}</small><span class="mlvs">${pips}</span></div>
       <span class="hud-sp"></span>
       <div class="hud-zoom"><button class="hud-b" data-gzoom="-0.2" aria-label="${t('Zoom out')}">−</button><button class="hud-b" data-gzoom="0.2" aria-label="${t('Zoom in')}">+</button><button class="hud-b wide" data-gfit>${t('Fit')}</button></div></div>
     <div class="gp-legend">${Object.entries(COLORS).filter(([k]) => per[k]).map(([k, [l]]) => `<button class="lg k-${k} ${G.focus === k ? 'on' : ''}" data-gfocus="${k}">${glyph(k, 13)}<span>${t(l)}</span><small>${per[k].on}/${per[k].all}</small></button>`).join('')}</div>
     <div class="grid-scroll"><svg viewBox="${minX} ${minY} ${maxX - minX} ${maxY - minY}" style="width:${Math.round((maxX - minX) * zoom)}px" class="${G.focus ? 'focus' : ''}" data-focus="${G.focus || ''}" role="img" aria-label="${t('Sync grid')}">
-      <defs><clipPath id="g-clip"><polygon points="${hexPts(0, 0, SIZE - 5)}"/></clipPath></defs>
+      <defs><clipPath id="g-clip"><polygon points="${hexPts(0, 0, SIZE - 5)}"/></clipPath>
+        ${Object.keys(COLORS).map(k => `<pattern id="g-hatch-${k}" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="8" height="8" style="fill:var(--surface)"/><line x1="0" y1="0" x2="0" y2="8" style="stroke:var(--k-${k});stroke-width:3.5"/></pattern>`).join('')}</defs>
       ${pts.map(({ c, x, y }) => {
-        const on = G.active.has(c.n), why = on ? null : whyNot(G.ix, G.active, c, opts), lines = tileLines(tileTitle(c));
+        const on = G.active.has(c.n), wait = !on && G.pending.has(c.n), why = on || wait ? null : whyNot(G.ix, G.active, c, opts), lines = tileLines(tileTitle(c));
         const y0 = y - (lines.length - 1) * 5.3 + 5;
-        return `<g class="g-tile ${on ? 'on' : why ? 'locked' : 'open'} ${G.sel === c.n ? 'sel' : ''} k-${c.color}" data-gtile="${c.n}" data-color="${c.color}" tabindex="0" role="button" aria-label="${esc(tileTitle(c))}">
+        return `<g class="g-tile ${on ? 'on' : wait ? 'pending' : why ? 'locked' : 'open'} ${G.sel === c.n ? 'sel' : ''} k-${c.color}" data-gtile="${c.n}" data-color="${c.color}" tabindex="0" role="button" aria-label="${esc(tileTitle(c))}">
           <polygon class="g-out" points="${hexPts(x, y, SIZE - 1)}"/><polygon class="g-in" points="${hexPts(x, y, SIZE - 5.5)}"/>
           <g class="g-gl" transform="translate(${x} ${y - 19}) scale(1.05)" fill="currentColor" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round">${GLYPH[c.color] || ''}</g>
           <text class="g-t" x="${x}" y="${y0}" text-anchor="middle">${lines.map((l, i) => `<tspan x="${x}" dy="${i ? 10.6 : 0}">${esc(l)}</tspan>`).join('')}</text>
@@ -143,18 +165,20 @@ function tilePanel() {
   const own = ownedPair(S.me, G.pairId), problems = validate(G.ix, [...G.active], opts);
   const changed = G.saved && G.saved.grid_hash && G.saved.grid_hash !== G.hash;
   const needed = Math.max(0, ...[...G.active].map(n => levelNeeded(G.ix.byN.get(n) || {})));
-  const tile = c ? (() => { const why = G.active.has(c.n) ? null : whyNot(G.ix, G.active, c, opts);
+  const tile = c ? (() => { const on = G.active.has(c.n), wait = G.pending.has(c.n), why = on || wait ? null : whyNot(G.ix, G.active, c, opts);
+    const ahead = why === 'not-adjacent' && levelNeeded(c) <= G.moveLevel, gap = wait ? gGap(c.n) : ahead ? gGap(c.n) + 1 : 0, wwhy = wait ? G.blocked.get(c.n) : null;
     return `<article class="tile-card k-${c.color}"><header><span class="tc-kind">${glyph(c.color, 14)}${t(COLORS[c.color]?.[0] || c.color)}</span><span class="tc-n">#${c.n}</span></header>
       <h3>${esc(tileTitle(c))}</h3>${c.description ? `<p class="pre">${esc(c.description)}</p>` : ''}
       <dl class="tc-cost"><div class="en"><dt>${t('Energy')}</dt><dd>${c.energy}</dd></div><div class="orb"><dt>${t('Sync orbs')}</dt><dd>${fmtN(c.orbs)}</dd></div></dl>
       ${(c.req || []).length ? `<ul class="tc-req">${c.req.map(r => `<li>${esc(r)}</li>`).join('')}</ul>` : ''}
       ${otherReqs(c).length ? `<p class="notice">${ico('note')} ${t('This app only checks the move level; the other requirements are on you.')}</p>` : ''}
-      ${why ? `<p class="notice">${ico('lock')} ${t(BUILD_WHY[why])}</p>` : ''}
-      <button class="btn ${G.active.has(c.n) ? 'ghost' : 'primary'} block" data-gtoggle="${c.n}" ${why ? 'disabled' : ''}>${G.active.has(c.n) ? t('Switch off') : t('Switch on')}</button></article>`; })()
-    : `<div class="tile-card empty"><p class="muted">${t('Tap a tile to read it and switch it on or off.')}</p></div>`;
+      ${wait ? `<p class="notice">${ico('note')} ${wwhy === 'move-level' ? t(BUILD_WHY['move-level']) : wwhy === 'energy' ? t(BUILD_WHY.energy) : t('Picked ahead: it switches on when the tiles between it and the centre are on ({n} more to pick).', { n: gap })}</p>` : ahead ? `<p class="notice">${ico('note')} ${t('Not linked yet. Pick it ahead: it switches on by itself once the {n} tiles needed to reach it are on.', { n: gap })}</p>` : why ? `<p class="notice">${ico('lock')} ${t(BUILD_WHY[why === 'not-adjacent' ? 'move-level' : why])}</p>` : ''}
+      <button class="btn ${on || wait ? 'ghost' : 'primary'} block" data-gtoggle="${c.n}" ${why && !ahead ? 'disabled' : ''}>${on ? t('Switch off') : wait ? t('Cancel pick') : ahead ? t('Pick ahead') : t('Switch on')}</button></article>`; })()
+    : `<div class="tile-card empty"><p class="muted">${t('Tap a tile to read it and switch it on or off. A far tile can be picked ahead: it switches on when the tiles in between are on.')}</p></div>`;
   return `${tile}
   <div class="build-card form"><h3>${t('Your build')}</h3>
     <div class="gstats"><span><b>${t0.tiles}</b><small>${t('tiles')}</small></span><span><b>${t0.energy}</b><small>${t('energy')}${G.energyCap != null ? ` / ${G.energyCap}` : ''}</small></span><span><b>${fmtN(t0.orbs)}</b><small>${t('sync orbs')}</small></span></div>
+    ${G.pending.size ? `<p class="notice pd">${ico('note')} ${t('{n} picked tiles are waiting to be linked. They are not part of the build, and not saved, until they switch on.', { n: G.pending.size })} <button type="button" class="btn sm ghost" data-gclear-pending>${t('Clear')}</button></p>` : ''}
     <div class="chips-l">${Object.entries(t0.byColor).map(([k, n]) => `<span class="chip kind k-${k}">${glyph(k, 11)}${n} ${t(COLORS[k]?.[0] || k)}</span>`).join('')}</div>
     <div class="grid2" style="margin-top:8px"><label>${t('Move level')}<select id="g-level">${[1, 2, 3, 4, 5].map(n => `<option ${n === G.moveLevel ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
       <label>${t('Energy limit')}<input id="g-cap" type="number" min="0" max="999" placeholder="${t('none')}" value="${G.energyCap ?? ''}"></label></div>
@@ -292,8 +316,8 @@ document.addEventListener('change', e => {
   const gf = e.target.dataset?.gf, gfc = e.target.dataset?.gfc;
   if (gf) { GF[gf] = e.target.value; GF.shown = 48; const r = $('#pair-results'); if (r) r.innerHTML = pairResults(); return; }
   if (gfc) { GF[gfc] = e.target.checked; GF.shown = 48; const r = $('#pair-results'); if (r) r.innerHTML = pairResults(); return; }
-  if (e.target.id === 'g-level') { gridKeepFields(); G.moveLevel = +e.target.value; gridRedraw(); }
-  if (e.target.id === 'g-cap') { gridKeepFields(); G.energyCap = e.target.value === '' ? null : Math.max(0, +e.target.value); gridRedraw(); }
+  if (e.target.id === 'g-level') { gridKeepFields(); G.moveLevel = +e.target.value; gSettle(); gridRedraw(); }
+  if (e.target.id === 'g-cap') { gridKeepFields(); G.energyCap = e.target.value === '' ? null : Math.max(0, +e.target.value); gSettle(); gridRedraw(); }
   if (e.target.id === 'g-vis') { gridKeepFields(); G.visibility = e.target.value; gridRedraw(); }
 });
 document.addEventListener('click', async e => {
@@ -310,25 +334,23 @@ document.addEventListener('click', async e => {
   if (zoom) { setZoom(gridZoom() + +zoom.dataset.gzoom); redrawBoard(); return; }
   if (fit) { const w = $('.grid-scroll')?.clientWidth || 600, svg = $('.grid-scroll svg'), vb = svg?.viewBox.baseVal; if (vb) setZoom(Math.max(0.4, Math.min(2.2, (w - 8) / vb.width))); redrawBoard(); return; }
   if (focus) { G.focus = G.focus === focus.dataset.gfocus ? null : focus.dataset.gfocus; redrawBoard(); return; }
-  if (lv) { gridKeepFields(); G.moveLevel = +lv.dataset.gmlv; gridRedraw(); return; }
+  if (lv) { gridKeepFields(); G.moveLevel = +lv.dataset.gmlv; gSettle(); gridRedraw(); return; }
   if (tile) {   // one click does it: switch the tile on (or off); if it cannot be switched on, say why
-    const c = G.ix.byN.get(+tile.dataset.gtile), opts = { moveLevel: G.moveLevel, energyCap: G.energyCap };
+    const c = G.ix.byN.get(+tile.dataset.gtile);
     gridKeepFields(); G.sel = c.n; G.msg = '';
-    if (G.active.has(c.n)) { if (canRemove(G.ix, G.active, c)) G.active.delete(c.n); else toast(t('Other tiles hang on this one: switch those off first.'), true); }
-    else { const why = whyNot(G.ix, G.active, c, opts); if (why) toast(`${tileTitle(c)}: ${t(BUILD_WHY[why])}`, true); else G.active.add(c.n); }
+    pickTile(c);
     gridRedraw(); const again = $(`[data-gtile="${c.n}"]`); if (again && hoverOk()) showTip(again);
     return;
   }
   if (tog) {
     gridKeepFields();
-    const c = G.ix.byN.get(+tog.dataset.gtoggle), opts = { moveLevel: G.moveLevel, energyCap: G.energyCap };
-    if (G.active.has(c.n)) { if (!canRemove(G.ix, G.active, c)) { G.msg = t('Other tiles hang on this one: switch those off first.'); gridRedraw(); return; } G.active.delete(c.n); }
-    else { const why = whyNot(G.ix, G.active, c, opts); if (why) return; G.active.add(c.n); }
+    pickTile(G.ix.byN.get(+tog.dataset.gtoggle));
     G.msg = ''; gridRedraw(); return;
   }
   if (e.target.closest('[data-gsave]')) gridSave(false);
   if (e.target.closest('[data-gsave-new]')) gridSave(true);
-  if (e.target.closest('[data-greset]')) { gridKeepFields(); G.active = new Set(); G.msg = ''; gridRedraw(); }
+  if (e.target.closest('[data-greset]')) { gridKeepFields(); G.active = new Set(); G.pending = new Set(); G.blocked = new Map(); G.msg = ''; gridRedraw(); }
+  if (e.target.closest('[data-gclear-pending]')) { gridKeepFields(); G.pending = new Set(); G.blocked = new Map(); gridRedraw(); }
   if (e.target.closest('[data-gdel]')) {
     if (confirm(t('Delete this build?')) && await act(() => api.deleteGridBuild(G.buildId), t('Build deleted.'))) { S.builds = await api.gridBuilds(); G.buildId = null; location.hash = '#/grid'; }
   }
@@ -337,11 +359,12 @@ document.addEventListener('click', async e => {
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 const hoverOk = () => matchMedia('(hover: hover) and (pointer: fine)').matches;
 function tipHtml(c) {
-  const on = G.active.has(c.n), why = on ? null : whyNot(G.ix, G.active, c, { moveLevel: G.moveLevel, energyCap: G.energyCap });
-  return `<div class="gt-h k-${c.color}"><span>${glyph(c.color, 12)}${t(COLORS[c.color]?.[0] || c.color)}</span><b>${on ? t('Switched on') : why ? t('Locked') : t('Can be switched on')}</b></div>
+  const on = G.active.has(c.n), wait = !on && G.pending.has(c.n), why = on || wait ? null : whyNot(G.ix, G.active, c, gOpts());
+  const ahead = why === 'not-adjacent' && levelNeeded(c) <= G.moveLevel;
+  return `<div class="gt-h k-${c.color}"><span>${glyph(c.color, 12)}${t(COLORS[c.color]?.[0] || c.color)}</span><b>${on ? t('Switched on') : wait ? t('Waiting') : ahead ? t('Pick ahead') : why ? t('Locked') : t('Can be switched on')}</b></div>
     <div class="gt-b"><h4>${esc(tileTitle(c))}</h4>${c.description ? `<p>${esc(c.description)}</p>` : ''}
     <div class="gt-c"><span><i class="e"></i>${t('Energy')} <b>${c.energy}</b></span><span><i class="o"></i>${t('Sync orbs')} <b>${fmtN(c.orbs)}</b></span></div>
-    ${(c.req || []).length ? `<ul>${c.req.map(r => `<li>${esc(r)}</li>`).join('')}</ul>` : ''}${why ? `<p class="gt-why">${t(BUILD_WHY[why])}</p>` : ''}</div>`;
+    ${(c.req || []).length ? `<ul>${c.req.map(r => `<li>${esc(r)}</li>`).join('')}</ul>` : ''}${wait ? `<p class="gt-why">${t('Switches on when the tiles between it and the centre are on ({n} more to pick).', { n: gGap(c.n) })}</p>` : ahead ? `<p class="gt-why">${t('Click to pick it ahead: it switches on once linked.')}</p>` : why ? `<p class="gt-why">${t(BUILD_WHY[why])}</p>` : ''}</div>`;
 }
 function showTip(el) {
   let tip = $('#g-tip');

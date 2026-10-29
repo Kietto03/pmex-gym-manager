@@ -507,8 +507,19 @@ f.onload = async () => {
     const clickTile = el => el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     const openTile = $('.g-tile.open'); clickTile(openTile); await sleep(150);
     log($$('.g-tile.on').length === 1 && $$('.g-tile.open').length > 1 && /tiles/i.test($('.gstats')?.innerText || 'tiles'), 'grid: one click switches a tile on, and that opens its neighbours');
-    const far = $$('.g-tile.locked')[0]; clickTile(far); await sleep(150);
-    log($$('.g-tile.on').length === 1 && !!$('.toast.show.bad'), 'grid: a tile that touches nothing active stays off and says why');
+    // picking ahead: a far tile waits, and switches on by itself once the tiles in between are on
+    const far = $$('.g-tile.locked')[0], farN = far.dataset.gtile; clickTile(far); await sleep(150);
+    log($$('.g-tile.on').length === 1 && $$('.g-tile.pending').length === 1 && !!$(`.g-tile.pending[data-gtile="${farN}"]`) && !$('.toast.show.bad'), 'grid: a far tile is picked ahead and waits instead of switching on');
+    log(/Cancel pick/.test($('[data-gtoggle]')?.innerText || '') && /waiting/i.test($('.hud-i.pd')?.innerText || ''), 'grid: the waiting tile can be cancelled and the board counts it');
+    const farTile = () => $(`.g-tile[data-gtile="${farN}"]`);   // the board is drawn again after each click
+    clickTile(farTile()); await sleep(100);
+    log($$('.g-tile.pending').length === 0 && $$('.g-tile.on').length === 1, 'grid: clicking a waiting tile cancels the pick');
+    clickTile(farTile()); await sleep(100);
+    log($$('.g-tile.pending').length === 1, 'grid: and picks it again');
+    for (let i = 0; i < 160 && !$(`.g-tile.on[data-gtile="${farN}"]`); i++) { const o = $$('.g-tile.open')[0]; if (!o) break; clickTile(o); await sleep(15); }
+    log(!!$(`.g-tile.on[data-gtile="${farN}"]`) && $$('.g-tile.pending').length === 0 && $$('.g-tile.on').length > 2, 'grid: the picked-ahead tile switches on by itself once a chain of tiles reaches it', `${$$('.g-tile.on').length} tiles on`);
+    $('[data-greset]').click(); await sleep(100); clickTile($('.g-tile.open')); await sleep(150);
+    log($$('.g-tile.on').length === 1 && $$('.g-tile.pending').length === 0, 'grid: clear starts over, one tile on again');
     const onTile = $('.g-tile.on'); onTile.dispatchEvent(new MouseEvent('mouseover', { bubbles: true })); await sleep(120);
     log(!!$('#g-tip') && !$('#g-tip').hidden && /Energy/i.test($('#g-tip').innerText) && /Switched on/i.test($('#g-tip').innerText), 'grid: hovering a tile shows its details');
     onTile.dispatchEvent(new MouseEvent('mouseout', { bubbles: true })); await sleep(80);
