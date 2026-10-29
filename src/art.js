@@ -8,6 +8,12 @@
 const CFG = (typeof window !== 'undefined' && window.GYM_CONFIG) || {};
 export const ART = (CFG.artUrl || 'https://pmrandom.dpdns.org/').replace(/\/?$/, '/');
 
+// Backup: Serebii has the same pictures (2D trainer art, 256 px Pokémon renders), often before pmrandom. tools/build-art.mjs finds which ones exist.
+export const SEREBII = (CFG.backupArtUrl || 'https://www.serebii.net/pokemonmasters/').replace(/\/?$/, '/');
+export const trainerBackup = slug => (slug ? `${SEREBII}syncpairs/${slug}.png` : '');
+export const pokeBackup = name => (name ? `${SEREBII}pokemon/${name}.png` : '');
+// What kind of picture an address is: Serebii's trainer art is tall and framed differently ('sb'); a Dex pixel sprite is small ('fb')
+export const artKind = url => (/\/syncpairs\/[^/]+\.png$/.test(url) ? 'sb' : /\/assets\//.test(url) ? 'fb' : '');
 export const trainerArt = (p, ex = false) => (p?.iTrainer ? `${ART}static/data/chara/${p.iTrainer}${ex ? '_expose' : ''}_1024.png` : '');
 export const pokeArt = stem => (stem ? `${ART}static/data/pkmn/${stem}_256.png` : '');
 

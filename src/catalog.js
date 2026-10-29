@@ -4,6 +4,7 @@
    · Gym Battle definitions — PMEX Dex build (data/gyms.json)
    ═══════════════════════════════════════════════════════════════ */
 
+import { makeDexLookup } from './pairmap.js';
 const CFG = window.GYM_CONFIG || {};
 export const POMA = (CFG.pomastersUrl || 'https://pomasters.github.io/SyncPairsTracker/').replace(/\/?$/, '/');
 // ?dex=<url> points at another Dex build (handy for local development)
@@ -73,6 +74,7 @@ export async function loadCatalog() {
   const base = raw.map(p => slug(`${p.trainerAlt} ${p.trainerName} ${p.pokemonName} ${(p.pokemonForm || []).join(' ')}`));
   const clash = new Set(base.filter((id, i) => base.indexOf(id) !== i));
   const idOf = raw.map((p, i) => (clash.has(base[i]) ? `${base[i]}-${slug(p.internalPokemonName || String(i))}` : base[i]));
+  dexLookup = null;
   pairs = raw.map((p, i) => ({
     id: idOf[i],
     trainer: trainerLabel(p.trainerName, p.trainerAlt),
@@ -134,15 +136,18 @@ export const rebuffs = (p, type) => (p.rebuff || []).some(r => r === type || r =
 
 // catalog pair → the id of its file in the Dex build. The Dex publishes the index with every build (data/pair-index.json),
 // so a new pair is found as soon as the Dex has it; data/pair-map.json is the copy kept in this repo as a fallback.
-let pairMap = {};
+let pairMap = {};   // Dex "<trainer>|<pokémon>" → pair file id
 export async function loadPairMap() {
   for (const url of [`${DEX}data/pair-index.json`, 'data/pair-map.json']) {
-    try { const r = await fetch(url); if (r.ok) { const m = (await r.json()).pairs; if (m && Object.keys(m).length > 300) { pairMap = m; return; } } } catch { /* try the next one */ }
+    try { const r = await fetch(url); if (r.ok) { const m = (await r.json()).pairs; if (m && Object.keys(m).length > 300) { pairMap = m; dexLookup = null; return; } } } catch { /* try the next one */ }
   }
 }
-// The tracker calls the player character "Player"; the Dex (the datamine) calls it "Scottie"
-const DEX_TRAINER = { player: 'scottie' };
-export const dexIdOf = p => pairMap[`${p.trainer}|${p.pokemon}`.toLowerCase()] || pairMap[`${DEX_TRAINER[String(p.trainer).toLowerCase()]}|${p.pokemon}`.toLowerCase()] || null;
+// Tracker names and Dex names differ a little: the matching is in src/pairmap.js (built when the catalog and the map are both there)
+let dexLookup = null;
+export const dexIdOf = p => {
+  if (!dexLookup) dexLookup = makeDexLookup(pairMap, pairs);
+  return dexLookup(p);
+};
 // ─── Full detail of one pair (moves, passives, stats, grid) — one small script per pair in the Dex build ───
 const pending = new Map(), details = new Map();
 export function loadPairDetail(id) {

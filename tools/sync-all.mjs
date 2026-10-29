@@ -51,7 +51,7 @@ export const SOURCES = [
   fileSource('clears', 'D.C. and GvG clears (community sheets)', 'Strategies: D.C. and GvG libraries', 'https://docs.google.com/spreadsheets/d/14C_CPMRC8xHslf7id6wMqTdQeCvPA-_X4w9URrHNRzE/edit', 30, buildClears),
   fileSource('events', 'Event calendar: scout banners (Dex build of the datamine)', 'Free Gems: event calendar', `${DEX_SITE}data/data.js`, 40, buildEvents),
   fileSource('lodge', 'Trainer Lodge topics (Serebii)', 'Trainer Lodge lookup', 'https://www.serebii.net/pokemonmasters/trainerlodgetopics.shtml', 60, buildLodge),
-  fileSource('art', 'Pokémon pictures (pmrandom): forms of each pair', 'Sync Grid: the picture of a pair\'s Pokémon in each form', `${ART_SITE}pkmn`, 60, buildArt),
+  fileSource('art', 'Game pictures (pmrandom, Serebii as backup)', 'Sync Grid: trainer and Pokémon pictures, the forms of each pair, backups for what pmrandom lacks', `${ART_SITE}pkmn`, 60, buildArt),
   { id: 'tier', label: 'Tier lists (China, Spark, Japan)', feeds: 'suggestions by tier (not built yet)', kind: 'manual', url: 'https://docs.qq.com/sheet/DSWp2aXZHSUphT1lW?tab=n44aze',
     note: 'No machine-readable copy: the China sheet asks for a login and the Spark list is made of pictures.' },
 ];

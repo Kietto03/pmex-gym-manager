@@ -1464,3 +1464,8 @@ svg.hlmode .g-tile { opacity: .22; transition: opacity .12s; } svg.hlmode .g-til
 .g-tile.pending .g-gl { color: var(--text); }
 .hud-i.pd b { color: var(--accent); }
 .notice.pd { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+
+/* Serebii's trainer art is a tall full-body picture: the head and upper body fill the same window */
+.pl-art.trainer.sb { width: 150px; height: 214px; overflow: hidden; }
+.pl-art.trainer.sb img { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: auto; height: 440px; }
+@media (max-width: 720px) { .pl-art.trainer.sb { width: 112px; height: 160px; } .pl-art.trainer.sb img { height: 330px; width: auto; left: 50%; } }

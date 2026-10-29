@@ -431,7 +431,7 @@ Mỗi mùa mỗi thành viên có một **battle role** và một **main type**.
 
 Đây là phần phức tạp nhất về logic.
 
-**Dữ liệu.** Mỗi pair có một file `data/pairs/<id>.js` trên Dex, nạp bằng thẻ `<script>` gọi `PMEX_PAIR_LOADED(id, data)` (tránh CORS cho file tĩnh). File chứa chiêu, passive, chỉ số theo level, các dạng và **grid** (danh sách ô: toạ độ trục `q, r, s`, năng lượng, orbs, yêu cầu, màu loại, tên). `dexIdOf(pair)` ánh xạ pair của tracker sang id file Dex qua `pair-index.json` (đọc trực tiếp từ Dex) hoặc `data/pair-map.json` (bản dự phòng). Pair "Player" của tracker ánh xạ sang "Scottie" của Dex.
+**Dữ liệu.** Mỗi pair có một file `data/pairs/<id>.js` trên Dex, nạp bằng thẻ `<script>` gọi `PMEX_PAIR_LOADED(id, data)` (tránh CORS cho file tĩnh). File chứa chiêu, passive, chỉ số theo level, các dạng và **grid** (danh sách ô: toạ độ trục `q, r, s`, năng lượng, orbs, yêu cầu, màu loại, tên). `dexIdOf(pair)` ánh xạ pair của tracker sang id file Dex qua `pair-index.json` (đọc trực tiếp từ Dex) hoặc `data/pair-map.json` (bản dự phòng). Hai bên viết tên hơi khác nhau ("Leon (Alt)" và "leon (alt.)", dấu nháy, khoảng trắng, trang phục chỉ ghi một phía), nên `pairmap.js` khớp theo bốn bước từ nghiêm ngặt tới thoáng: tên đúng, nhân vật người chơi ("Player" của tracker là "Scottie" của Dex), tên đã chuẩn hoá, và cùng trainer + Pokémon khi chỉ có một pair ở **cả hai phía**. Có hai ứng viên thì không chọn ai.
 
 **Hình học.** Game vẽ lục giác **nằm ngang (flat-top)**: có ô nằm thẳng trên và thẳng dưới tâm. Công thức đặt ô: `x = 1,5·size·q`, `y = −√3·size·(r + q/2)`. Hướng này được xác định bằng cách đối chiếu ảnh chụp lưới thật của game với toàn bộ lưới trong dữ liệu (chỉ một lưới trùng, và 11/11 ô vòng ba khớp). Sáu ô quanh tâm theo thứ tự trong datamine chạy theo chiều kim đồng hồ từ góc 1 giờ.
 
@@ -450,7 +450,7 @@ Mỗi mùa mỗi thành viên có một **battle role** và một **main type**.
 
 **Các dạng (`forms.js`).** Datamine lưu chiêu/passive của dạng *theo slot* (`null` = như dạng thường). `formViews(d)` gộp thành bộ chiêu **đầy đủ** cho từng dạng: lớp phủ slot, chiêu Tera/Max ở mục riêng, passive Tera, và đánh dấu chiêu bị đổi kèm tên chiêu bị thay. Quy tắc đồng bộ với Dex: Dynamax/Gigantamax thay chiêu bằng Max Move (theo `fromSlot`) và bỏ chiêu sync.
 
-**Ảnh (`art.js`).** Phần đầu trang chi tiết dùng ảnh 2D của trainer (`chara/<internalTrainerName>_1024.png`, bản `_expose` khi thành viên có pair ở dạng EX) và ảnh 3D Pokémon (`pkmn/<internalPokemonName>_256.png`) từ pmrandom. Tên file lấy từ tracker. Ảnh theo dạng chọn từ `data/pkmn-art.json`: Mega khớp theo tên; Tera dùng ảnh pha lê đúng hệ nếu có (số sau mã `7x` là chỉ số hệ Tera); Primal khớp theo tên; Dynamax/Gigantamax dùng ảnh gốc. Chỉ khớp được **chắc chắn** mới dùng ảnh pmrandom; còn lại rơi về sprite pixel của Dex. Ảnh lỗi tự đổi sang sprite Dex (`onerror`), và đặt `referrerpolicy="no-referrer"`.
+**Ảnh (`art.js`).** Phần đầu trang chi tiết dùng ảnh 2D của trainer (`chara/<internalTrainerName>_1024.png`, bản `_expose` khi thành viên có pair ở dạng EX) và ảnh 3D Pokémon (`pkmn/<internalPokemonName>_256.png`) từ pmrandom. Tên file lấy từ tracker. Ảnh theo dạng chọn từ `data/pkmn-art.json`: Mega khớp theo tên; Tera dùng ảnh pha lê đúng hệ nếu có (số sau mã `7x` là chỉ số hệ Tera); Primal khớp theo tên; Dynamax/Gigantamax dùng ảnh gốc. Chỉ khớp được **chắc chắn** mới dùng ảnh pmrandom. Mỗi ảnh có **chuỗi dự phòng**: pmrandom → **Serebii** → sprite pixel của Dex → icon pair; một ảnh không tải được tự chuyển sang địa chỉ kế tiếp (`onerror`, danh sách trong `data-fb`), và đặt `referrerpolicy="no-referrer"`. Serebii có cùng ảnh trainer 2D và ảnh Pokémon 256px, thường có sớm hơn pmrandom; `tools/build-art.mjs` dò (HEAD) mỗi lần đồng bộ để biết pair nào pmrandom chưa có mà Serebii có và ghi vào `backup` của `data/pkmn-art.json` (khoá `<dexNumber>|<pokemonNumber>` như tracker). Quy tắc không đoán: trang phục (outfit) không bao giờ bị thay bằng trang phục khác, và dạng Pokémon không gọi được tên chắc chắn thì bỏ qua. Nhân vật người chơi ("Player") chưa có ảnh 2D ở nguồn nào nên dùng sprite pixel của Dex.
 
 **Chỉ số kèm build.** Tổng chỉ số = chỉ số theo level + cộng từ các ô Stat đã bật + phần thưởng EX/EX Role. Datamine không có giá trị EX/EX Role, nên người dùng nhập tay (ô "Add EX / EX role bonuses").
 
@@ -516,7 +516,8 @@ Repo `pmex-supez-dex` chạy mỗi ngày: lấy datamine, build `site/data` (g�
 |---|---|---|
 | PoMasters tracker | danh sách pair, icon, tên nội bộ | app dùng bản trong Cache API; roster không có pair mới tới khi tracker sống lại |
 | Dex | Gym Battle, grid, chiêu, tag | Sync Grid dùng `pair-map.json` dự phòng; Battle info hiện thông báo; dữ liệu mùa đã lưu trong database vẫn dùng được |
-| pmrandom.dpdns.org | ảnh trainer 2D và Pokémon 3D | tự rơi về sprite pixel của Dex; chức năng không ảnh hưởng. Là **hot-link** tới site của bên thứ ba |
+| pmrandom.dpdns.org | ảnh trainer 2D và Pokémon 3D | tự chuyển sang Serebii, rồi sprite pixel của Dex; chức năng không ảnh hưởng. Là **hot-link** tới site của bên thứ ba |
+| Serebii (ảnh) | ảnh dự phòng cho pair pmrandom chưa có | bỏ qua, dùng sprite pixel của Dex; cũng là hot-link |
 | Google Sheets, Serebii | Gems, D.C./GvG, Trainer Lodge | giữ file cũ, báo lỗi trong Data updates |
 | jsDelivr | thư viện `supabase-js` | không đăng nhập được thật; demo vẫn chạy |
 | Supabase | toàn bộ dữ liệu gym | app hiện lỗi tải; không có chế độ offline |
@@ -672,7 +673,8 @@ Nguyên tắc: logic mới đi kèm test thuần trước; thay đổi giao di�
 | `grid.js` | Luật Sync Grid, hình học lục giác, chọn trước (`settle`, `linkGap`) |
 | `forms.js` | Gộp bộ chiêu/passive theo dạng (Mega, Tera, Dynamax…) |
 | `stats.js` | Chỉ số từ ô Stat, tổng với bonus nhập tay |
-| `art.js` | URL ảnh game và chọn ảnh theo dạng |
+| `art.js` | URL ảnh game (pmrandom, Serebii dự phòng) và chọn ảnh theo dạng |
+| `pairmap.js` | Ghép pair của tracker với file pair của Dex khi tên viết khác nhau (chỉ khớp khi chắc chắn) |
 | `moves.js` | Tách điều kiện kích hoạt/kết thúc/hiệu ứng của chiêu |
 | `gems.js` | Dự phóng Free Gems |
 | `ranking.js` | Chuẩn hoá và xếp hạng clear D.C./GvG |

@@ -26,6 +26,10 @@ async function fetchText(url, tries) {
   throw last;
 }
 export const getJson = async url => JSON.parse(await getText(url));
+// Does a picture exist? (a HEAD request; false for anything but 200, and when the site does not answer)
+export async function exists(url) {
+  try { const res = await fetch(url, { method: 'HEAD', headers: UA, redirect: 'follow', signal: AbortSignal.timeout(20000) }); return res.status === 200; } catch { return false; }
+}
 
 // Compare ignoring the fields that change on every run (the fetch time), so a quiet source makes no commit
 const VOLATILE = ['fetched', 'built'];

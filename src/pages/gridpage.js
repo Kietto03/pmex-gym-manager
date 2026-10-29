@@ -6,7 +6,7 @@ import { splitDescription, count } from '../moves.js';
 import { byAcquisition, acqLabel } from '../acquisition.js';
 import { STATS, gridBonus, totalStats } from '../stats.js';
 import { formViews, allMoveNames } from '../forms.js';
-import { trainerArt, pokeArt, formStem } from '../art.js';
+import { trainerArt, pokeArt, formStem, trainerBackup, pokeBackup, artKind } from '../art.js';
 import { indexGrid, whyNot, canRemove, validate, totals, levelNeeded, otherReqs, gridHash, hexXY, settle, linkGap, COLORS } from '../grid.js';
 import { PAIRS, loadPairDetail, dexIdOf, pairById, pairName, pairImage, TYPE_COLORS, TYPES, typeIcon, roleIcon, DEX } from '../catalog.js';
 
@@ -53,30 +53,38 @@ const glyph = (k, size = 12) => `<svg class="gl" viewBox="-6 -6 12 12" width="${
 const hexPip = (on) => `<svg class="hp ${on ? 'on' : ''}" viewBox="-6 -6 12 12" width="14" height="14" aria-hidden="true"><polygon points="${hexPts(0, 0, 5.4)}"/></svg>`;
 
 // ── the header: who this pair is, as the game shows it ──
-// The game's pictures live at pmrandom: the index of their forms is read once; until then (or when it is missing) the Dex sprites stand in
-let artIdx = null;
+// The game's pictures live at pmrandom, with Serebii as the backup for what pmrandom does not have (yet), then the Dex sprites.
+// The index of the forms and the list of backups are read once; until then the plain pmrandom address is tried.
+let artData = null;
 async function loadArt() {
-  if (artIdx !== null) return;
-  artIdx = false;
-  try { const r = await fetch('data/pkmn-art.json'); if (r.ok) artIdx = (await r.json()).pkmn; } catch { /* the Dex sprites stay */ }
-  if (artIdx && location.hash.startsWith('#/grid/') && G.detail) redrawHead();
+  if (artData !== null) return;
+  artData = false;
+  try { const r = await fetch('data/pkmn-art.json'); if (r.ok) artData = await r.json(); } catch { /* the Dex sprites stay */ }
+  if (artData && location.hash.startsWith('#/grid/') && G.detail) redrawHead();
 }
-window.plFallback = img => { img.onerror = null; if (img.dataset.fb) img.src = img.dataset.fb; img.closest('.pl-art')?.classList.add('fb'); };
+// A picture that does not load is replaced by the next address of its list (data-fb, separated by |) until none is left
+window.plFallback = img => {
+  const next = (img.dataset.fb || '').split('|').filter(Boolean), wrap = img.closest('.pl-art');
+  if (!next.length) { img.onerror = null; return; }
+  img.dataset.fb = next.slice(1).join('|'); img.src = next[0];
+  wrap?.classList.remove('sb', 'fb'); if (artKind(next[0])) wrap?.classList.add(artKind(next[0]));
+};
 const redrawHead = () => { const h = $('#pair-head'); if (h) h.outerHTML = pairHeader(pairById(G.pairId)); };
 function pairHeader(p) {
   loadArt();
   const d = G.detail, own = ownedPair(S.me, G.pairId), tc = TYPE_COLORS[d.type || p?.type] || '#8d99a6';
-  const view = pairForms()[G.form] || pairForms()[0];
-  // trainer: the 2D art of the game (the EX pose when the member has this pair at EX); Pokémon: the render of the form picked in the side panel
-  const tUrl = trainerArt(p, own?.ex && p?.exPose), tFb = d.trainerSprite ? DEX + d.trainerSprite : '';
+  const view = pairForms()[G.form] || pairForms()[0], bk = (p && artData?.backup?.[`${p.dex}|${p.pnum}`]) || {};
+  // trainer: the game's 2D art (the EX pose when the member has this pair at EX); Pokémon: the render of the form picked in the side panel.
+  // Where the index knows pmrandom lacks a picture, Serebii's comes first.
+  const tList = [bk.t ? trainerBackup(bk.t) : trainerArt(p, own?.ex && p?.exPose), d.trainerSprite ? DEX + d.trainerSprite : ''];
   // a form that looks like the normal form (the Dex shows the same sprite for both) takes the normal form's picture
-  const stem = p?.iPoke ? formStem(view, p.iPoke, artIdx) || (view.kind === 'form' && view.sprite === d.pokeSprite ? p.iPoke : '') : '', pFb = view.sprite ? DEX + view.sprite : (d.pokeSprite ? DEX + d.pokeSprite : '');
-  const pUrl = stem ? pokeArt(stem) : '';
-  const art = (url, fb, cls, alt) => (url || fb) ? `<span class="pl-art ${cls} ${url ? '' : 'fb'}"><img src="${esc(url || fb)}" data-fb="${esc(fb)}" alt="${esc(alt)}" referrerpolicy="no-referrer" onerror="plFallback(this)"></span>` : '';
+  const stem = p?.iPoke ? formStem(view, p.iPoke, artData?.pkmn) || (view.kind === 'form' && view.sprite === d.pokeSprite ? p.iPoke : '') : '';
+  const pList = [stem ? (bk.p && stem === p.iPoke ? pokeBackup(bk.p) : pokeArt(stem)) : view.kind === 'base' && bk.p ? pokeBackup(bk.p) : '', view.sprite ? DEX + view.sprite : (d.pokeSprite ? DEX + d.pokeSprite : '')];
+  const art = (list, cls, alt) => { const [first, ...rest] = list.filter(Boolean); return first ? `<span class="pl-art ${cls} ${artKind(first)}"><img src="${esc(first)}" data-fb="${esc(rest.join('|'))}" alt="${esc(alt)}" referrerpolicy="no-referrer" onerror="plFallback(this)"></span>` : ''; };
   const fact = (k, v) => v ? `<div><dt>${t(k)}</dt><dd>${v}</dd></div>` : '';
   const stars = d.rarity ? `<span class="pl-stars" role="img" aria-label="${d.rarity}★">${Array.from({ length: 5 }, (_, i) => hexPip(i < d.rarity)).join('')}</span>` : '';
   return `<section class="gp-head plate" id="pair-head" style="--tc:${tc}">
-    <div class="pl-stage">${art(tUrl, tFb, 'trainer', d.trainer)}${art(pUrl, pFb, 'poke', view.label)}${!tUrl && !tFb && !pUrl && !pFb && p ? pairIcon(p, 'lg', own?.ex) : ''}<i class="pl-base"></i>${view.kind !== 'base' ? `<b class="pl-form mk mk-${view.mech.key}">${view.mech.short}</b>` : ''}</div>
+    <div class="pl-stage">${art(tList, 'trainer', d.trainer)}${art(pList, 'poke', view.label)}${!tList.some(Boolean) && !pList.some(Boolean) && p ? pairIcon(p, 'lg', own?.ex) : ''}<i class="pl-base"></i>${view.kind !== 'base' ? `<b class="pl-form mk mk-${view.mech.key}">${view.mech.short}</b>` : ''}</div>
     <div class="pl-id"><small class="pl-no">${d.number ? `№ ${String(d.number).padStart(3, '0')}` : t('Sync pair')}${d.shiny ? ` · ${t('Shiny')}` : ''}${d.form ? ` · ${esc(d.form)}` : ''}</small>
       <h2>${esc(p ? p.trainer : d.trainer)} <i>&amp;</i> ${esc(p ? p.pokemon : d.pokemon)}</h2>
       <dl class="pl-facts">

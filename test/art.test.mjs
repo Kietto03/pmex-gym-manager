@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { trainerArt, pokeArt, formStem, ART } from '../src/art.js';
+import { trainerArt, pokeArt, formStem, ART, trainerBackup, pokeBackup, artKind, SEREBII } from '../src/art.js';
 
 assert.equal(ART, 'https://pmrandom.dpdns.org/');
 assert.equal(trainerArt({ iTrainer: 'ch0302_00_chiri' }), 'https://pmrandom.dpdns.org/static/data/chara/ch0302_00_chiri_1024.png');
@@ -34,4 +34,13 @@ assert.equal(formStem({ kind: 'form', rawLabel: 'Primal Groudon' }, 'pm0383_00_g
 assert.equal(formStem({ kind: 'weird' }, base, pkmn), '');
 assert.equal(formStem({ kind: 'base' }, '', pkmn), '');
 assert.equal(formStem({ kind: 'mega', label: 'Mega Charizard X' }, base, null), '', 'no index yet: nothing guessed');
+// backups: Serebii's pictures, and what kind of picture an address is
+assert.equal(SEREBII, 'https://www.serebii.net/pokemonmasters/');
+assert.equal(trainerBackup('hau-arcsuit'), 'https://www.serebii.net/pokemonmasters/syncpairs/hau-arcsuit.png');
+assert.equal(pokeBackup('892-r'), 'https://www.serebii.net/pokemonmasters/pokemon/892-r.png');
+assert.equal(trainerBackup(''), '');
+assert.equal(artKind(trainerBackup('hau-arcsuit')), 'sb', 'Serebii trainer art is tall');
+assert.equal(artKind(pokeBackup('857')), '', 'a Pokémon render looks like the pmrandom one');
+assert.equal(artKind('https://kietto03.github.io/pmex-supez-dex/assets/trainers/cyrus.png'), 'fb', 'a Dex sprite is small pixel art');
+assert.equal(artKind(trainerArt({ iTrainer: 'ch0302_00_chiri' })), '');
 console.log('game art: all passed');
