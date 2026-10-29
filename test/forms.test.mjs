@@ -48,6 +48,16 @@ assert.equal(v[1].sync.name, 'Blast Burn');
 // the normal form of that pair does not show the Tera Move
 assert.deepEqual(v[0].extra, []);
 
+// the type of each form: Terastallized, the Pokémon takes the Tera type; the Tera Move is of that type when the datamine leaves it blank
+v = formViews({ ...base, type: 'Fire', altSprites: [tera, { kind: 'mega', label: 'Mega Charizard', sprite: 'm.png' }] });
+assert.equal(v[0].type, 'Fire');
+assert.equal(v[1].type, 'Dragon', 'Tera Dragon');
+assert.equal(v[2].type, 'Fire', 'Mega keeps the type');
+v = formViews({ ...base, type: 'Normal', altSprites: [{ kind: 'tera', label: 'Terapagos · Tera Stellar', sprite: 't.png', teraType: 'Stellar', teraMoves: [mv('Tera', 'Rainbow Jewel Tera Starstorm', { type: '' })] }] });
+assert.equal(v[1].type, 'Stellar', 'Terapagos becomes Stellar');
+assert.equal(v[1].extra[0].type, 'Stellar', 'a Tera Move with no type is of the Tera type');
+assert.equal(v[0].extra.length, 0);
+
 // Tera passives given on the pair by slot number replace the same slot in the Tera form
 v = formViews({ ...base, teraPassives: [{ slot: 3, name: 'Tera P3' }, { slot: 5, name: 'Tera P5' }], altSprites: [{ kind: 'tera', label: 'x', sprite: 't.png', teraMoves: [] }] });
 assert.deepEqual(names(v[1].passives), ['P1', 'P2', 'Tera P3']);

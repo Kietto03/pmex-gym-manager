@@ -51,7 +51,7 @@ export function formViews(d) {
       }
       sync = null;
     }
-    if (kind === 'tera') extra = (alt.teraMoves?.length ? alt.teraMoves : d.teraMoves || []).map(m => ({ ...m, changed: true }));
+    if (kind === 'tera') extra = (alt.teraMoves?.length ? alt.teraMoves : d.teraMoves || []).map(m => ({ ...m, changed: true, type: m.type || alt.teraType || '' }));   // a Tera move is of the Tera type
     if (kind === 'base' && !has('tera')) extra = d.teraMoves || [];
     if (alt?.extraMoves) extra = alt.extraMoves.map(m => ({ ...m, changed: true }));
     if (kind === 'base' && !has('mega')) extra = [...extra, ...(d.megaMoves || [])];
@@ -68,7 +68,8 @@ export function formViews(d) {
 
     const mech = alt ? mechOf(alt) : mechOf(null);
     return {
-      kind, mech, sprite: alt ? alt.sprite : d.pokeSprite, rawLabel: alt?.label || '', teraType: alt?.teraType || '',
+      kind, mech, type: (kind === 'tera' && alt.teraType) || d.type || '',   // Terastallized, the Pokémon takes the Tera type (Terapagos: Stellar)
+      sprite: alt ? alt.sprite : d.pokeSprite, rawLabel: alt?.label || '', teraType: alt?.teraType || '',
       label: alt ? (formText(alt.label) || mech.name) : d.pokemon,
       stats: alt?.stats || d.stats || {},
       moves, sync, extra, passives, extraPassives,

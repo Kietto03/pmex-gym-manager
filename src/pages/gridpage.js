@@ -72,8 +72,8 @@ window.plFallback = img => {
 const redrawHead = () => { const h = $('#pair-head'); if (h) h.outerHTML = pairHeader(pairById(G.pairId)); };
 function pairHeader(p) {
   loadArt();
-  const d = G.detail, own = ownedPair(S.me, G.pairId), tc = TYPE_COLORS[d.type || p?.type] || '#8d99a6';
-  const view = pairForms()[G.form] || pairForms()[0], bk = (p && artData?.backup?.[`${p.dex}|${p.pnum}`]) || {};
+  const d = G.detail, own = ownedPair(S.me, G.pairId);
+  const view = pairForms()[G.form] || pairForms()[0], baseType = d.type || p?.type, formType = view.type || baseType, tc = TYPE_COLORS[formType] || '#8d99a6', bk = (p && artData?.backup?.[`${p.dex}|${p.pnum}`]) || {};
   // trainer: the game's 2D art (the EX pose when the member has this pair at EX); Pokémon: the render of the form picked in the side panel.
   // Where the index knows pmrandom lacks a picture, Serebii's comes first.
   const tList = [bk.t ? trainerBackup(bk.t) : trainerArt(p, own?.ex && p?.exPose), d.trainerSprite ? DEX + d.trainerSprite : ''];
@@ -85,10 +85,10 @@ function pairHeader(p) {
   const stars = d.rarity ? `<span class="pl-stars" role="img" aria-label="${d.rarity}★">${Array.from({ length: 5 }, (_, i) => hexPip(i < d.rarity)).join('')}</span>` : '';
   return `<section class="gp-head plate" id="pair-head" style="--tc:${tc}">
     <div class="pl-stage">${art(tList, 'trainer', d.trainer)}${art(pList, 'poke', view.label)}${!tList.some(Boolean) && !pList.some(Boolean) && p ? pairIcon(p, 'lg', own?.ex) : ''}<i class="pl-base"></i>${view.kind !== 'base' ? `<b class="pl-form mk mk-${view.mech.key}">${view.mech.short}</b>` : ''}</div>
-    <div class="pl-id"><small class="pl-no">${d.number ? `№ ${String(d.number).padStart(3, '0')}` : t('Sync pair')}${d.shiny ? ` · ${t('Shiny')}` : ''}${d.form ? ` · ${esc(d.form)}` : ''}</small>
+    <div class="pl-id"><small class="pl-no">${d.number ? `№ ${String(d.number).padStart(3, '0')}` : t('Sync pair')}${d.shiny ? ` · ${t('Shiny')}` : ''}${view.kind !== 'base' ? ` · ${esc(view.label)}` : d.form ? ` · ${esc(d.form)}` : ''}</small>
       <h2>${esc(p ? p.trainer : d.trainer)} <i>&amp;</i> ${esc(p ? p.pokemon : d.pokemon)}</h2>
       <dl class="pl-facts">
-        ${fact('Type', `${img(typeIcon(d.type || p?.type), 'ti', d.type)}${esc(t(d.type || p?.type || ''))}`)}
+        ${fact('Type', `${img(typeIcon(formType), 'ti', formType)}${esc(t(formType || ''))}${formType !== baseType ? ` <small class="was" title="${esc(t('Type of the normal form'))}">← ${esc(t(baseType || ''))}</small>` : ''}`)}
         ${fact('Role', d.role ? `${img(roleIcon(d.role), 'ri', d.role)}${esc(d.role)}` : '')}
         ${fact('EX role', d.exRole ? `${img(roleIcon(d.exRole, true), 'ri', d.exRole)}${esc(d.exRole)}` : '')}
         ${fact('Weak to', d.weakness ? `${img(typeIcon(d.weakness), 'ti', d.weakness)}${esc(t(d.weakness))}` : '')}
@@ -224,6 +224,8 @@ function moveCard(m, sync = false, f = null) {
     <div class="mv-text">${describe(m.description)}</div></article>`;
 }
 const passiveCard = (x, kind = '', f = null) => `<article class="mv passive ${kind} ${x.changed && f && f.kind !== 'base' ? `changed mk-${f.mech.key}` : ''}" style="--c:${kind === 'super' ? '#bf80ff' : '#e5b143'}"><header><h4>${esc(x.name || '')}</h4>${x.master ? `<span class="rb">${t('Master')}</span>` : kind === 'super' ? `<span class="rb">${t('Super')}</span>` : kind === 'tera' ? `<span class="rb">${t('Tera passive')}</span>` : ''}${changedMark(x, f)}</header>${replacesLine(x)}<div class="mv-text">${describe(x.description)}</div></article>`;
+// Does a form have other stats than the normal form (at any level)?
+const formStatsDiffer = (form, base) => Object.keys(form.stats || {}).some(l => STATS.some(k => (+form.stats[l]?.[k] || 0) !== (+base.stats?.[l]?.[k] || 0)));
 // A pair can have several forms (Mega, Tera, Dynamax, a form after a move…), each with its own complete moveset and stats
 const pairForms = () => formViews(G.detail);
 // The move a grid tile belongs to: its title starts with the move's name ("Glorious Thunder: Power ↑ 5")
@@ -233,7 +235,8 @@ function pairPanel() {
   const d = G.detail, forms = pairForms(), form = forms[G.form] || forms[0], levels = Object.keys(form.stats || {}).sort((a, b) => +a - +b);
   const lvl = levels.includes(G.statLevel) ? G.statLevel : (levels.includes('140') ? '140' : levels.at(-1)), st = (form.stats || {})[lvl] || {};
   const subs = [['moves', 'Moves'], ['passives', 'Passives'], ['team', 'Team skills'], ['facts', 'Info']];
-  const note = form.kind !== 'base' ? `<div class="mech-note mk-${form.mech.key}"><b class="mk">${form.mech.short}</b><span>${esc(form.label)}${form.teraType ? ` · ${t('Tera type')} ${esc(t(form.teraType))}` : ''}</span><small>${esc(t(form.mech.note))}</small></div>` : '';
+  const note = form.kind !== 'base' ? `<div class="mech-note mk-${form.mech.key}"><b class="mk">${form.mech.short}</b><span>${esc(form.label)}${form.teraType ? ` · ${t('Tera type')} ${esc(t(form.teraType))}` : ''}</span><small>${esc(t(form.mech.note))}</small>
+    <ul class="mech-diff">${form.type !== (d.type || '') ? `<li>${t('Type: {a} → {b}', { a: t(d.type || ''), b: t(form.type) })}</li>` : ''}<li>${formStatsDiffer(form, forms[0]) ? t('Stats differ from the normal form (▲ ▼ on the stat bars).') : t('Stats are the same as the normal form.')}</li></ul></div>` : '';
   const special = [...(form.sync ? [[form.sync, true]] : []), ...form.extra.map(m => [m, false])];
   const body = G.sub === 'moves' ? `${note}${form.moves.map(m => moveCard(m, false, form)).join('')}${special.length ? `<div class="mv-sep"><span>${t('Special moves')}</span></div>${special.map(([m, sy]) => moveCard(m, sy, form)).join('')}` : ''}${!form.moves.length && !special.length ? `<p class="muted">—</p>` : ''}`
     : G.sub === 'passives' ? `${note}${form.passives.map(x => passiveCard(x, '', form)).join('')}${form.extraPassives.map(x => passiveCard(x, 'tera', form)).join('')}${form.superPassive ? passiveCard(form.superPassive, 'super') : ''}${!form.passives.length && !form.extraPassives.length && !form.superPassive ? `<p class="muted">—</p>` : ''}`
@@ -242,7 +245,7 @@ function pairPanel() {
         .filter(r => r[1]).map(([k, v]) => `<dt>${t(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>${d.description ? `<p class="pre">${esc(d.description)}</p>` : ''}`;
   const bonus = gridBonus(G.ix, G.active), total = totalStats(st, bonus, G.extra), withGrid = [...G.active].length > 0, edited = STATS.some(k => +G.extra[k]);
   return `${forms.length > 1 ? `<div class="form-tabs">${forms.map((f, i) => `<button class="${i === G.form ? 'on' : ''} mk-${f.mech.key}" data-gform="${i}" title="${esc(t(f.mech.name))}">${f.sprite ? `<img src="${esc(DEX + f.sprite)}" alt="" width="28" height="28" loading="lazy" onerror="this.remove()">` : ''}<span class="ft"><b class="mk">${f.mech.short}${f.teraType ? ` ${img(typeIcon(f.teraType), 'ti', f.teraType)}` : ''}</b><span>${esc(f.label)}</span></span></button>`).join('')}</div>` : ''}${levels.length ? `<div class="stat-lv">${levels.map(l => `<button class="${l === lvl ? 'on' : ''}" data-gstat="${l}">${t('Lv')} ${l}</button>`).join('')}</div>
-    <div class="stat-row">${STAT_ROWS.map(([k, label]) => `<div><small>${label}</small><b>${st[k] ?? '—'}</b><s style="--w:${Math.round((+st[k] || 0) / Math.max(1, ...STAT_ROWS.map(([j]) => +st[j] || 0)) * 100)}%"></s></div>`).join('')}</div>
+    <div class="stat-row">${STAT_ROWS.map(([k, label]) => { const dl = form === forms[0] ? 0 : (+st[k] || 0) - (+(forms[0].stats?.[lvl]?.[k]) || 0); return `<div${dl ? ` title="${esc(t('Against the normal form'))}: ${dl > 0 ? '+' : ''}${dl}"` : ''}><small>${label}</small><b>${st[k] ?? '—'}</b>${dl ? `<em class="dl ${dl > 0 ? 'up' : 'down'}">${dl > 0 ? '▲' : '▼'}${Math.abs(dl)}</em>` : ''}<s style="--w:${Math.round((+st[k] || 0) / Math.max(1, ...STAT_ROWS.map(([j]) => +st[j] || 0)) * 100)}%"></s></div>`; }).join('')}</div>
     ${G.ix?.grid.length ? `<div class="stat-build"><h4>${t('With your build')} <small class="muted">${t('level {l} + {n} switched-on tiles', { l: lvl, n: G.active.size })}</small></h4>
       <div class="stat-row total">${STAT_ROWS.map(([k, label]) => `<div><small>${label}</small><b>${total[k] || '—'}</b><s style="--w:${Math.round((+total[k] || 0) / Math.max(1, ...STAT_ROWS.map(([j]) => +total[j] || 0)) * 100)}%"></s><em>${bonus[k] || G.extra[k] ? `+${bonus[k] + (+G.extra[k] || 0)}` : ''}</em></div>`).join('')}</div>
       <details class="stat-extra" ${edited ? 'open' : ''}><summary>${t('Add EX / EX role bonuses')}</summary>

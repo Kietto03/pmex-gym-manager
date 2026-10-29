@@ -16,11 +16,14 @@ export const TYPE_COLORS = {
   Normal: '#9fa19f', Fire: '#e62829', Water: '#2980ef', Electric: '#fac000', Grass: '#3fa129', Ice: '#3dcef3',
   Fighting: '#ff8000', Poison: '#9141cb', Ground: '#915121', Flying: '#81b9ef', Psychic: '#ef4179', Bug: '#91a119',
   Rock: '#afa981', Ghost: '#704170', Dragon: '#5060e1', Dark: '#624d4e', Steel: '#60a1b8', Fairy: '#ef70ef',
+  Stellar: '#38b6c8',   // the Tera type of Terapagos: not one of the 18, so not in TYPES
 };
 export const ROLES = ['Strike', 'Tech', 'Support', 'Sprint', 'Field', 'Multi'];
 
 // Icons from the tracker (role / type / EX)
-export const typeIcon = t => `${POMA}images/type_${String(t).toLowerCase()}.png`;
+// Stellar is not an ordinary type: the tracker has no icon for it, so it is drawn here (a star on a prism)
+const STELLAR_ICON = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff7b9c"/><stop offset=".25" stop-color="#ffc857"/><stop offset=".5" stop-color="#6be585"/><stop offset=".75" stop-color="#4fc3f7"/><stop offset="1" stop-color="#a779ff"/></linearGradient></defs><circle cx="32" cy="32" r="30" fill="url(#g)"/><circle cx="32" cy="32" r="30" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="3"/><path d="M32 12l5.6 12.4 13.4 1.4-10 9 2.9 13.2L32 41.2 20.1 48l2.9-13.2-10-9 13.4-1.4z" fill="#fff"/></svg>')}`;
+export const typeIcon = t => (t === 'Stellar' ? STELLAR_ICON : `${POMA}images/type_${String(t).toLowerCase()}.png`);
 export const roleIcon = (r, ex = false) => `${POMA}images/role_${ex ? 'ex_' : ''}${roleKey(r)}.png`;
 export const roleKey = r => String(r || '').toLowerCase().replace(/\s*\(.*\)/, '');
 export const EX_ICON = `${POMA}images/icon_role_ex.png`;
