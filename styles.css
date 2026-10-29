@@ -1528,3 +1528,9 @@ svg.hlmode .g-tile { opacity: .22; transition: opacity .12s; } svg.hlmode .g-til
 .cg-run { display: grid; grid-template-columns: minmax(70px, 1fr) auto; align-items: center; gap: 10px; min-width: 190px; }
 .cg-bar { height: 8px; background: var(--line); border-radius: 2px; overflow: hidden; } .cg-bar i { display: block; height: 100%; background: var(--accent); }
 .cg thead th:first-child, .cg tbody th { position: sticky; left: 0; z-index: 1; background: var(--surface); } .cg tr.active th { background: color-mix(in srgb, var(--accent) 9%, var(--surface)); }
+
+/* Event calendar: kind filter */
+.ev-kinds { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 14px; }
+.ev-kinds button { padding: 4px 12px; border: var(--bw) solid var(--line-2); border-radius: var(--r-pill); background: var(--surface); color: var(--text-2); font: 600 13px var(--mono); cursor: pointer; }
+.ev-kinds button.on { border-color: var(--text); background: var(--text); color: var(--surface); }
+.ev-kinds button:focus-visible { outline: 2px solid var(--accent, currentColor); outline-offset: 2px; }

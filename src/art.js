@@ -16,7 +16,8 @@ export const pokeBackup = name => (name ? `${SEREBII}pokemon/${name}.png` : '');
 export const artKind = url => (/\/syncpairs\/[^/]+\.png$/.test(url) ? 'sb' : /\/assets\//.test(url) ? 'fb' : '');
 // The banners of the scouts, from brybry's schedule page (named like the event id). data/events.json says which events have one.
 export const BANNERS = (CFG.bannerUrl || 'https://pokemon.brybry.ch/masters/data/banner/scout/').replace(/\/?$/, '/');
-export const eventBanner = id => (id ? `${BANNERS}${id}.png` : '');
+// banner 1 = a scout banner, 2 = an event banner (same site, another folder)
+export const eventBanner = (id, banner = 1) => (id ? `${banner === 2 ? BANNERS.replace(/scout\/$/, 'event/') : BANNERS}${id}.png` : '');
 export const trainerArt = (p, ex = false) => (p?.iTrainer ? `${ART}static/data/chara/${p.iTrainer}${ex ? '_expose' : ''}_1024.png` : '');
 export const pokeArt = stem => (stem ? `${ART}static/data/pkmn/${stem}_256.png` : '');
 

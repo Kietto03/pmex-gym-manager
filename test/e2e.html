@@ -599,6 +599,9 @@ f.onload = async () => {
     log($$('.gx-d').length >= 28, 'gems calendar: previous month');
     $$('[data-gx-cal]')[1].click(); await sleep(200); $$('[data-gx-cal]')[1].click(); await sleep(200);
     log(/Events in/.test($('h2.section:last-of-type, h2.section').innerText) && !/this month/i.test(document.body ? W().document.body.innerText.match(/Events (in|this) [^\n]*/)?.[0] || '' : '') && $$('.ev').length > 0 && $$('.ev-when b').every(b => /Starts/.test(b.innerText)) && $$('.ev-day h3').length > 1, 'gems calendar: the list under it follows the month, grouped by start with the start time on every event');
+    { const all = $$('.ev').length, ks = $$('[data-gx-kind]'); const pick = ks.find(b => b.dataset.gxKind === 'scout') || ks[1]; pick.click(); await sleep(200);
+      const part = $$('.ev').length, on = $('.ev-kinds .on')?.dataset.gxKind; $('[data-gx-kind=all]').click(); await sleep(200);
+      log(ks.length >= 2 && on === pick.dataset.gxKind && part <= all && $$('.ev').length === all, 'gems calendar: the list can be narrowed by kind (scouts, High Score, Academy, ...) and back to all', `${ks.length} kinds, ${part}/${all}`); }
     $$('[data-gx-cal]')[0].click(); await sleep(150); $$('[data-gx-cal]')[0].click(); await sleep(150);
     $('[data-gem-tab=projection]').click(); await sleep(150);
     $('[data-gem-month="0"]').click(); await sleep(120); $('[data-gem-source=sheet]').click(); await sleep(150);

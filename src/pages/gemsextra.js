@@ -6,7 +6,9 @@ import { addDays, monthEnd, groupEvents, eventStatus } from '../gems.js';
 import { eventBanner } from '../art.js';
 import { PAIRS, typeIcon } from '../catalog.js';
 
-const ui = { period: '', cal: '' };
+const ui = { period: '', cal: '', kind: 'all' };
+// What the calendar can be narrowed to. The kind comes from the game's own banner label (tools/build-events.mjs kindOf)
+export const KINDS = [['all', 'All'], ['scout', 'Scouts'], ['hse', 'High Score'], ['academy', 'Academy'], ['story', 'Story and specials'], ['battle', 'Battles'], ['stadium', 'Champion Stadium'], ['mission', 'Missions'], ['other', 'Other']];
 const day = d => new Date(`${d}T00:00:00Z`).toLocaleDateString(locale(), { weekday: 'short', day: '2-digit', month: 'short', timeZone: 'UTC' });
 const sheet = () => S.gemSheet;
 const none = () => `<p class="muted">${t('The Gems sheet is not available yet.')}</p>`;
@@ -53,11 +55,13 @@ export function gemOverview(today) {
 // ── Calendar: one month, the gems of each day and the scouts running ──
 const EVENT_COLORS = ['#e8741f', '#3c8de8', '#3ca06e', '#b45bd6', '#d6384f', '#c9a000'];
 function monthEvents(from, to) {
-  const scouts = (S.events?.events || []).map(e => ({ id: e.id, banner: e.banner === 1, title: e.title, type: e.type, start: e.start.slice(0, 10), startAt: e.start.length > 10 ? e.start : undefined, end: (e.end || e.start).slice(0, 10), endAt: e.end && e.end.length > 10 ? e.end : undefined, open: !e.end, rateUp: e.rateUp }));
-  const firstScout = scouts[0]?.start || '9999';
-  const banners = (sheet()?.banners || []).filter(b => b.start < firstScout).map(b => ({ title: b.name, type: b.type, start: b.start, end: b.end || b.start, rateUp: [] }));   // the sheet fills the months before the datamine's scouts
+  const scouts = (S.events?.events || []).filter(e => ui.kind === 'all' || (e.kind || 'scout') === ui.kind).map(e => ({ id: e.id, banner: e.banner || 0, kind: e.kind || 'scout', name: e.name, head: e.head, title: e.title, type: e.type, start: e.start.slice(0, 10), startAt: e.start.length > 10 ? e.start : undefined, end: (e.end || e.start).slice(0, 10), endAt: e.end && e.end.length > 10 ? e.end : undefined, open: !e.end, rateUp: e.rateUp }));
+  const firstScout = (S.events?.events || []).find(e => (e.kind || 'scout') === 'scout')?.start || '9999';
+  const banners = (ui.kind === 'all' || ui.kind === 'scout' ? sheet()?.banners || [] : []).filter(b => b.start < firstScout).map(b => ({ title: b.name, type: b.type, start: b.start, end: b.end || b.start, rateUp: [] }));   // the sheet fills the months before the datamine's scouts
   return [...banners, ...scouts].filter(e => e.end >= from && e.start <= to).sort((a, b) => a.start.localeCompare(b.start) || a.title.localeCompare(b.title));
 }
+// The kinds that have something this month: the others would be empty buttons
+const hasKind = (k, from, to) => (S.events?.events || []).some(e => (e.kind || 'scout') === k && (e.end || e.start).slice(0, 10) >= from && e.start.slice(0, 10) <= to);
 const pairOf = r => PAIRS().find(p => p.trainer.toLowerCase() === r.trainer.toLowerCase() && p.pokemon.toLowerCase() === r.pokemon.toLowerCase());
 // ── The event list: grouped by the moment events start, with the banner, a clear start time and where each one stands ──
 const startText = e => (e.startAt ? fmtDT(`${e.startAt}Z`) : day(e.start));
@@ -69,15 +73,15 @@ function statusChip(e) {
 }
 function eventCard(e, colorOf, i) {
   const pairs = (e.rateUp || []).map(r => pairOf(r)).filter(Boolean);
-  return `<article class="ev" style="--c:${colorOf(i)}">${e.banner ? `<img class="ev-banner" src="${esc(eventBanner(e.id))}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}
-    <div class="ev-body"><div class="ev-top"><span class="chip">${esc(e.type)}</span>${statusChip(e)}</div>
-      <h4>${esc(e.title)}</h4>
+  return `<article class="ev" style="--c:${colorOf(i)}">${e.banner ? `<img class="ev-banner" src="${esc(eventBanner(e.id, e.banner))}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}
+    <div class="ev-body"><div class="ev-top"><span class="chip">${esc(e.head || e.type)}</span>${statusChip(e)}</div>
+      <h4>${esc(e.name || e.head || e.title)}</h4>
       <p class="ev-when"><b>${t('Starts')} ${esc(startText(e))}</b><span>${t('Ends')} ${esc(endText(e))}</span></p>
       ${pairs.length ? `<div class="ev-pairs">${pairs.slice(0, 4).map(p => `<span title="${esc(`${p.trainer} & ${p.pokemon}`)}">${pairIcon(p, 'xs')}<small>${esc(p.trainer.replace(/\s*\(.*\)/, ''))}</small></span>`).join('')}${pairs.length > 4 ? `<small class="muted">+${pairs.length - 4}</small>` : ''}</div>` : ''}</div></article>`;
 }
 function eventList(events, first, last, title, colorOf) {
   const { running, groups } = groupEvents(events, first, last), idx = new Map(events.map((e, i) => [e, i]));
-  const runLine = e => `<div class="ev-run"><i style="background:${colorOf(idx.get(e))}"></i><b>${esc(e.title)}</b><small class="muted">${esc(e.type)} · ${t('Ends')} ${esc(endText(e))}</small></div>`;
+  const runLine = e => `<div class="ev-run"><i style="background:${colorOf(idx.get(e))}"></i><b>${esc(e.name || e.title)}</b><small class="muted">${esc(e.head || e.type)} · ${t('Ends')} ${esc(endText(e))}</small></div>`;
   return `<h2 class="section">${t('Events in {m}', { m: title })} <small>${events.length}</small></h2>
   ${events.length ? '' : `<p class="muted pad">${t('No events listed for this month.')}</p>`}
   ${running.length ? `<details class="ev-day running"><summary><h3><b>${t('Already running at the start of the month')}</b><small>${running.length}</small></h3></summary><div class="card list">${running.map(runLine).join('')}</div></details>` : ''}
@@ -92,6 +96,7 @@ export function gemCalendar(today) {
   const wd = [...Array(7)].map((_, i) => new Date(Date.UTC(2024, 0, 1 + i)).toLocaleDateString(locale(), { weekday: 'short', timeZone: 'UTC' }));
   return `<div class="toolbar"><div class="seg"><button data-gx-cal="${addDays(first, -1).slice(0, 7)}">‹</button><button class="on" disabled>${esc(title)}</button><button data-gx-cal="${addDays(last, 1).slice(0, 7)}">›</button></div>
     <button class="btn sm ghost" data-gx-cal="${today.slice(0, 7)}">${t('Today')}</button></div>
+  <div class="ev-kinds" role="group" aria-label="${t('Kind of event')}">${KINDS.filter(([k]) => k === 'all' || hasKind(k, first, last)).map(([k, n]) => `<button class="${ui.kind === k ? 'on' : ''}" aria-pressed="${ui.kind === k}" data-gx-kind="${k}">${t(n)}</button>`).join('')}</div>
   <div class="gx-cal">${wd.map(w => `<b class="gx-wd">${esc(w)}</b>`).join('')}${cells.map(d => {
     if (!d) return '<i class="gx-blank"></i>';
     const g = byDate.get(d), starts = events.map((e, i) => [e, i]).filter(([e]) => e.start === d), running = events.filter(e => e.start < d && d <= e.end).length;
@@ -99,8 +104,11 @@ export function gemCalendar(today) {
       <div class="evs">${starts.slice(0, 2).map(([e, i]) => `<em style="--c:${colorOf(i)}" title="${esc(e.title)}">${esc(e.title.replace(/ ?(Scout|Tiered|One-Time-Only|5★-Guaranteed)/g, '').trim().slice(0, 22))}</em>`).join('')}${starts.length > 2 ? `<small class="muted">+${starts.length - 2}</small>` : ''}${running && !starts.length ? `<small class="muted">${t('{n} running', { n: running })}</small>` : ''}</div></div>`;
   }).join('')}</div>
   ${eventList(events, first, last, title, colorOf)}
-  <p class="muted">${t('Gems per day come from the community Gems sheet (planned days are in italics). Scouts come from the datamine; the months before it come from the sheet’s banner list.')}</p>`;
+  <p class="muted">${t('Gems per day come from the community Gems sheet (planned days are in italics). Scouts and events come from the datamine; the months before it come from the sheet’s banner list.')}</p>`;
 }
 
 document.addEventListener('change', e => { if (e.target.dataset?.gxPeriod !== undefined) { ui.period = e.target.value; hooks.route(); } });
-document.addEventListener('click', e => { const b = e.target.closest('[data-gx-cal]'); if (b) { ui.cal = b.dataset.gxCal; hooks.route(); } });
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-gx-cal]'); if (b) { ui.cal = b.dataset.gxCal; hooks.route(); }
+  const k = e.target.closest('[data-gx-kind]'); if (k) { ui.kind = k.dataset.gxKind; hooks.route(); }
+});
