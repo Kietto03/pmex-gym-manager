@@ -531,7 +531,12 @@ f.onload = async () => {
     log($('svg.hlmode') !== null && $$('.g-tile.hl').length >= 3, 'grid: hovering a move lights up its tiles', $$('.g-tile.hl').length);
     hov.dispatchEvent(new MouseEvent('mouseout', { bubbles: true })); await sleep(80);
     log($('svg.hlmode') === null, 'grid: and they go back to normal');
-    if ($$('.form-tabs button').length) { $$('.form-tabs button')[1].click(); await sleep(150); log($$('.mv.move').length > 0, 'grid: another form shows its own moves'); $$('.form-tabs button')[0].click(); await sleep(100); }
+    if ($$('.form-tabs button').length) {
+      const baseMoves = $$('.mv.move').length;
+      $$('.form-tabs button')[1].click(); await sleep(150);
+      log($$('.mv.move').length >= baseMoves && $$('.mv.changed').length >= 1 && !!$('.mech-note') && !!$('.form-tabs button .mk'), 'grid: another form shows the complete moveset with the changed moves marked', `${baseMoves} → ${$$('.mv.move').length}, ${$$('.mv.changed').length} changed`);
+      $$('.form-tabs button')[0].click(); await sleep(100);
+    }
     $('[data-gsub=passives]').click(); await sleep(120);
     log($$('.mv.passive').length >= 1, 'grid: passives listed');
     $('[data-gsub=team]').click(); await sleep(120);

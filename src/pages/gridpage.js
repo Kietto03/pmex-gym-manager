@@ -5,6 +5,7 @@ import { t } from '../i18n.js';
 import { splitDescription, count } from '../moves.js';
 import { byAcquisition, acqLabel } from '../acquisition.js';
 import { STATS, gridBonus, totalStats } from '../stats.js';
+import { formViews, allMoveNames } from '../forms.js';
 import { indexGrid, whyNot, canRemove, validate, totals, levelNeeded, otherReqs, gridHash, hexXY, COLORS } from '../grid.js';
 import { PAIRS, loadPairDetail, dexIdOf, pairById, pairName, pairImage, TYPE_COLORS, TYPES, typeIcon, roleIcon, DEX } from '../catalog.js';
 
@@ -157,38 +158,40 @@ function describe(text) {
   const d = splitDescription(text);
   return `${d.activation ? `<p class="cond act"><b>${t('Activation condition')}</b>${esc(d.activation)}</p>` : ''}${d.deactivation ? `<p class="cond deact"><b>${t('Deactivation condition')}</b>${esc(d.deactivation)}</p>` : ''}${d.rest ? `<p class="pre">${esc(d.rest)}</p>` : ''}`;
 }
-function moveCard(m, sync = false) {
+// A move or passive that this form changes wears the form's mark and says what it replaces
+const changedMark = (x, f) => x.changed && f && f.kind !== 'base' ? `<span class="rb chg">${f.mech.short}</span>` : '';
+const replacesLine = x => (x.replaces || x.from) ? `<p class="mv-from">${t('replaces')} <b>${esc(x.replaces || x.from)}</b></p>` : '';
+function moveCard(m, sync = false, f = null) {
   if (!m) return '';
   const col = TYPE_COLORS[m.type] || '#8d99a6', cat = CAT[String(m.category || '').toLowerCase()] || [m.category || '', '#8d99a6'], gauge = count(m.gauge), limit = count(m.maxUses);
-  return `<article class="mv move ${sync || m.isSync ? 'sync' : ''}" style="--c:${col}" data-gmove="${esc(m.name || '')}"><header>${m.type ? img(typeIcon(m.type), 'ti', m.type) : ''}<h4>${esc(m.name || '')}</h4>
-      ${sync || m.isSync ? `<span class="rb">${t('Sync move')}</span>` : ''}${gauge ? `<span class="pips" title="${t('Move gauge needed')}: ${gauge}" aria-label="${t('Move gauge needed')}: ${gauge}">${Array.from({ length: Math.min(gauge, 8) }, () => '<i></i>').join('')}</span>` : ''}</header>
+  const special = m.slot === 'Tera' ? t('Tera move') : m.slot === 'Max' ? t('Max move') : '';
+  return `<article class="mv move ${sync || m.isSync ? 'sync' : ''} ${m.changed && f && f.kind !== 'base' ? `changed mk-${f.mech.key}` : ''}" style="--c:${col}" data-gmove="${esc(m.name || '')}"><header>${m.type ? img(typeIcon(m.type), 'ti', m.type) : ''}<h4>${esc(m.name || '')}</h4>
+      ${sync || m.isSync ? `<span class="rb">${t('Sync move')}</span>` : special ? `<span class="rb">${special}</span>` : ''}${special ? '' : changedMark(m, f)}${gauge ? `<span class="pips" title="${t('Move gauge needed')}: ${gauge}" aria-label="${t('Move gauge needed')}: ${gauge}">${Array.from({ length: Math.min(gauge, 8) }, () => '<i></i>').join('')}</span>` : ''}</header>
+    ${replacesLine(m)}
     <dl class="mv-facts"><div><dt>${t('Category')}</dt><dd><span class="cat cat-${String(m.category || '').toLowerCase()}" style="--k:${cat[1]}">${t(cat[0])}</span></dd></div><div><dt>${t('Target')}</dt><dd>${esc(m.target || '—')}</dd></div>
       <div><dt>${t('Power')}</dt><dd>${esc(m.power || '—')}</dd></div><div><dt>${t('Accuracy')}</dt><dd>${esc(m.accuracy && m.accuracy !== '--' ? m.accuracy : '—')}</dd></div>
       ${limit ? `<div class="lim"><dt>${t('Max uses')}</dt><dd>${limit}</dd></div>` : ''}${m.effectTag && m.effectTag !== '--' ? `<div><dt>${t('Effect')}</dt><dd>${esc(m.effectTag)}</dd></div>` : ''}</dl>
     <div class="mv-text">${describe(m.description)}</div></article>`;
 }
-const passiveCard = (x, kind = '') => `<article class="mv passive ${kind}" style="--c:${kind === 'super' ? '#bf80ff' : '#e5b143'}"><header><h4>${esc(x.name || '')}</h4>${x.master ? `<span class="rb">${t('Master')}</span>` : kind === 'super' ? `<span class="rb">${t('Super')}</span>` : ''}</header><div class="mv-text">${describe(x.description)}</div></article>`;
-// A pair can have several forms (Mega, Tera, a form after a move…) with their own moves and stats
-function pairForms() {
-  const d = G.detail, base = { sprite: d.pokeSprite, label: t('Normal form'), moves: [...(d.moves || []).filter(Boolean), ...(d.syncMove ? [d.syncMove] : [])], stats: d.stats || {} };
-  const alts = (d.altForms || []).map((a, i) => ({ ...a, sprite: d.altSprites?.[i]?.sprite })).filter(a => (a.moves || []).some(Boolean)).map(a => ({ sprite: a.sprite, label: a.form ? `${a.pokemon} · ${a.form}` : `${a.pokemon}${a.kind ? ` (${a.kind})` : ''}`, moves: (a.moves || []).filter(Boolean), stats: a.stats || {} }));
-  return [base, ...alts];
-}
+const passiveCard = (x, kind = '', f = null) => `<article class="mv passive ${kind} ${x.changed && f && f.kind !== 'base' ? `changed mk-${f.mech.key}` : ''}" style="--c:${kind === 'super' ? '#bf80ff' : '#e5b143'}"><header><h4>${esc(x.name || '')}</h4>${x.master ? `<span class="rb">${t('Master')}</span>` : kind === 'super' ? `<span class="rb">${t('Super')}</span>` : kind === 'tera' ? `<span class="rb">${t('Tera passive')}</span>` : ''}${changedMark(x, f)}</header>${replacesLine(x)}<div class="mv-text">${describe(x.description)}</div></article>`;
+// A pair can have several forms (Mega, Tera, Dynamax, a form after a move…), each with its own complete moveset and stats
+const pairForms = () => formViews(G.detail);
 // The move a grid tile belongs to: its title starts with the move's name ("Glorious Thunder: Power ↑ 5")
-const moveNames = () => pairForms().flatMap(f => f.moves.map(m => m.name)).filter(Boolean).sort((a, b) => b.length - a.length);
+const moveNames = () => allMoveNames(pairForms());
 const tileMove = c => { const ti = String(c.title).toLowerCase(); if (JUNK.test(ti)) return ''; return moveNames().find(n => ti.startsWith(`${n.toLowerCase()}:`) || ti === n.toLowerCase()) || ''; };
 function pairPanel() {
   const d = G.detail, forms = pairForms(), form = forms[G.form] || forms[0], levels = Object.keys(form.stats || {}).sort((a, b) => +a - +b);
   const lvl = levels.includes(G.statLevel) ? G.statLevel : (levels.includes('140') ? '140' : levels.at(-1)), st = (form.stats || {})[lvl] || {};
   const subs = [['moves', 'Moves'], ['passives', 'Passives'], ['team', 'Team skills'], ['facts', 'Info']];
-  const moves = form.moves.filter(m => !m.isSync), syncs = form.moves.filter(m => m.isSync), pas = (d.passives || []).filter(Boolean);
-  const body = G.sub === 'moves' ? `${moves.map(m => moveCard(m)).join('')}${syncs.map(m => moveCard(m, true)).join('')}${!form.moves.length ? `<p class="muted">—</p>` : ''}`
-    : G.sub === 'passives' ? `${pas.map(x => passiveCard(x)).join('')}${d.superPassive ? passiveCard(d.superPassive, 'super') : ''}${!pas.length && !d.superPassive ? `<p class="muted">—</p>` : ''}`
+  const note = form.kind !== 'base' ? `<div class="mech-note mk-${form.mech.key}"><b class="mk">${form.mech.short}</b><span>${esc(form.label)}${form.teraType ? ` · ${t('Tera type')} ${esc(t(form.teraType))}` : ''}</span><small>${esc(t(form.mech.note))}</small></div>` : '';
+  const special = [...(form.sync ? [[form.sync, true]] : []), ...form.extra.map(m => [m, false])];
+  const body = G.sub === 'moves' ? `${note}${form.moves.map(m => moveCard(m, false, form)).join('')}${special.length ? `<div class="mv-sep"><span>${t('Special moves')}</span></div>${special.map(([m, sy]) => moveCard(m, sy, form)).join('')}` : ''}${!form.moves.length && !special.length ? `<p class="muted">—</p>` : ''}`
+    : G.sub === 'passives' ? `${note}${form.passives.map(x => passiveCard(x, '', form)).join('')}${form.extraPassives.map(x => passiveCard(x, 'tera', form)).join('')}${form.superPassive ? passiveCard(form.superPassive, 'super') : ''}${!form.passives.length && !form.extraPassives.length && !form.superPassive ? `<p class="muted">—</p>` : ''}`
     : G.sub === 'team' ? ((d.teamSkills || []).length ? `<div class="chips-l">${d.teamSkills.map(x => `<span class="chip">${esc(x)}</span>`).join('')}</div>` : `<p class="muted">—</p>`)
     : `<dl class="kv">${[['Role', d.role], ['EX role', d.exRole], ['Type', d.type && t(d.type)], ['Weakness', d.weakness && t(d.weakness)], ['Acquired', d.method || d.expedition || d.collectInfo], ['Game version', d.version || (d.versions || []).at(-1)], ['Sync pair released', d.dates?.['Sync Pair'] && String(d.dates['Sync Pair']).slice(0, 10)], ['EX released', d.dates?.['EX Effect'] && String(d.dates['EX Effect']).slice(0, 10)]]
         .filter(r => r[1]).map(([k, v]) => `<dt>${t(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>${d.description ? `<p class="pre">${esc(d.description)}</p>` : ''}`;
   const bonus = gridBonus(G.ix, G.active), total = totalStats(st, bonus, G.extra), withGrid = [...G.active].length > 0, edited = STATS.some(k => +G.extra[k]);
-  return `${forms.length > 1 ? `<div class="form-tabs">${forms.map((f, i) => `<button class="${i === G.form ? 'on' : ''}" data-gform="${i}">${f.sprite ? `<img src="${esc(DEX + f.sprite)}" alt="" width="28" height="28" loading="lazy" onerror="this.remove()">` : ''}<span>${esc(f.label)}</span></button>`).join('')}</div>` : ''}${levels.length ? `<div class="stat-lv">${levels.map(l => `<button class="${l === lvl ? 'on' : ''}" data-gstat="${l}">${t('Lv')} ${l}</button>`).join('')}</div>
+  return `${forms.length > 1 ? `<div class="form-tabs">${forms.map((f, i) => `<button class="${i === G.form ? 'on' : ''} mk-${f.mech.key}" data-gform="${i}" title="${esc(t(f.mech.name))}">${f.sprite ? `<img src="${esc(DEX + f.sprite)}" alt="" width="28" height="28" loading="lazy" onerror="this.remove()">` : ''}<span class="ft"><b class="mk">${f.mech.short}${f.teraType ? ` ${img(typeIcon(f.teraType), 'ti', f.teraType)}` : ''}</b><span>${esc(f.label)}</span></span></button>`).join('')}</div>` : ''}${levels.length ? `<div class="stat-lv">${levels.map(l => `<button class="${l === lvl ? 'on' : ''}" data-gstat="${l}">${t('Lv')} ${l}</button>`).join('')}</div>
     <div class="stat-row">${STAT_ROWS.map(([k, label]) => `<div><small>${label}</small><b>${st[k] ?? '—'}</b><s style="--w:${Math.round((+st[k] || 0) / Math.max(1, ...STAT_ROWS.map(([j]) => +st[j] || 0)) * 100)}%"></s></div>`).join('')}</div>
     ${G.ix?.grid.length ? `<div class="stat-build"><h4>${t('With your build')} <small class="muted">${t('level {l} + {n} switched-on tiles', { l: lvl, n: G.active.size })}</small></h4>
       <div class="stat-row total">${STAT_ROWS.map(([k, label]) => `<div><small>${label}</small><b>${total[k] || '—'}</b><s style="--w:${Math.round((+total[k] || 0) / Math.max(1, ...STAT_ROWS.map(([j]) => +total[j] || 0)) * 100)}%"></s><em>${bonus[k] || G.extra[k] ? `+${bonus[k] + (+G.extra[k] || 0)}` : ''}</em></div>`).join('')}</div>

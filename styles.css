@@ -1422,3 +1422,18 @@ svg.hlmode .g-tile { opacity: .22; transition: opacity .12s; } svg.hlmode .g-til
   .hud-i { padding: 6px 12px; }
 }
 @media (max-width: 520px) { .stat-in { grid-template-columns: repeat(3, 1fr); } .stat-row small { font-size: 12px; } }
+
+/* forms: Mega, Tera, Dynamax… each with a mark, a note and the moves it changes */
+.mk-base { --mc: var(--muted); } .mk-mega { --mc: #7b3fe4; } .mk-tera { --mc: #1fa8c9; } .mk-dynamax { --mc: #e0245e; } .mk-gigantamax { --mc: #a3134f; } .mk-eternamax { --mc: #5b1a8f; } .mk-form { --mc: #3d7a8c; }
+.mk { display: inline-flex; align-items: center; gap: 4px; padding: 0 6px; border: var(--bw) solid var(--mc); border-radius: var(--r-sm); color: color-mix(in srgb, var(--mc) 60%, var(--text)); font: 600 12px var(--mono); letter-spacing: .08em; }
+.mk .ti { width: 14px; height: 14px; object-fit: contain; }
+.form-tabs button .ft { display: grid; gap: 2px; text-align: left; line-height: 1.15; } .form-tabs button .ft .mk { justify-self: start; }
+.form-tabs button.on .mk { color: inherit; border-color: currentColor; }
+.mech-note { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; align-items: baseline; padding: 9px 12px; border: var(--bw) solid var(--line-2); border-radius: var(--r-md); background: var(--surface-2); }
+.mech-note > span { font-weight: 700; } .mech-note small { grid-column: 1 / -1; color: var(--text-2); font-size: 13px; line-height: 1.45; }
+.mv-sep { display: flex; align-items: center; gap: 10px; font: 500 12px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.mv-sep::before, .mv-sep::after { content: ''; flex: 1; border-top: var(--bw) dotted var(--line-2); }
+.mv-from { margin: 0; padding: 5px 12px; border-bottom: var(--bw) solid var(--line); font: 500 12px var(--mono); color: var(--muted); } .mv-from b { color: var(--text-2); font-weight: 600; }
+.mv.changed { border-color: color-mix(in srgb, var(--mc) 55%, var(--line-2)); }
+.mv .rb.chg { color: color-mix(in srgb, var(--mc, var(--text)) 60%, var(--text)); border-color: var(--mc, currentColor); }
+.mv.sync .rb.chg { color: inherit; border-color: currentColor; }
