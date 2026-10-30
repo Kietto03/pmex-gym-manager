@@ -1551,10 +1551,13 @@ svg.hlmode .g-tile { opacity: .22; transition: opacity .12s; } svg.hlmode .g-til
 
 /* Tiles not picked yet are a muted slate, not black: only the picked ones keep the full colour. A tile that can be picked now has a ring of its
    colour that breathes slowly; a locked one is flatter. Arc Suit pairs have gold tiles of their own. */
-:root { --tile-dark: #3a4054; --tile-dark-2: #464d63; --tile-ink: #e6e9f2; --k-arc: #e6b422; --k-arc-ink: #3a2600; }
-[data-style="ds"] { --tile-dark: #353b55; --tile-dark-2: #424a6a; --k-arc: #e0ae2a; }
-[data-style="studio"] { --k-arc: #d9ab3a; }
-[data-style="gameboy"] { --tile-dark: #2f5a2f; --tile-dark-2: #3a6b3a; --tile-ink: #d3e6a0; --k-arc: #c9d84a; --k-arc-ink: #0f380f; }
+:root { --tile-dark: #d5dae6; --tile-dark-2: #e9ecf3; --tile-ink: #353c50; --tile-deep: #a9b0c2; --tile-deep-2: #bfc5d4; --tile-deep-ink: #5d657b; --k-arc: #e6b422; --k-arc-ink: #3a2600; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --tile-dark: #3a4054; --tile-dark-2: #464d63; --tile-ink: #e6e9f2; --tile-deep: #14161d; --tile-deep-2: #1a1d26; --tile-deep-ink: #6b7185; } }
+:root[data-theme="dark"] { --tile-dark: #3a4054; --tile-dark-2: #464d63; --tile-ink: #e6e9f2; --tile-deep: #14161d; --tile-deep-2: #1a1d26; --tile-deep-ink: #6b7185; }
+[data-style="ds"][data-theme="dark"] { --tile-dark: #353b55; --tile-dark-2: #424a6a; }
+[data-style="ds"] { --k-arc: #e0ae2a; } [data-style="studio"] { --k-arc: #d9ab3a; }
+[data-style="gameboy"] { --tile-dark: #8bac0f; --tile-dark-2: #9bbc0f; --tile-ink: #0f380f; --tile-deep: #306230; --tile-deep-2: #3d7a3d; --tile-deep-ink: #cfe3a0; --k-arc: #c9d84a; --k-arc-ink: #0f380f; }
+[data-style="gameboy"][data-theme="dark"] { --tile-dark: #2f5a2f; --tile-dark-2: #3a6b3a; --tile-ink: #d3e6a0; --tile-deep: #0f380f; --tile-deep-2: #1a4a1a; --tile-deep-ink: #8bac0f; }
 .k-arc { --c: var(--k-arc); --ct: var(--k-arc-ink); }
 .g-tile { transform-box: fill-box; transform-origin: center; transition: transform .16s ease; }
 .g-tile.open .g-out, .g-tile.locked .g-out { fill: color-mix(in srgb, var(--c) 34%, var(--tile-dark)); }
@@ -1582,12 +1585,12 @@ svg.hlmode .g-tile { opacity: .22; transition: opacity .12s; } svg.hlmode .g-til
 @media (prefers-reduced-motion: reduce) { .g-tile, .g-tile * { animation: none !important; transition: none !important; } }
 
 /* Tiles that ask for a higher move level than the one set: fully dark, so they cannot be mistaken for a tile that is only out of reach */
-.g-tile.lvlock .g-out { fill: #14161d; stroke: none; animation: none; }
-.g-tile.lvlock .g-in { fill: #1a1d26; }
-.g-tile.lvlock .g-gl { color: color-mix(in srgb, var(--c) 30%, #1a1d26); }
-.g-tile.lvlock .g-t { fill: #6b7185; }
-.g-tile.lvlock.k-arc .g-out { fill: color-mix(in srgb, var(--k-arc) 26%, #14161d); }
-.g-lv { font: 700 8px var(--mono); fill: #8d93a8; pointer-events: none; letter-spacing: .02em; }
+.g-tile.lvlock .g-out { fill: var(--tile-deep); stroke: none; animation: none; }
+.g-tile.lvlock .g-in { fill: var(--tile-deep-2); }
+.g-tile.lvlock .g-gl { color: color-mix(in srgb, var(--c) 30%, var(--tile-deep-2)); }
+.g-tile.lvlock .g-t { fill: var(--tile-deep-ink); }
+.g-tile.lvlock.k-arc .g-out { fill: color-mix(in srgb, var(--k-arc) 30%, var(--tile-deep)); }
+.g-lv { font: 700 8px var(--mono); fill: var(--tile-deep-ink); pointer-events: none; letter-spacing: .02em; }
 .hud-i.th b { color: var(--accent, var(--text)); font-size: 12px; letter-spacing: .04em; text-transform: uppercase; }
 
 /* Energy limit in the grid bar: a small select next to the energy used */
