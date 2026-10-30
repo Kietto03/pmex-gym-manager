@@ -13,7 +13,9 @@ import { PAIRS, loadPairDetail, dexIdOf, pairById, pairName, pairImage, TYPE_COL
 // ═══════════════════════════════════════════════════════════════
 //  SYNC GRID: moves and passives of a pair, and a grid builder (rules in grid.js)
 // ═══════════════════════════════════════════════════════════════
-const G = { pairId: '', detail: null, err: '', ix: null, active: new Set(), pending: new Set(), blocked: new Map(), moveLevel: 5, energyCap: null, sel: null, panel: 'tile', sub: 'moves', focus: null, statLevel: '', form: 0, extra: {}, buildId: null,
+// The grid holds at most 60 energy; the limit can rise in steps of 2 up to 70. A tile that would go over the limit cannot be switched on.
+export const ENERGY_CAPS = [60, 62, 64, 66, 68, 70];
+const G = { pairId: '', detail: null, err: '', ix: null, active: new Set(), pending: new Set(), blocked: new Map(), moveLevel: 5, energyCap: 60, sel: null, panel: 'tile', sub: 'moves', focus: null, statLevel: '', form: 0, extra: {}, buildId: null,
   name: '', purpose: '', visibility: 'private', saved: null, hash: '', msg: '' };
 const gridZoom = () => { try { return +localStorage.getItem('gym-grid-zoom') || 1; } catch { return 1; } };
 const setZoom = z => { try { localStorage.setItem('gym-grid-zoom', Math.max(0.4, Math.min(2.4, z)).toFixed(2)); } catch { /* private mode */ } };
@@ -22,11 +24,11 @@ const BUILD_WHY = { 'not-adjacent': 'next to no active tile', 'move-level': 'nee
 export function renderGrid(pairId = '', buildId = '') {
   if (!pairId) return gridHome();
   if (G.pairId !== pairId || (buildId && G.buildId !== +buildId)) {
-    Object.assign(G, { pairId, detail: null, err: '', ix: null, active: new Set(), pending: new Set(), blocked: new Map(), sel: null, panel: 'tile', sub: 'moves', focus: null, statLevel: '', form: 0, extra: {}, buildId: null, name: '', purpose: '', visibility: 'private', saved: null, msg: '', moveLevel: 5, energyCap: null });
+    Object.assign(G, { pairId, detail: null, err: '', ix: null, active: new Set(), pending: new Set(), blocked: new Map(), sel: null, panel: 'tile', sub: 'moves', focus: null, statLevel: '', form: 0, extra: {}, buildId: null, name: '', purpose: '', visibility: 'private', saved: null, msg: '', moveLevel: 5, energyCap: 60 });
     const mine = ownedPair(S.me, pairId);
     if (mine) G.moveLevel = Math.min(5, mine.level || 5);
     const b = buildId && S.builds.find(x => x.id === +buildId);
-    if (b) Object.assign(G, { buildId: b.id, name: b.name, purpose: b.purpose, visibility: b.visibility, moveLevel: b.move_level, energyCap: b.energy_cap, active: new Set(b.nodes), saved: b });
+    if (b) Object.assign(G, { buildId: b.id, name: b.name, purpose: b.purpose, visibility: b.visibility, moveLevel: b.move_level, energyCap: b.energy_cap ?? 60, active: new Set(b.nodes), saved: b });
     const dexId = pairById(pairId) && dexIdOf(pairById(pairId));
     (dexId ? loadPairDetail(dexId) : Promise.reject(new Error('unmapped'))).then(d => { G.detail = d; G.ix = indexGrid(markArc(d.grid || [], pairById(pairId)?.trainer)); G.hash = gridHash(d.grid || []); if (location.hash.startsWith('#/grid/')) hooks.route(); })
       .catch(() => { G.err = 'load'; if (location.hash.startsWith('#/grid/')) hooks.route(); });
@@ -142,7 +144,7 @@ function gridBoard() {
   const pips = [1, 2, 3, 4, 5].map(n => `<button class="mlv ${n <= G.moveLevel ? 'on' : ''}" data-gmlv="${n}" aria-label="${t('Move level')} ${n}" title="${t('Move level')} ${n}">${hexPip(n <= G.moveLevel)}</button>`).join('');
   const per = {}; for (const c of G.ix.grid) { (per[c.color] ||= { all: 0, on: 0 }).all++; if (G.active.has(c.n)) per[c.color].on++; }
   return `<div class="gp-hud"><div class="hud-i orb"><small>${t('Sync orbs')}</small><b>${fmtN(t0.orbs)}</b></div>
-      <div class="hud-i en"><small>${t('Energy')}</small><b>${t0.energy}</b>${G.energyCap != null ? `<span class="cap"> / ${G.energyCap}</span>` : ''}</div>
+      <div class="hud-i en ${t0.energy >= G.energyCap ? 'full' : ''}"><small>${t('Energy')}</small><b>${t0.energy}</b><span class="cap"> / <select id="g-cap" aria-label="${t('Energy limit')}" title="${t('Energy limit')}">${[...new Set([...ENERGY_CAPS, G.energyCap])].sort((a, b) => a - b).map(n => `<option ${n === G.energyCap ? 'selected' : ''}>${n}</option>`).join('')}</select></span></div>
       ${own && G.moveLevel > Math.min(5, own.level || 1) ? `<div class="hud-i th" title="${t('Move level above what you have: this build is theoretical until the move is levelled')}"><small>${t('Build')}</small><b>${t('Theoretical')}</b></div>` : ''}
       ${G.pending.size ? `<div class="hud-i pd" title="${t('Picked tiles waiting to be linked to the centre')}"><small>${t('Waiting')}</small><b>${G.pending.size}</b></div>` : ''}
       <div class="hud-i lv" title="${t('Move level')}"><small>${t('Move level')}</small><span class="mlvs">${pips}</span></div>
@@ -188,11 +190,10 @@ function tilePanel() {
     : `<div class="tile-card empty"><p class="muted">${t('Tap a tile to read it and switch it on or off. A far tile can be picked ahead: it switches on when the tiles in between are on.')}</p></div>`;
   return `${tile}
   <div class="build-card form"><h3>${t('Your build')}</h3>
-    <div class="gstats"><span><b>${t0.tiles}</b><small>${t('tiles')}</small></span><span><b>${t0.energy}</b><small>${t('energy')}${G.energyCap != null ? ` / ${G.energyCap}` : ''}</small></span><span><b>${fmtN(t0.orbs)}</b><small>${t('sync orbs')}</small></span></div>
+    <div class="gstats"><span><b>${t0.tiles}</b><small>${t('tiles')}</small></span><span><b>${t0.energy}</b><small>${t('energy')} / ${G.energyCap}</small></span><span><b>${fmtN(t0.orbs)}</b><small>${t('sync orbs')}</small></span></div>
     ${G.pending.size ? `<p class="notice pd">${ico('note')} ${t('{n} picked tiles are waiting to be linked. They are not part of the build, and not saved, until they switch on.', { n: G.pending.size })} <button type="button" class="btn sm ghost" data-gclear-pending>${t('Clear')}</button></p>` : ''}
     <div class="chips-l">${Object.entries(t0.byColor).map(([k, n]) => `<span class="chip kind k-${k}">${glyph(k, 11)}${n} ${t(COLORS[k]?.[0] || k)}</span>`).join('')}</div>
-    <div class="grid2" style="margin-top:8px"><label>${t('Move level')}<select id="g-level">${[1, 2, 3, 4, 5].map(n => `<option ${n === G.moveLevel ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
-      <label>${t('Energy limit')}<input id="g-cap" type="number" min="0" max="999" placeholder="${t('none')}" value="${G.energyCap ?? ''}"></label></div>
+    <div class="grid2" style="margin-top:8px"><label>${t('Move level')}<select id="g-level">${[1, 2, 3, 4, 5].map(n => `<option ${n === G.moveLevel ? 'selected' : ''}>${n}</option>`).join('')}</select></label></div>
     ${own && needed > (own.level || 1) && own.level < 5 ? `<p class="notice">${ico('lock')} ${t('Not usable yet')}: ${t('your move level is {n}', { n: Math.min(5, own.level) })}</p>` : ''}
     ${problems.length ? `<p class="notice">${ico('lock')} ${t('This build breaks the rules:')} ${[...new Set(problems.map(p => t(BUILD_WHY[p.code])))].join(', ')}</p>` : ''}
     ${changed ? `<p class="notice">${ico('note')} ${t('The game data of this pair changed after this build was saved. Check the tiles.')}</p>` : ''}
@@ -331,7 +332,7 @@ document.addEventListener('change', e => {
   if (gf) { GF[gf] = e.target.value; GF.shown = 48; const r = $('#pair-results'); if (r) r.innerHTML = pairResults(); return; }
   if (gfc) { GF[gfc] = e.target.checked; GF.shown = 48; const r = $('#pair-results'); if (r) r.innerHTML = pairResults(); return; }
   if (e.target.id === 'g-level') { gridKeepFields(); G.moveLevel = +e.target.value; gSettle(); gridRedraw(); }
-  if (e.target.id === 'g-cap') { gridKeepFields(); G.energyCap = e.target.value === '' ? null : Math.max(0, +e.target.value); gSettle(); gridRedraw(); }
+  if (e.target.id === 'g-cap') { gridKeepFields(); G.energyCap = +e.target.value; gSettle(); gridRedraw(); }
   if (e.target.id === 'g-vis') { gridKeepFields(); G.visibility = e.target.value; gridRedraw(); }
 });
 document.addEventListener('click', async e => {

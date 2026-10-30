@@ -1589,3 +1589,8 @@ svg.hlmode .g-tile { opacity: .22; transition: opacity .12s; } svg.hlmode .g-til
 .g-tile.lvlock.k-arc .g-out { fill: color-mix(in srgb, var(--k-arc) 26%, #14161d); }
 .g-lv { font: 700 8px var(--mono); fill: #8d93a8; pointer-events: none; letter-spacing: .02em; }
 .hud-i.th b { color: var(--accent, var(--text)); font-size: 12px; letter-spacing: .04em; text-transform: uppercase; }
+
+/* Energy limit in the grid bar: a small select next to the energy used */
+.hud-i.en .cap { font-weight: 600; color: var(--text-2); }
+.hud-i.en select { width: auto; min-width: 0; padding: 0 2px; border: 0; border-bottom: var(--bw) dashed var(--line-2); border-radius: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.hud-i.en.full b { color: var(--bad, #d6384f); }

@@ -82,3 +82,11 @@ import { markArc, isArcPair } from '../src/grid.js';
   assert.equal(g[1].color, 'blue', 'the source grid is not changed');
   console.log('arc tiles: all passed');
 }
+
+{
+  const g = [{ n: 1, q: 1, r: 0, energy: 30, orbs: 1, req: [], color: 'blue' }, { n: 2, q: 2, r: 0, energy: 30, orbs: 1, req: [], color: 'blue' }, { n: 3, q: 3, r: 0, energy: 2, orbs: 1, req: [], color: 'blue' }];
+  const ix = indexGrid(g), act = new Set([1, 2]);
+  assert.equal(whyNot(ix, act, ix.byN.get(3), { energyCap: 60 }), 'energy', 'at the limit of 60 nothing more can be switched on');
+  assert.equal(whyNot(ix, act, ix.byN.get(3), { energyCap: 62 }), null, 'a limit of 62 leaves room for 2 more');
+  console.log('energy limit: all passed');
+}
