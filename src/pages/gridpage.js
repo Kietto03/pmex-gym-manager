@@ -1,6 +1,7 @@
 // Page module (split out of main.js). Registers its own listeners when imported.
 import { $, esc, fmtN, img, pairIcon, typeTag, act, toast, api, S, profile, nameOf, ownedPair, hooks } from '../core.js';
 import { ico } from '../icons.js';
+import { gridSvg } from '../gridimage.js';
 import { t } from '../i18n.js';
 import { splitDescription, count } from '../moves.js';
 import { byAcquisition, acqLabel } from '../acquisition.js';
@@ -14,19 +15,21 @@ import { PAIRS, loadPairDetail, dexIdOf, pairById, pairName, pairImage, TYPE_COL
 //  SYNC GRID: moves and passives of a pair, and a grid builder (rules in grid.js)
 // ═══════════════════════════════════════════════════════════════
 const G = { pairId: '', detail: null, err: '', ix: null, active: new Set(), pending: new Set(), blocked: new Map(), moveLevel: 5, energyCap: energyCapFor(5), sel: null, panel: 'tile', sub: 'moves', focus: null, statLevel: '', form: 0, extra: {}, buildId: null,
-  name: '', purpose: '', visibility: 'private', saved: null, hash: '', msg: '' };
+  name: '', purpose: '', visibility: 'private', saved: null, hash: '', msg: '', from: '', openedId: 0, draft: false };
 const gridZoom = () => { try { return +localStorage.getItem('gym-grid-zoom') || 1; } catch { return 1; } };
 const setZoom = z => { try { localStorage.setItem('gym-grid-zoom', Math.max(0.4, Math.min(2.4, z)).toFixed(2)); } catch { /* private mode */ } };
 const BUILD_WHY = { 'not-adjacent': 'next to no active tile', 'move-level': 'needs a higher move level', energy: 'over the energy limit', unknown: 'tile no longer exists' };
 
 export function renderGrid(pairId = '', buildId = '') {
   if (!pairId) return gridHome();
-  if (G.pairId !== pairId || (buildId && G.buildId !== +buildId)) {
-    Object.assign(G, { pairId, detail: null, err: '', ix: null, active: new Set(), pending: new Set(), blocked: new Map(), sel: null, panel: 'tile', sub: 'moves', focus: null, statLevel: '', form: 0, extra: {}, buildId: null, name: '', purpose: '', visibility: 'private', saved: null, msg: '', moveLevel: 5, energyCap: energyCapFor(5) });
+  if (G.pairId !== pairId || (buildId && G.openedId !== +buildId)) {
+    Object.assign(G, { pairId, detail: null, err: '', ix: null, active: new Set(), pending: new Set(), blocked: new Map(), sel: null, panel: 'tile', sub: 'moves', focus: null, statLevel: '', form: 0, extra: {}, buildId: null, name: '', purpose: '', visibility: 'private', saved: null, msg: '', moveLevel: 5, energyCap: energyCapFor(5), from: '', openedId: 0, draft: false });
     const mine = ownedPair(S.me, pairId);
     if (mine) { G.moveLevel = Math.min(5, mine.level || 5); G.energyCap = energyCapFor(G.moveLevel); }
     const b = buildId && S.builds.find(x => x.id === +buildId);
-    if (b) Object.assign(G, { buildId: b.id, name: b.name, purpose: b.purpose, visibility: b.visibility, moveLevel: b.move_level, energyCap: energyCapFor(b.move_level), active: new Set(b.nodes), saved: b });
+    if (b && b.user_id === S.me) Object.assign(G, { buildId: b.id, openedId: b.id, name: b.name, purpose: b.purpose, visibility: b.visibility, moveLevel: b.move_level, energyCap: energyCapFor(b.move_level), active: new Set(b.nodes), saved: b });
+    else if (b) Object.assign(G, { buildId: null, openedId: b.id, from: nameOf(profile(b.user_id)), name: `${b.name} (${t('copy')})`, purpose: b.purpose, visibility: 'private', moveLevel: b.move_level, energyCap: energyCapFor(b.move_level), active: new Set(b.nodes) });   // someone else's build opens as a copy of your own
+    else { const d = loadDraft(pairId); if (d) Object.assign(G, { name: d.name || '', purpose: d.purpose || '', visibility: d.visibility || 'private', moveLevel: d.moveLevel, energyCap: energyCapFor(d.moveLevel), active: new Set(d.nodes), draft: true }); }
     const dexId = pairById(pairId) && dexIdOf(pairById(pairId));
     (dexId ? loadPairDetail(dexId) : Promise.reject(new Error('unmapped'))).then(d => { G.detail = d; G.ix = indexGrid(markArc(d.grid || [], pairById(pairId)?.trainer)); G.hash = gridHash(d.grid || []); if (location.hash.startsWith('#/grid/')) hooks.route(); })
       .catch(() => { G.err = 'load'; if (location.hash.startsWith('#/grid/')) hooks.route(); });
@@ -37,7 +40,7 @@ export function renderGrid(pairId = '', buildId = '') {
   if (!G.detail) return head + `<p class="muted">${t('Loading…')}</p>`;
   const noGrid = !G.ix.grid.length;
   return `${head}${pairHeader(p)}${noGrid ? `<div class="card pad"><p class="muted">${t('This pair has no grid in the datamine yet.')}</p></div><div id="grid-side">${pairPanel()}</div>`
-    : `<div class="grid-layout"><div class="gp-board card" id="grid-board">${gridBoard()}</div><aside class="gp-panel card" id="grid-side">${gridSide()}</aside></div>`}`;
+    : `<div id="grid-bar">${buildBar()}</div><div class="grid-layout"><div class="gp-board card" id="grid-board">${gridBoard()}</div><aside class="gp-panel card" id="grid-side">${gridSide()}</aside></div>`}`;
 }
 
 
@@ -195,11 +198,7 @@ function tilePanel() {
     ${own && needed > (own.level || 1) && own.level < 5 ? `<p class="notice">${ico('lock')} ${t('Not usable yet')}: ${t('your move level is {n}', { n: Math.min(5, own.level) })}</p>` : ''}
     ${problems.length ? `<p class="notice">${ico('lock')} ${t('This build breaks the rules:')} ${[...new Set(problems.map(p => t(BUILD_WHY[p.code])))].join(', ')}</p>` : ''}
     ${changed ? `<p class="notice">${ico('note')} ${t('The game data of this pair changed after this build was saved. Check the tiles.')}</p>` : ''}
-    <label>${t('Name')}<input id="g-name" value="${esc(G.name)}" placeholder="${t('e.g. Speed and gauge')}"></label>
-    <label>${t('Purpose')}<input id="g-purpose" value="${esc(G.purpose)}"></label>
-    <label>${t('Who can see it')}<select id="g-vis"><option value="private" ${G.visibility === 'private' ? 'selected' : ''}>${t('Only me')}</option><option value="gym" ${G.visibility === 'gym' ? 'selected' : ''}>${t('The whole gym')}</option></select></label>
-    <div class="row"><button class="btn primary" data-gsave ${problems.length ? 'disabled' : ''}>${t(G.buildId ? 'Save changes' : 'Save build')}</button>${G.buildId ? `<button class="btn" data-gsave-new ${problems.length ? 'disabled' : ''}>${t('Save as new')}</button><button class="btn ghost" data-gdel>${t('Delete')}</button>` : ''}
-      <button class="btn ghost" data-greset>${t('Clear')}</button></div>${G.msg ? `<p class="form-err">${esc(G.msg)}</p>` : ''}</div>`;
+</div>`;
 }
 
 // ── moves, passives, team skills and facts, laid out like the game's pair screen ──
@@ -301,24 +300,97 @@ function gridHome() {
 
 const redrawBoard = () => { const b = $('#grid-board'), sc = $('.grid-scroll'), l = sc?.scrollLeft, tp = sc?.scrollTop; if (b) { b.innerHTML = gridBoard(); const n = $('.grid-scroll'); if (n) { n.scrollLeft = l; n.scrollTop = tp; } } };
 const redrawSide = () => { const sd = $('#grid-side'); if (sd) sd.innerHTML = G.ix?.grid.length ? gridSide() : pairPanel(); };
-const gridRedraw = () => { redrawBoard(); redrawSide(); };
+const redrawBar = () => { const b = $('#grid-bar'); if (b) b.innerHTML = buildBar(); };
+const gridRedraw = () => { redrawBoard(); redrawSide(); redrawBar(); saveDraft(); };
 const gridKeepFields = () => { G.name = $('#g-name')?.value ?? G.name; G.purpose = $('#g-purpose')?.value ?? G.purpose; };
+// ── building and naming: a bar above the board holds the name, the save state and the sharing; a draft survives leaving the page ──
+const defaultName = () => { const p = pairById(G.pairId), n = S.builds.filter(b => b.user_id === S.me && b.pair_id === G.pairId).length + 1; return `${p ? pairName(p) : G.pairId} ${t('build')} ${n}`; };
+const DK = id => `pmex-grid-draft:${S.me}:${id}`;
+const loadDraft = id => { try { const d = JSON.parse(localStorage.getItem(DK(id))); return d && Array.isArray(d.nodes) && d.nodes.length ? d : null; } catch { return null; } };
+const clearDraft = () => { try { localStorage.removeItem(DK(G.pairId)); } catch { /* no storage */ } };
+function saveDraft() {
+  if (G.buildId || !G.ix) return;
+  try { if (G.active.size) localStorage.setItem(DK(G.pairId), JSON.stringify({ nodes: [...G.active], moveLevel: G.moveLevel, name: G.name, purpose: G.purpose, visibility: G.visibility })); else clearDraft(); } catch { /* no storage */ }
+}
+const sameNodes = (a, b) => a.length === b.length && [...a].sort((x, y) => x - y).every((n, i) => n === [...b].sort((x, y) => x - y)[i]);
+// Saved build: has anything changed since? New build: is there anything to save?
+const isDirty = () => { if (!G.buildId) return G.active.size > 0; const s = G.saved; return !!s && (!sameNodes([...G.active], s.nodes) || G.name.trim() !== s.name || (G.purpose || '') !== (s.purpose || '') || G.visibility !== s.visibility || G.moveLevel !== s.move_level); };
+const stateOf = () => (G.buildId ? (isDirty() ? ['dirty', t('Unsaved changes')] : ['ok', t('Saved')]) : G.from ? ['dirty', t('Shared by {n}: saving makes your own copy', { n: G.from })] : G.active.size ? ['dirty', G.draft ? t('Draft restored, not saved yet') : t('Not saved yet')] : ['new', t('New build')]);
+function buildBar() {
+  if (!G.ix?.grid.length) return '';
+  const problems = validate(G.ix, [...G.active], { moveLevel: G.moveLevel, energyCap: G.energyCap }), [cls, label] = stateOf();
+  const mine = S.builds.filter(b => b.user_id === S.me && b.pair_id === G.pairId), shared = G.buildId && G.visibility === 'gym' && G.saved?.visibility === 'gym';
+  const pid = encodeURIComponent(G.pairId);
+  return `<div class="gb-bar card"><div class="gb-top">
+      <input id="g-name" class="gb-name" value="${esc(G.name)}" placeholder="${esc(defaultName())}" maxlength="80" autocomplete="off" aria-label="${t('Name')}">
+      <span class="gb-state ${cls}" id="g-state" role="status">${esc(label)}</span>
+      <button class="btn primary" data-gsave id="g-save" ${problems.length ? 'disabled' : ''}>${t(G.buildId ? 'Save changes' : 'Save build')}</button>
+      <details class="gb-more"><summary class="btn ghost">${t('More')}</summary><div class="gb-menu">
+        <label>${t('Purpose')}<input id="g-purpose" value="${esc(G.purpose)}" maxlength="120" placeholder="${t('e.g. Speed and gauge')}"></label>
+        ${G.buildId ? `<button class="btn" data-gsave-new ${problems.length ? 'disabled' : ''}>${t('Save as new')}</button><button class="btn ghost" data-gdel>${t('Delete')}</button>` : ''}
+        <button class="btn ghost" data-greset>${t('Clear')}</button></div></details></div>
+    ${problems.length ? `<p class="notice">${ico('lock')} ${t('This build breaks the rules:')} ${[...new Set(problems.map(p => t(BUILD_WHY[p.code])))].join(', ')}</p>` : ''}${G.msg ? `<p class="form-err">${esc(G.msg)}</p>` : ''}
+    <div class="gb-share"><b>${t('Share')}</b>
+      <button class="btn sm" data-gimg="save">${ico('out')} ${t('Save as image')}</button><button class="btn sm ghost" data-gimg="copy">${t('Copy image')}</button>
+      <label class="gb-vis">${t('Who can see it')}<select id="g-vis"><option value="private" ${G.visibility === 'private' ? 'selected' : ''}>${t('Only me')}</option><option value="gym" ${G.visibility === 'gym' ? 'selected' : ''}>${t('The whole gym')}</option></select></label>
+      <button class="btn sm ghost" data-glink ${shared ? '' : 'disabled'} title="${shared ? '' : t('Save the build and share it with the whole gym to get a link')}">${t('Copy link')}</button></div>
+    <div class="gb-mine"><span class="muted">${t('Your builds of this pair')}</span>${mine.map(b => `<a class="gb-chip ${b.id === G.buildId ? 'on' : ''}" href="#/grid/${pid}/${b.id}">${esc(b.name)}</a>`).join('')}<a class="gb-chip new" href="#/grid/${pid}" data-gnew>+ ${t('New build')}</a></div></div>`;
+}
+const refreshState = () => { const [cls, label] = stateOf(), el = $('#g-state'); if (el) { el.className = `gb-state ${cls}`; el.textContent = label; } };
+// The picture of the build, written as an SVG with explicit colours and turned into a PNG
+const loadImage = src => new Promise(res => { if (!src) return res(null); const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => res(im); im.onerror = () => res(null); im.src = src; });
+async function dataUri(src) { const im = await loadImage(src); if (!im) return ''; try { const c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight; c.getContext('2d').drawImage(im, 0, 0); return c.toDataURL('image/png'); } catch { return ''; } }
+const svgToPng = (svg, w, h, k = 2) => new Promise((res, rej) => {
+  const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' })), im = new Image();
+  im.onload = () => { const c = document.createElement('canvas'); c.width = w * k; c.height = h * k; c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); URL.revokeObjectURL(url); c.toBlob(b => (b ? res(b) : rej(new Error('png'))), 'image/png'); };
+  im.onerror = () => { URL.revokeObjectURL(url); rej(new Error('svg')); };
+  im.src = url;
+});
+async function gridImage(mode, btn) {
+  gridKeepFields();
+  const p = pairById(G.pairId), own = ownedPair(S.me, G.pairId), t0 = totals(G.ix, G.active);
+  btn.disabled = true;
+  try {
+    const palette = {}, probe = document.createElement('div'); document.body.appendChild(probe);
+    for (const k of Object.keys(COLORS)) { probe.className = `k-${k}`; const cs = getComputedStyle(probe); palette[k] = { c: cs.getPropertyValue('--c').trim() || COLORS[k][1], ink: cs.getPropertyValue('--ct').trim() || '#111' }; }
+    probe.remove();
+    const glyphs = Object.fromEntries(Object.keys(GLYPH).map(k => [k, GLYPH[k]]));
+    const per = {}; for (const c of G.ix.grid) { (per[c.color] ||= { all: 0, on: 0 }).all++; if (G.active.has(c.n)) per[c.color].on++; }
+    const model = { pair: p ? pairName(p) : G.pairId, type: p?.type, typeColor: TYPE_COLORS[p?.type] || '#8d99a6', name: G.name.trim() || defaultName(), purpose: G.purpose.trim(),
+      owner: nameOf(profile(G.saved?.user_id || S.me)), moveLevel: G.moveLevel, energy: t0.energy, cap: G.energyCap, orbs: t0.orbs, glyphs, palette,
+      portrait: p ? await dataUri(pairImage(p, own?.ex, own?.stars)) : '', date: new Date().toISOString().slice(0, 10), footer: 'PMEX Gym Manager',
+      legend: Object.entries(COLORS).filter(([k]) => per[k]).map(([k, [l]]) => ({ kind: k, label: t(l), on: per[k].on, all: per[k].all })),
+      tiles: G.ix.grid.map(c => ({ ...hexXY(c, SIZE), on: G.active.has(c.n), wait: G.pending.has(c.n), lv: !G.active.has(c.n) && levelNeeded(c) > G.moveLevel ? levelNeeded(c) : 0, color: c.color, lines: tileLines(tileTitle(c)) })) };
+    const { svg, width, height } = gridSvg(model, { scale: 1.2 }), blob = await svgToPng(svg, width, height, 2);
+    if (mode === 'copy') {
+      try { await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]); toast(t('Image copied.')); return; }
+      catch { toast(t('Copying images is not supported here — the image was saved instead.')); }
+    }
+    const file = `grid-${(model.name || 'build').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'build'}.png`;
+    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: file });
+    a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  } catch { toast(t('The image could not be made.'), true); } finally { btn.disabled = false; }
+}
 async function gridSave(asNew) {
   gridKeepFields();
   const problems = validate(G.ix, [...G.active], { moveLevel: G.moveLevel, energyCap: G.energyCap });
   if (problems.length) { G.msg = t('This build breaks the rules.'); gridRedraw(); return; }
-  if (!G.name.trim()) { G.msg = t('Give it a name.'); gridRedraw(); return; }
+  if (!G.name.trim()) G.name = defaultName();   // no name typed: the suggested one, still editable
   const row = { pair_id: G.pairId, name: G.name.trim(), purpose: G.purpose.trim(), nodes: [...G.active].sort((a, b) => a - b), move_level: G.moveLevel, energy_cap: G.energyCap,
     visibility: G.visibility, grid_hash: G.hash, data_version: String(G.detail.version || (G.detail.versions || []).join(',') || ''), ...(G.buildId && !asNew ? { id: G.buildId } : { user_id: S.me }) };
   let saved;
   if (await act(async () => { saved = await api.saveGridBuild(row); }, t('Build saved.'))) {
     S.builds = await api.gridBuilds();
-    G.buildId = saved?.id ?? G.buildId; G.saved = S.builds.find(b => b.id === G.buildId) || null; G.msg = '';
+    G.buildId = saved?.id ?? G.buildId; G.openedId = G.buildId; G.from = ''; G.draft = false; clearDraft(); G.saved = S.builds.find(b => b.id === G.buildId) || null; G.msg = '';
     history.replaceState(null, '', `#/grid/${encodeURIComponent(G.pairId)}/${G.buildId}`); gridRedraw();
   }
 }
 document.addEventListener('input', e => {
   if (e.target.id === 'grid-q') { GF.q = e.target.value; GF.shown = 48; const r = $('#pair-results'); if (r) r.innerHTML = pairResults(); }
+});
+document.addEventListener('input', e => {   // the name and the purpose are kept as they are typed, and the save state follows
+  if (e.target.id === 'g-name') { G.name = e.target.value; refreshState(); }
+  if (e.target.id === 'g-purpose') { G.purpose = e.target.value; refreshState(); }
 });
 document.addEventListener('input', e => {   // EX / EX role bonuses typed by hand: digits only, totals follow
   const k = e.target.dataset?.gextra; if (!k) return;
@@ -359,6 +431,9 @@ document.addEventListener('click', async e => {
     pickTile(G.ix.byN.get(+tog.dataset.gtoggle));
     G.msg = ''; gridRedraw(); return;
   }
+  const gimg = e.target.closest('[data-gimg]'); if (gimg) { gridImage(gimg.dataset.gimg, gimg); return; }
+  if (e.target.closest('[data-glink]')) { const url = `${location.href.split('#')[0]}#/grid/${encodeURIComponent(G.pairId)}/${G.buildId}`; try { await navigator.clipboard.writeText(url); toast(t('Link copied.')); } catch { prompt(t('Copy this link'), url); } return; }
+  const gnew = e.target.closest('[data-gnew]'); if (gnew) { e.preventDefault(); Object.assign(G, { buildId: null, saved: null, openedId: 0, from: '', draft: false, name: '', purpose: '', visibility: 'private', active: new Set(), pending: new Set(), blocked: new Map(), msg: '' }); history.replaceState(null, '', `#/grid/${encodeURIComponent(G.pairId)}`); gridRedraw(); return; }
   if (e.target.closest('[data-gsave]')) gridSave(false);
   if (e.target.closest('[data-gsave-new]')) gridSave(true);
   if (e.target.closest('[data-greset]')) { gridKeepFields(); G.active = new Set(); G.pending = new Set(); G.blocked = new Map(); G.msg = ''; gridRedraw(); }
@@ -409,7 +484,8 @@ document.addEventListener('mouseout', e => {
   if (e.target.closest?.('.mv[data-gmove]') && !e.relatedTarget?.closest?.('.mv[data-gmove]')) lightMove(pinned);
 });
 document.addEventListener('scroll', hideTip, true);
-document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('[data-gtile]')) { e.preventDefault(); e.target.dispatchEvent(new MouseEvent('click', { bubbles: true })); } });
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'g-name') { e.preventDefault(); gridSave(false); return; }
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('[data-gtile]')) { e.preventDefault(); e.target.dispatchEvent(new MouseEvent('click', { bubbles: true })); } });
 
 
 // Drag the board with the mouse to move around it (a touch screen already scrolls it with a finger). A click that ends a drag is not a tile pick.

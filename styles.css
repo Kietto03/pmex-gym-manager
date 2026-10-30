@@ -1594,3 +1594,21 @@ svg.hlmode .g-tile { opacity: .22; transition: opacity .12s; } svg.hlmode .g-til
 .hud-i.en .cap { font-weight: 600; color: var(--text-2); }
 .hud-i.en select { width: auto; min-width: 0; padding: 0 2px; border: 0; border-bottom: var(--bw) dashed var(--line-2); border-radius: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
 .hud-i.en.full b { color: var(--bad, #d6384f); }
+
+/* The build bar above the grid: name, save state, sharing, your builds of this pair */
+.gb-bar { display: grid; gap: 10px; padding: 12px 14px; margin: 0 0 14px; }
+.gb-top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.gb-name { flex: 1 1 240px; min-width: 0; font: 800 18px var(--display); padding: 8px 12px; }
+.gb-state { padding: 3px 10px; border: var(--bw) solid var(--line-2); border-radius: var(--r-pill); font: 600 12px var(--mono); color: var(--text-2); }
+.gb-state::before { content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 6px; background: currentColor; }
+.gb-state.ok { color: var(--ok, #2f9e5b); border-color: currentColor; } .gb-state.ok::before { border-radius: 50%; }
+.gb-state.dirty { color: var(--warn, #c77700); border-color: currentColor; } .gb-state.dirty::before { clip-path: polygon(0 0, 100% 50%, 0 100%); }
+.gb-more { position: relative; } .gb-more > summary { list-style: none; cursor: pointer; } .gb-more > summary::-webkit-details-marker { display: none; }
+.gb-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; display: grid; gap: 8px; width: min(320px, 86vw); padding: 12px; border: var(--bw) solid var(--line-2); border-radius: var(--r-md); background: var(--surface); box-shadow: var(--shadow-lg, 0 10px 30px rgba(0,0,0,.25)); }
+.gb-share { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.gb-share > b { font: 600 12px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); }
+.gb-vis { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; font-size: 13px; color: var(--text-2); } .gb-vis select { width: auto; }
+.gb-mine { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.gb-chip { padding: 3px 12px; border: var(--bw) solid var(--line-2); border-radius: var(--r-pill); color: var(--text); font-size: 13px; text-decoration: none; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gb-chip.on { background: var(--text); border-color: var(--text); color: var(--surface); } .gb-chip.new { border-style: dashed; color: var(--text-2); }
+@media (max-width: 640px) { .gb-vis { margin-left: 0; width: 100%; } }

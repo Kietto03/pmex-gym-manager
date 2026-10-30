@@ -716,3 +716,10 @@ Nguyên tắc: logic mới đi kèm test thuần trước; thay đổi giao di�
 | Tracker | PoMasters Sync Pairs Tracker (danh sách pair và icon) |
 | RLS | Row-Level Security của Postgres |
 | Datamine | Dữ liệu trích từ game (`absolutelypm/pokemas-datamine`) |
+
+
+### Sync Grid: build bar và ảnh chia sẻ
+- Thanh build (`buildBar` trong `src/pages/gridpage.js`) nằm trên bảng grid: tên, trạng thái (Saved / Unsaved changes / Not saved yet), Save, More (mục đích, Save as new, Delete, Clear), chia sẻ (ảnh, quyền xem, link) và các build của mình cho pair đó.
+- Build không đặt tên được đặt tên gợi ý (`<pair> build <n>`). Build mới chưa lưu có bản nháp trong `localStorage` (`pmex-grid-draft:<user>:<pair>`), xoá khi lưu.
+- Mở build của người khác (link hoặc danh sách gym) thì thành bản sao của riêng mình: lưu tạo build mới, không sửa build gốc.
+- Ảnh: `src/gridimage.js` (`gridSvg`) viết SVG với màu cụ thể (không phụ thuộc CSS), trang chuyển thành PNG bằng canvas. Giới hạn energy: `energyCapFor(level) = 60 + 2 × level` (`src/grid.js`).

@@ -553,6 +553,17 @@ f.onload = async () => {
     log($$('.build').length === 1 && /Test build/.test($('.build').innerText), 'grid: the saved build is in My builds');
     $('.build').click(); await until(() => $$('.g-tile').length > 30, 20000); await sleep(200);
     log($$('.g-tile.on').length === 1, 'grid: reopening a build restores its tiles');
+    log(/Saved/.test($('#g-state')?.innerText) && $('[data-glink]').disabled, 'grid build bar: a saved build says Saved and the link waits for sharing');
+    setVal($('#g-name'), 'Renamed build'); await sleep(80);
+    log(/Unsaved/.test($('#g-state').innerText), 'grid build bar: renaming marks the build as having unsaved changes');
+    $('[data-gsave]').click(); await sleep(500);
+    log(/Saved/.test($('#g-state').innerText) && $$('.gb-chip').some(c => /Renamed build/.test(c.innerText)), 'grid build bar: saved under the new name, listed among your builds of the pair');
+    setVal($('#g-vis'), 'gym'); await sleep(100); $('[data-gsave]').click(); await sleep(500);
+    log(!$('[data-glink]').disabled, 'grid build bar: shared with the gym, the link can be copied');
+    $('[data-gimg=save]').click(); await sleep(2500);
+    log(!$('.toast.show.bad') && !$('[data-gimg=save]').disabled, 'grid build bar: the build can be saved as an image');
+    $('[data-gnew]').click(); await sleep(150); setVal($('#g-name'), ''); clickTile($('.g-tile.open')); await sleep(150); $('[data-gsave]').click(); await sleep(500);
+    log($$('.gb-chip:not(.new)').length === 2 && /build 2/.test($$('.gb-chip').map(c => c.innerText).join(' ')), 'grid build bar: a build saved without a name gets a suggested one');
     $('[data-gpanel=pair]').click(); await sleep(150);
     log($$('.stat-row:not(.total) > div').length === 6 && $$('.mv.move').length >= 3 && !!$('.mv.sync') && $$('.mv .pips i').length > 0, 'grid: pair panel with stats, move cards, sync move and gauge bar');
     log($$('.mv .cond.act').length > 0 && $$('.mv .cond.deact').length > 0 && !$$('.mv .pre').some(p => /Activation Condition|Deactivation Condition/.test(p.innerText)), 'grid: activation, deactivation and effect text each on their own line');
