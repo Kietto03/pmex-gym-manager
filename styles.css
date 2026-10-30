@@ -1453,7 +1453,7 @@ svg.hlmode .g-tile { opacity: .22; transition: opacity .12s; } svg.hlmode .g-til
 /* picked ahead: hatched in the colour of its kind until the tiles in between switch it on */
 .g-tile.pending .g-out { fill: color-mix(in srgb, var(--c) 55%, var(--surface)); }
 .k-blue.pending .g-in { fill: url(#g-hatch-blue); } .k-green.pending .g-in { fill: url(#g-hatch-green); } .k-red.pending .g-in { fill: url(#g-hatch-red); }
-.k-yellow.pending .g-in { fill: url(#g-hatch-yellow); } .k-rainbow.pending .g-in { fill: url(#g-hatch-rainbow); }
+.k-yellow.pending .g-in { fill: url(#g-hatch-yellow); } .k-rainbow.pending .g-in { fill: url(#g-hatch-rainbow); } .k-arc.pending .g-in { fill: url(#g-hatch-arc); }
 .g-tile.pending .g-t { fill: var(--text); paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
 .g-tile.pending .g-gl { color: var(--text); }
 .hud-i.pd b { color: var(--accent); }
@@ -1549,18 +1549,34 @@ svg.hlmode .g-tile { opacity: .22; transition: opacity .12s; } svg.hlmode .g-til
 .sq-m.dim { opacity: .55; }
 .sq-empty { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: -6px 0 18px; }
 
-/* Tiles not picked yet are dark, like in the game and in shared grids: only the picked ones keep the full colour.
-   A tile that can be picked now keeps the dark body and gains a ring of its colour; a locked one is dimmer still. */
-:root { --tile-dark: #171a22; --tile-dark-2: #1f232d; --tile-ink: #c9cdd6; }
-[data-style="ds"] { --tile-dark: #1c1f2c; --tile-dark-2: #262a3a; }
-[data-style="gameboy"] { --tile-dark: #0f380f; --tile-dark-2: #1a4a1a; --tile-ink: #9bbc0f; }
-.g-tile.open .g-out, .g-tile.locked .g-out { fill: color-mix(in srgb, var(--c) 30%, var(--tile-dark)); }
-.g-tile.locked .g-out { fill: color-mix(in srgb, var(--c) 16%, var(--tile-dark)); }
-.g-tile.open .g-in, .g-tile.locked .g-in { fill: var(--tile-dark-2); }
+/* Tiles not picked yet are a muted slate, not black: only the picked ones keep the full colour. A tile that can be picked now has a ring of its
+   colour that breathes slowly; a locked one is flatter. Arc Suit pairs have gold tiles of their own. */
+:root { --tile-dark: #3a4054; --tile-dark-2: #464d63; --tile-ink: #e6e9f2; --k-arc: #e6b422; --k-arc-ink: #3a2600; }
+[data-style="ds"] { --tile-dark: #353b55; --tile-dark-2: #424a6a; --k-arc: #e0ae2a; }
+[data-style="studio"] { --k-arc: #d9ab3a; }
+[data-style="gameboy"] { --tile-dark: #2f5a2f; --tile-dark-2: #3a6b3a; --tile-ink: #d3e6a0; --k-arc: #c9d84a; --k-arc-ink: #0f380f; }
+.k-arc { --c: var(--k-arc); --ct: var(--k-arc-ink); }
+.g-tile { transform-box: fill-box; transform-origin: center; transition: transform .16s ease; }
+.g-tile.open .g-out, .g-tile.locked .g-out { fill: color-mix(in srgb, var(--c) 34%, var(--tile-dark)); }
+.g-tile.open .g-in, .g-tile.locked .g-in { fill: color-mix(in srgb, var(--c) 9%, var(--tile-dark-2)); }
 .g-tile.open .g-t, .g-tile.locked .g-t { fill: var(--tile-ink); }
 .g-tile.open .g-gl { color: var(--c); }
-.g-tile.locked .g-gl { color: color-mix(in srgb, var(--c) 45%, var(--tile-dark-2)); }
-.g-tile.locked .g-t { fill: color-mix(in srgb, var(--tile-ink) 55%, var(--tile-dark-2)); }
-.g-tile.open .g-out { fill: color-mix(in srgb, var(--c) 78%, var(--tile-dark)); }
-.g-tile.open:hover .g-in { fill: color-mix(in srgb, var(--c) 22%, var(--tile-dark-2)); }
-.g-tile.on { opacity: 1; }
+.g-tile.locked .g-out { fill: color-mix(in srgb, var(--c) 18%, var(--tile-dark)); }
+.g-tile.locked .g-in { fill: var(--tile-dark); }
+.g-tile.locked .g-gl { color: color-mix(in srgb, var(--c) 50%, var(--tile-dark)); }
+.g-tile.locked .g-t { fill: color-mix(in srgb, var(--tile-ink) 62%, var(--tile-dark)); }
+.g-tile.open .g-out { stroke: var(--c); stroke-width: 2; stroke-opacity: .85; fill: color-mix(in srgb, var(--c) 55%, var(--tile-dark)); animation: g-breathe 2.6s ease-in-out infinite; }
+.g-tile.open:nth-child(3n) .g-out { animation-delay: -.9s; } .g-tile.open:nth-child(3n+1) .g-out { animation-delay: -1.8s; }
+.g-tile.open:hover .g-in { fill: color-mix(in srgb, var(--c) 26%, var(--tile-dark-2)); }
+.g-tile.open:hover, .g-tile.on:hover { transform: scale(1.07); }
+.g-tile.on .g-out { filter: drop-shadow(0 0 3px color-mix(in srgb, var(--c) 70%, transparent)); }
+.g-tile.pop { animation: g-pop .32s cubic-bezier(.2, 1.6, .4, 1); }
+.k-arc.g-tile.on .g-in { fill: url(#g-gold); }
+.k-arc.g-tile.open .g-gl, .k-arc.g-tile.locked .g-gl { color: var(--k-arc); }
+.k-arc.g-tile.on .g-gl { animation: g-glint 3.2s ease-in-out infinite; }
+.grid-scroll { cursor: grab; } .grid-scroll .g-tile { cursor: pointer; }
+.grid-scroll.panning, .grid-scroll.panning * { cursor: grabbing !important; user-select: none; }
+@keyframes g-breathe { 0%, 100% { stroke-opacity: .35; } 50% { stroke-opacity: 1; } }
+@keyframes g-pop { 0% { transform: scale(.82); } 100% { transform: scale(1); } }
+@keyframes g-glint { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+@media (prefers-reduced-motion: reduce) { .g-tile, .g-tile * { animation: none !important; transition: none !important; } }

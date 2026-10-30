@@ -7,7 +7,7 @@ import { byAcquisition, acqLabel } from '../acquisition.js';
 import { STATS, gridBonus, totalStats } from '../stats.js';
 import { formViews, allMoveNames } from '../forms.js';
 import { trainerArt, pokeArt, formStem, trainerBackup, pokeBackup, artKind } from '../art.js';
-import { indexGrid, whyNot, canRemove, validate, totals, levelNeeded, otherReqs, gridHash, hexXY, settle, linkGap, COLORS } from '../grid.js';
+import { indexGrid, markArc, whyNot, canRemove, validate, totals, levelNeeded, otherReqs, gridHash, hexXY, settle, linkGap, COLORS } from '../grid.js';
 import { PAIRS, loadPairDetail, dexIdOf, pairById, pairName, pairImage, TYPE_COLORS, TYPES, typeIcon, roleIcon, DEX } from '../catalog.js';
 
 // ═══════════════════════════════════════════════════════════════
@@ -28,7 +28,7 @@ export function renderGrid(pairId = '', buildId = '') {
     const b = buildId && S.builds.find(x => x.id === +buildId);
     if (b) Object.assign(G, { buildId: b.id, name: b.name, purpose: b.purpose, visibility: b.visibility, moveLevel: b.move_level, energyCap: b.energy_cap, active: new Set(b.nodes), saved: b });
     const dexId = pairById(pairId) && dexIdOf(pairById(pairId));
-    (dexId ? loadPairDetail(dexId) : Promise.reject(new Error('unmapped'))).then(d => { G.detail = d; G.ix = indexGrid(d.grid || []); G.hash = gridHash(d.grid || []); if (location.hash.startsWith('#/grid/')) hooks.route(); })
+    (dexId ? loadPairDetail(dexId) : Promise.reject(new Error('unmapped'))).then(d => { G.detail = d; G.ix = indexGrid(markArc(d.grid || [], pairById(pairId)?.trainer)); G.hash = gridHash(d.grid || []); if (location.hash.startsWith('#/grid/')) hooks.route(); })
       .catch(() => { G.err = 'load'; if (location.hash.startsWith('#/grid/')) hooks.route(); });
   }
   const p = pairById(pairId);
@@ -47,6 +47,7 @@ const GLYPH = {
   green: '<path fill="none" d="M-3.8 0.6 L0 -3.2 L3.8 0.6 M-3.8 4.6 L0 0.8 L3.8 4.6"/>',
   red: '<path d="M0 -4.8 L1.3 -1.3 L4.8 0 L1.3 1.3 L0 4.8 L-1.3 1.3 L-4.8 0 L-1.3 -1.3Z"/>',
   yellow: '<circle r="3.6" fill="none"/><circle r="1.2"/>',
+  arc: '<path d="M0 -5.2 L1.5 -1.7 L5.2 -1.5 L2.4 0.9 L3.2 4.6 L0 2.7 L-3.2 4.6 L-2.4 0.9 L-5.2 -1.5 L-1.5 -1.7Z"/>',
   rainbow: '<path fill="none" d="M0 -4.8 L4.2 -2.4 V2.4 L0 4.8 L-4.2 2.4 V-2.4Z"/><path d="M0 -1.8 L1.6 -0.9 V0.9 L0 1.8 L-1.6 0.9 V-0.9Z"/>',
 };
 const glyph = (k, size = 12) => `<svg class="gl" viewBox="-6 -6 12 12" width="${size}" height="${size}" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">${GLYPH[k] || ''}</svg>`;
@@ -148,7 +149,7 @@ function gridBoard() {
       <div class="hud-zoom"><button class="hud-b" data-gzoom="-0.2" aria-label="${t('Zoom out')}">−</button><button class="hud-b" data-gzoom="0.2" aria-label="${t('Zoom in')}">+</button><button class="hud-b wide" data-gfit>${t('Fit')}</button></div></div>
     <div class="gp-legend">${Object.entries(COLORS).filter(([k]) => per[k]).map(([k, [l]]) => `<button class="lg k-${k} ${G.focus === k ? 'on' : ''}" data-gfocus="${k}">${glyph(k, 13)}<span>${t(l)}</span><small>${per[k].on}/${per[k].all}</small></button>`).join('')}</div>
     <div class="grid-scroll"><svg viewBox="${minX} ${minY} ${maxX - minX} ${maxY - minY}" style="width:${Math.round((maxX - minX) * zoom)}px" class="${G.focus ? 'focus' : ''}" data-focus="${G.focus || ''}" role="img" aria-label="${t('Sync grid')}">
-      <defs><clipPath id="g-clip"><polygon points="${hexPts(0, 0, SIZE - 5)}"/></clipPath>
+      <defs><linearGradient id="g-gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f7dc7a"/><stop offset=".5" stop-color="#e6b422"/><stop offset="1" stop-color="#b8860b"/></linearGradient><clipPath id="g-clip"><polygon points="${hexPts(0, 0, SIZE - 5)}"/></clipPath>
         ${Object.keys(COLORS).map(k => `<pattern id="g-hatch-${k}" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="8" height="8" style="fill:var(--surface)"/><line x1="0" y1="0" x2="0" y2="8" style="stroke:var(--k-${k});stroke-width:3.5"/></pattern>`).join('')}</defs>
       ${pts.map(({ c, x, y }) => {
         const on = G.active.has(c.n), wait = !on && G.pending.has(c.n), why = on || wait ? null : whyNot(G.ix, G.active, c, opts), lines = tileLines(tileTitle(c));
@@ -350,7 +351,7 @@ document.addEventListener('click', async e => {
     const c = G.ix.byN.get(+tile.dataset.gtile);
     gridKeepFields(); G.sel = c.n; G.msg = '';
     pickTile(c);
-    gridRedraw(); const again = $(`[data-gtile="${c.n}"]`); if (again && hoverOk()) showTip(again);
+    gridRedraw(); const again = $(`[data-gtile="${c.n}"]`); again?.classList.add('pop'); if (again && hoverOk()) showTip(again);
     return;
   }
   if (tog) {
@@ -410,3 +411,21 @@ document.addEventListener('mouseout', e => {
 document.addEventListener('scroll', hideTip, true);
 document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('[data-gtile]')) { e.preventDefault(); e.target.dispatchEvent(new MouseEvent('click', { bubbles: true })); } });
 
+
+// Drag the board with the mouse to move around it (a touch screen already scrolls it with a finger). A click that ends a drag is not a tile pick.
+let pan = null;
+document.addEventListener('pointerdown', e => {
+  const sc = e.target.closest?.('.grid-scroll');
+  if (!sc || e.pointerType !== 'mouse' || e.button !== 0) return;
+  pan = { sc, x: e.clientX, y: e.clientY, l: sc.scrollLeft, t: sc.scrollTop, moved: false };
+});
+document.addEventListener('pointermove', e => {
+  if (!pan) return;
+  const dx = e.clientX - pan.x, dy = e.clientY - pan.y;
+  if (!pan.moved && Math.hypot(dx, dy) < 5) return;
+  if (!pan.moved) { pan.moved = true; pan.sc.classList.add('panning'); hideTip(); }
+  pan.sc.scrollLeft = pan.l - dx; pan.sc.scrollTop = pan.t - dy;
+});
+const endPan = () => { if (pan?.moved) { pan.sc.classList.remove('panning'); const stop = ev => { ev.stopPropagation(); ev.preventDefault(); }; document.addEventListener('click', stop, { capture: true, once: true }); setTimeout(() => document.removeEventListener('click', stop, true), 0); } pan = null; };
+document.addEventListener('pointerup', endPan);
+document.addEventListener('pointercancel', endPan);
