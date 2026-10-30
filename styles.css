@@ -1580,3 +1580,12 @@ svg.hlmode .g-tile { opacity: .22; transition: opacity .12s; } svg.hlmode .g-til
 @keyframes g-pop { 0% { transform: scale(.82); } 100% { transform: scale(1); } }
 @keyframes g-glint { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
 @media (prefers-reduced-motion: reduce) { .g-tile, .g-tile * { animation: none !important; transition: none !important; } }
+
+/* Tiles that ask for a higher move level than the one set: fully dark, so they cannot be mistaken for a tile that is only out of reach */
+.g-tile.lvlock .g-out { fill: #14161d; stroke: none; animation: none; }
+.g-tile.lvlock .g-in { fill: #1a1d26; }
+.g-tile.lvlock .g-gl { color: color-mix(in srgb, var(--c) 30%, #1a1d26); }
+.g-tile.lvlock .g-t { fill: #6b7185; }
+.g-tile.lvlock.k-arc .g-out { fill: color-mix(in srgb, var(--k-arc) 26%, #14161d); }
+.g-lv { font: 700 8px var(--mono); fill: #8d93a8; pointer-events: none; letter-spacing: .02em; }
+.hud-i.th b { color: var(--accent, var(--text)); font-size: 12px; letter-spacing: .04em; text-transform: uppercase; }

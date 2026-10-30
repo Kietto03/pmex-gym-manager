@@ -73,12 +73,12 @@ console.log('grid rules: all passed');
 
 import { markArc, isArcPair } from '../src/grid.js';
 {
-  const g = [{ n: 1, q: 1, r: 0, color: 'blue', req: [] }, { n: 2, q: 2, r: 0, color: 'blue', req: ['Move level must be 4 or higher'] }, { n: 3, q: 3, r: 0, color: 'red', req: ['Move level must be 5 or higher'] }, { n: 4, q: 4, r: 0, color: 'yellow', req: ['Move level must be 3 or higher'] }];
+  const g = [{ n: 1, q: 1, r: 0, color: 'blue', req: [] }, { n: 2, q: 2, r: 0, color: 'blue', req: ['Move level must be 4 or higher'] }, { n: 3, q: 3, r: 0, color: 'red', req: ['Move level must be 5 or higher'] }, { n: 4, q: 4, r: 0, color: 'yellow', req: ['Move level must be 3 or higher'] }, { n: 5, q: 5, r: 0, color: 'blue', energy: 0, title: 'Heroic Ascension Divine Outrage: Power ↑ 50', req: ['Move level must be 3 or higher'] }, { n: 6, q: 6, r: 0, color: 'blue', energy: 2, title: 'Power ↑ 10', req: ['Move level must be 3 or higher'] }];
   assert.ok(isArcPair('Arc Suit Lance') && !isArcPair('Lance') && !isArcPair('Sygna Suit Elesa'));
   const arc = markArc(g, 'Arc Suit Lance');
-  assert.deepEqual(arc.map(c => c.color), ['blue', 'arc', 'arc', 'yellow'], 'only the move level 4 and 5 tiles of an Arc Suit pair turn gold');
+  assert.deepEqual(arc.map(c => c.color), ['blue', 'arc', 'arc', 'yellow', 'arc', 'blue'], 'the move level 4 and 5 tiles and the free Power tile of an Arc Suit pair turn gold');
   assert.equal(arc[1].was, 'blue');
-  assert.deepEqual(markArc(g, 'Lance').map(c => c.color), ['blue', 'blue', 'red', 'yellow'], 'other pairs keep the datamine colours');
+  assert.deepEqual(markArc(g, 'Lance').map(c => c.color), ['blue', 'blue', 'red', 'yellow', 'blue', 'blue'], 'other pairs keep the datamine colours');
   assert.equal(g[1].color, 'blue', 'the source grid is not changed');
   console.log('arc tiles: all passed');
 }

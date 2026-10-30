@@ -143,6 +143,7 @@ function gridBoard() {
   const per = {}; for (const c of G.ix.grid) { (per[c.color] ||= { all: 0, on: 0 }).all++; if (G.active.has(c.n)) per[c.color].on++; }
   return `<div class="gp-hud"><div class="hud-i orb"><small>${t('Sync orbs')}</small><b>${fmtN(t0.orbs)}</b></div>
       <div class="hud-i en"><small>${t('Energy')}</small><b>${t0.energy}</b>${G.energyCap != null ? `<span class="cap"> / ${G.energyCap}</span>` : ''}</div>
+      ${own && G.moveLevel > Math.min(5, own.level || 1) ? `<div class="hud-i th" title="${t('Move level above what you have: this build is theoretical until the move is levelled')}"><small>${t('Build')}</small><b>${t('Theoretical')}</b></div>` : ''}
       ${G.pending.size ? `<div class="hud-i pd" title="${t('Picked tiles waiting to be linked to the centre')}"><small>${t('Waiting')}</small><b>${G.pending.size}</b></div>` : ''}
       <div class="hud-i lv" title="${t('Move level')}"><small>${t('Move level')}</small><span class="mlvs">${pips}</span></div>
       <span class="hud-sp"></span>
@@ -154,9 +155,10 @@ function gridBoard() {
       ${pts.map(({ c, x, y }) => {
         const on = G.active.has(c.n), wait = !on && G.pending.has(c.n), why = on || wait ? null : whyNot(G.ix, G.active, c, opts), lines = tileLines(tileTitle(c));
         const y0 = y - (lines.length - 1) * 5.3 + 5;
-        return `<g class="g-tile ${on ? 'on' : wait ? 'pending' : why ? 'locked' : 'open'} ${G.sel === c.n ? 'sel' : ''} k-${c.color}" data-gtile="${c.n}" data-color="${c.color}" tabindex="0" role="button" aria-label="${esc(tileTitle(c))}">
+        return `<g class="g-tile ${on ? 'on' : wait ? 'pending' : why ? 'locked' : 'open'} ${!on && !wait && levelNeeded(c) > G.moveLevel ? 'lvlock' : ''} ${G.sel === c.n ? 'sel' : ''} k-${c.color}" data-gtile="${c.n}" data-color="${c.color}" tabindex="0" role="button" aria-label="${esc(tileTitle(c))}">
           <polygon class="g-out" points="${hexPts(x, y, SIZE - 1)}"/><polygon class="g-in" points="${hexPts(x, y, SIZE - 5.5)}"/>
           <g class="g-gl" transform="translate(${x} ${y - 19}) scale(1.05)" fill="currentColor" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round">${GLYPH[c.color] || ''}</g>
+          ${!on && levelNeeded(c) > G.moveLevel ? `<text class="g-lv" x="${x}" y="${y + SIZE - 9}" text-anchor="middle">Lv ${levelNeeded(c)}</text>` : ''}
           <text class="g-t" x="${x}" y="${y0}" text-anchor="middle">${lines.map((l, i) => `<tspan x="${x}" dy="${i ? 10.6 : 0}">${esc(l)}</tspan>`).join('')}</text>
 </g>`;
       }).join('')}

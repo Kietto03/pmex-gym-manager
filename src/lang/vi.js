@@ -449,6 +449,8 @@ export default {
   'Reinforcement squad': 'Reinforcement squad (tiếp viện)',
   'stage type': 'type của stage',
   'Stage types nobody covers yet': 'Type của stage chưa có ai phụ trách',
+  'Move level above what you have: this build is theoretical until the move is levelled': 'Move level cao hơn mức bạn đang có: build này mang tính lý thuyết cho đến khi nâng move',
+  'Build': 'Build',
   'Nobody yet': 'Chưa có ai',
   'All roles': 'Mọi vai trò',
   'All main types': 'Mọi main type',

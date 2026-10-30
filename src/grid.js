@@ -11,10 +11,12 @@ const key = (q, r) => `${q},${r}`;
 
 export const COLORS = { blue: ['Stat', '#779EFF'], green: ['Move boost', '#47D147'], red: ['Move effect', '#FF0066'], yellow: ['Passive', '#FFC266'], rainbow: ['Sync move', '#BF80FF'], arc: ['Arc Suit', '#E6B422'] };
 
-// An Arc Suit pair has tiles of its own (the move level 4 and 5 ones): the game paints them gold, apart from the five usual kinds.
+// An Arc Suit pair has tiles of its own (the Power tile at no energy and the move level 4 and 5 ones): the game paints them gold, apart from the five usual kinds.
 // The datamine files them under a usual colour, so the page marks them here and keeps the colour it came with in `was`.
 export const isArcPair = trainer => /^arc suit /i.test(String(trainer || ''));
-export const markArc = (grid, trainer) => (isArcPair(trainer) ? grid.map(c => (levelNeeded(c) >= 4 ? { ...c, color: 'arc', was: c.color } : c)) : grid);
+// They are the move level 4 and 5 tiles and the Power tile that costs no energy and also asks for a move level, all on the same line
+export const isArcTile = c => levelNeeded(c) >= 4 || (c.energy === 0 && levelNeeded(c) >= 1 && /power/i.test(c.title || ''));
+export const markArc = (grid, trainer) => (isArcPair(trainer) ? grid.map(c => (isArcTile(c) ? { ...c, color: 'arc', was: c.color } : c)) : grid);
 
 export function indexGrid(grid) {
   const byPos = new Map(grid.map(c => [key(c.q, c.r), c]));
