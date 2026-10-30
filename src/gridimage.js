@@ -21,15 +21,17 @@ export function gridSvg(m, o = {}) {
   const bw = (maxX - minX) * scale, bh = (maxY - minY) * scale, W = Math.max(Math.round(bw + pad * 2), 900), headH = 150, legH = 44, footH = 46;
   const H = Math.round(headH + legH + bh + footH + pad), ox = (W - bw) / 2 - minX * scale, oy = headH + legH - minY * scale;
   const pal = k => m.palette[k] || m.palette.blue;
+  const glow = t => (t.on ? `<polygon points="${hex(t.x * scale, t.y * scale, (S + 4) * scale)}" fill="${pal(t.color).c}" opacity=".30"/>` : '');
   const tile = t => {
     const p = pal(t.color), x = t.x * scale, y = t.y * scale, r = (S - 1) * scale, ri = (S - 5.5) * scale;
-    let out, body, edge, txt = R.ink, gl = p.c;
-    if (t.on) { edge = mix(p.c, '#000000', .38); body = p.c; txt = p.ink; gl = p.ink; }
-    else if (t.lv) { edge = t.color === 'arc' ? mix(p.c, R.deep, .74) : R.deep; body = R.deep2; txt = '#6b7185'; gl = mix(p.c, R.deep2, .7); }
-    else if (t.wait) { edge = mix(p.c, R.slate, .45); body = mix(p.c, R.slate2, .55); txt = R.ink; gl = R.ink; }
-    else { edge = mix(p.c, R.slate, .66); body = mix(p.c, R.slate2, .09); gl = p.c; }
+    let out = '', body, edge, txt, gl;
+    if (t.on) {   // picked: the full colour, a pale rim and a glow, so it stands out from every other tile at a glance
+      edge = mix(p.c, '#ffffff', .78); body = p.c; txt = p.ink; gl = p.ink;
+    } else if (t.lv) { edge = '#101219'; body = '#161922'; txt = '#4d5367'; gl = mix(p.c, '#161922', .78); }
+    else if (t.wait) { edge = p.c; body = '#262b3a'; txt = '#9aa2b8'; gl = p.c; }
+    else { edge = '#303648'; body = '#232837'; txt = '#8189a0'; gl = mix(p.c, '#232837', .55); }   // not picked: dark, the kind only hinted
     const lines = t.lines || [], y0 = y - (lines.length - 1) * 5.3 * scale + 5 * scale;
-    out = `<polygon points="${hex(x, y, r)}" fill="${edge}"/><polygon points="${hex(x, y, ri)}" fill="${body}"/>`;
+    out += `<polygon points="${hex(x, y, r)}" fill="${edge}"${t.wait ? ` stroke="${p.c}" stroke-width="2" stroke-dasharray="5 4"` : ''}/><polygon points="${hex(x, y, ri)}" fill="${body}"/>`;
     out += `<g transform="translate(${x.toFixed(1)} ${(y - 19 * scale).toFixed(1)}) scale(${(1.05 * scale).toFixed(3)})" fill="${gl}" stroke="${gl}" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round" color="${gl}">${(m.glyphs[t.color] || '').replace(/currentColor/g, gl)}</g>`;
     out += `<text x="${x.toFixed(1)}" y="${y0.toFixed(1)}" text-anchor="middle" font-family="${FONT}" font-weight="700" font-size="${(10 * scale).toFixed(1)}" fill="${txt}">${lines.map((l, i) => `<tspan x="${x.toFixed(1)}" dy="${i ? (10.6 * scale).toFixed(1) : 0}">${esc(l)}</tspan>`).join('')}</text>`;
     if (t.lv && !t.on) out += `<text x="${x.toFixed(1)}" y="${(y + (S - 9) * scale).toFixed(1)}" text-anchor="middle" font-family="${MONO}" font-weight="700" font-size="${(8 * scale).toFixed(1)}" fill="#8d93a8">Lv ${t.lv}</text>`;
@@ -40,13 +42,13 @@ export function gridSvg(m, o = {}) {
   const portrait = m.portrait ? `<clipPath id="pc"><rect x="${pad}" y="${pad - 6}" width="96" height="96" rx="16"/></clipPath><rect x="${pad}" y="${pad - 6}" width="96" height="96" rx="16" fill="${R.card}" stroke="${m.typeColor}" stroke-width="3"/><image href="${m.portrait}" x="${pad}" y="${pad - 6}" width="96" height="96" clip-path="url(#pc)" preserveAspectRatio="xMidYMid slice"/>` : `<rect x="${pad}" y="${pad - 6}" width="96" height="96" rx="16" fill="${R.card}" stroke="${m.typeColor}" stroke-width="3"/>`;
   const tx = pad + 114;
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
-<rect width="${W}" height="${H}" fill="${R.bg}"/><rect x="0" y="0" width="${W}" height="6" fill="${m.typeColor}"/>
+<defs><linearGradient id="bgg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1d2230"/><stop offset="1" stop-color="#10131b"/></linearGradient></defs><rect width="${W}" height="${H}" fill="url(#bgg)"/><rect x="0" y="0" width="${W}" height="6" fill="${m.typeColor}"/>
 ${portrait}
 <text x="${tx}" y="${pad + 18}" font-family="${FONT}" font-weight="800" font-size="30" fill="${R.text}">${esc(m.name)}</text>
 <text x="${tx}" y="${pad + 44}" font-family="${FONT}" font-weight="700" font-size="16" fill="${R.muted}">${esc(m.pair)}${m.purpose ? ` · ${esc(m.purpose)}` : ''}</text>
 ${chip(W - pad - 150 * 3 - 20, 'Move level', `${m.moveLevel} / 5`)}${chip(W - pad - 150 * 2 - 10, 'Energy', `${m.energy} / ${m.cap}`, m.energy >= m.cap ? '#e0457d' : '')}${chip(W - pad - 150, 'Sync orbs', Number(m.orbs).toLocaleString('en-US'))}
 ${legend}
-<g transform="translate(${ox.toFixed(1)} ${oy.toFixed(1)})">${m.tiles.map(tile).join('')}
+<g transform="translate(${ox.toFixed(1)} ${oy.toFixed(1)})">${m.tiles.map(glow).join('')}${m.tiles.map(tile).join('')}
 <polygon points="${hex(0, 0, (S + 2) * scale)}" fill="${R.card}" stroke="${R.text}" stroke-width="3"/>${m.portrait ? `<clipPath id="cc"><polygon points="${hex(0, 0, (S - 5) * scale)}"/></clipPath><image href="${m.portrait}" x="${-(S - 5) * scale}" y="${-(S - 5) * scale}" width="${(S - 5) * 2 * scale}" height="${(S - 5) * 2 * scale}" clip-path="url(#cc)" preserveAspectRatio="xMidYMid slice"/>` : ''}
 </g>
 <text x="${pad}" y="${H - 20}" font-family="${MONO}" font-size="12" fill="${R.muted}">${esc(m.footer || '')}</text>
