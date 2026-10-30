@@ -392,6 +392,16 @@ select pg_temp.check('moving the run in time re-snapshots and resets the review'
   $$ update public.runs set occurred_at = now() - interval '20 minutes' where leader = 'Roark' and round = 2 and user_id = '00000000-0000-0000-0000-00000000000d';
      do $d$ begin if (select count(*) from public.run_reviews) <> 0 then raise exception 'review kept'; end if; if (select main_type_at from public.runs where leader = 'Roark' and round = 2) is distinct from 'Water' then raise exception 'not re-snapshotted'; end if; end $d$ $$);
 
+-- A member who leaves keeps the builds shared with the gym (with the author's name); the private ones go with them
+do $$ begin
+  insert into public.grid_builds (user_id, pair_id, name, nodes, visibility) values
+    ('00000000-0000-0000-0000-00000000000d', '0-red-1996-pikachu', 'Kept for the gym', '{1}', 'gym'),
+    ('00000000-0000-0000-0000-00000000000d', '0-red-1996-pikachu', 'Private one', '{1}', 'private');
+  delete from public.profiles where id = '00000000-0000-0000-0000-00000000000d';
+  if not exists (select 1 from public.grid_builds where name = 'Kept for the gym' and user_id is null and author_name <> '') then raise exception 'shared build lost with its member'; end if;
+  if exists (select 1 from public.grid_builds where name = 'Private one') then raise exception 'private build kept'; end if;
+end $$;
+
 select format('%s  %s%s', case when ok then 'PASS' else 'FAIL' end, name, case when ok then '' else '  → ' || info end) as result
   from results order by n;
 do $$ begin

@@ -512,7 +512,8 @@ export function createDemoApi() {
       if (old && old.user_id !== me) deny();
       const now = new Date().toISOString();
       if (old) { Object.assign(old, row, { updated_at: now }); return clone(old); }
-      const b = { id: Math.max(0, ...db.gridBuilds.map(x => x.id)) + 1, visibility: 'private', purpose: '', energy_cap: null, move_level: 5, ...row, user_id: me, created_at: now, updated_at: now };
+      const me_ = db.profiles.find(x => x.id === me);
+      const b = { id: Math.max(0, ...db.gridBuilds.map(x => x.id)) + 1, visibility: 'private', purpose: '', energy_cap: null, move_level: 5, ...row, user_id: me, author_name: me_?.display_name || me_?.username || '', created_at: now, updated_at: now };
       db.gridBuilds.push(b); return clone(b);
     },
     async deleteGridBuild(id) { const b = db.gridBuilds.find(x => x.id === id); if (!b || b.user_id !== me) deny(); db.gridBuilds = db.gridBuilds.filter(x => x.id !== id); },

@@ -723,3 +723,4 @@ Nguyên tắc: logic mới đi kèm test thuần trước; thay đổi giao di�
 - Build không đặt tên được đặt tên gợi ý (`<pair> build <n>`). Build mới chưa lưu có bản nháp trong `localStorage` (`pmex-grid-draft:<user>:<pair>`), xoá khi lưu.
 - Mở build của người khác (link hoặc danh sách gym) thì thành bản sao của riêng mình: lưu tạo build mới, không sửa build gốc.
 - Ảnh: `src/gridimage.js` (`gridSvg`) viết SVG với màu cụ thể (không phụ thuộc CSS), trang chuyển thành PNG bằng canvas. Giới hạn energy: `energyCapFor(level) = 60 + 2 × level` (`src/grid.js`).
+- Grid của người khác (đã chia sẻ với gym) chỉ xem: tên grid, tác giả, Move level và Cap; muốn sửa thì `Copy to my builds` (tạo bản riêng tư của mình). Danh sách pair chỉ hiện grid đã chia sẻ của người khác, một dòng rút gọn, lọc theo bộ lọc của danh sách. Migration `grid_build_authors`: build đã chia sẻ ở lại khi thành viên rời gym (giữ `author_name`), build riêng tư đi cùng thành viên.
