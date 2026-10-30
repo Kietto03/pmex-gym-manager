@@ -334,7 +334,7 @@ Các hàm SQL `season_circuit`, `season_tickets_granted`, `season_active_round` 
 
 ### 6.4 Migration
 
-Mỗi thay đổi schema là một file trong `supabase/migrations/` đặt tên theo thời gian. Danh sách theo thứ tự: nền (`gym_manager`), tách Sub-DPS, gói A v2.0 (vai trò theo mùa, `occurred_at`, múi giờ), `resources`, `strategy_library`, `grid_builds`, `gems`, `support_reviews`. Migration chạy lên production **chỉ khi admin cho phép** (có thể ảnh hưởng dữ liệu thật). Mỗi migration viết để chạy lại được (`if not exists`, `create or replace`).
+Mỗi thay đổi schema là một file trong `supabase/migrations/` đặt tên theo thời gian. Danh sách theo thứ tự: nền (`gym_manager`), tách Sub-DPS, gói A v2.0 (vai trò theo mùa, `occurred_at`, múi giờ), `resources`, `strategy_library`, `grid_builds`, `gems`, `support_reviews`, `reinforcement_squad` (type tiếp viện: `season_members.support_type`, `runs.support_type_at`). Migration chạy lên production **chỉ khi admin cho phép** (có thể ảnh hưởng dữ liệu thật). Mỗi migration viết để chạy lại được (`if not exists`, `create or replace`).
 
 ---
 

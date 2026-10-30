@@ -57,7 +57,7 @@ function seedData() {
   const seasonMembers = [{ season_id: 2, user_id: uid(20), banned: true, note: 'Took a break mid-season' }];
   // Battle roles for the running season: a few members with a role and main type, the rest not assigned yet
   const ROLES = ['DDs', 'HHs', 'Facilitator', 'Finisher', 'Helper'], MAINS = ['Fire', 'Water', 'Grass', 'Electric', 'Ice', 'Dragon'];
-  profiles.slice(0, 8).forEach((p, i) => { const m = seasonMembers.find(x => x.season_id === 2 && x.user_id === p.id); const r = { battle_role: ROLES[i % 5], main_type: MAINS[i % 6] }; if (m) Object.assign(m, r); else seasonMembers.push({ season_id: 2, user_id: p.id, banned: false, note: '', ...r }); });
+  profiles.slice(0, 8).forEach((p, i) => { const m = seasonMembers.find(x => x.season_id === 2 && x.user_id === p.id); const r = { battle_role: ROLES[i % 5], main_type: MAINS[i % 6], support_type: i % 2 ? MAINS[(i + 2) % 6] : null }; if (m) Object.assign(m, r); else seasonMembers.push({ season_id: 2, user_id: p.id, banned: false, note: '', ...r }); });
   const runs = [];
   let runId = 1;
   for (const s of seasons) simulate(s, profiles, memberPairs, seasonMembers.filter(m => m.season_id === s.id), runs, () => runId++);
@@ -72,7 +72,7 @@ function seedData() {
       .forEach(([p, tk, pts, ice], i) => results.push({ season_id: 3, name: p ? p.display_name : 'Former member', user_id: p ? p.id : null, tickets: tk, points: pts, teams: ice ? { ICE: ice } : {} }));
   }
 
-  for (const r of runs) r.main_type_at = seasonMembers.find(m => m.season_id === r.season_id && m.user_id === r.user_id)?.main_type || null;
+  for (const r of runs) { const m = seasonMembers.find(x => x.season_id === r.season_id && x.user_id === r.user_id); r.main_type_at = m?.main_type || null; r.support_type_at = m?.support_type || null; }
   const assignments = [], notes = [];
   const live2 = seasons.find(s => s.is_active);
   if (live2) {
@@ -333,9 +333,10 @@ export function createDemoApi() {
       staff() || deny();
       let m = db.seasonMembers.find(x => x.season_id === season_id && x.user_id === user_id);
       if (!m) db.seasonMembers.push(m = { season_id, user_id, banned: false, note: '' });
+      if (patch.support_type && patch.support_type === (patch.main_type !== undefined ? patch.main_type : m.main_type)) throw new Error('The reinforcement type must differ from the main type');   // the same rule as the database check
       Object.assign(m, patch);
     },
-    async setSeasonRoles(rows) { for (const r of rows) await this.setSeasonRole(r.season_id, r.user_id, { battle_role: r.battle_role, main_type: r.main_type }); },
+    async setSeasonRoles(rows) { for (const r of rows) await this.setSeasonRole(r.season_id, r.user_id, { battle_role: r.battle_role, main_type: r.main_type, support_type: r.support_type ?? null }); },
     async setBanned(season_id, user_id, banned) {
       staff() || deny();
       const m = db.seasonMembers.find(x => x.season_id === season_id && x.user_id === user_id);
@@ -349,7 +350,7 @@ export function createDemoApi() {
       const s = db.seasons.find(x => x.id === row.season_id);
       row = { ...row, occurred_at: checkTime(s, row.occurred_at || new Date(Math.min(Math.max(Date.now(), Date.parse(s.battle_start)), Date.parse(s.battle_end))).toISOString()) };
       const p = db.profiles.find(x => x.id === row.user_id);
-      row = { ...row, main_type_at: db.seasonMembers.find(m => m.season_id === row.season_id && m.user_id === row.user_id)?.main_type || null };
+      { const m = db.seasonMembers.find(x => x.season_id === row.season_id && x.user_id === row.user_id); row = { ...row, main_type_at: m?.main_type || null, support_type_at: m?.support_type || null }; }
       const r = { id: nextRun++, member_name: p?.display_name || p?.username || '', note: '', created_by: me,
         created_at: new Date().toISOString(), updated_at: new Date().toISOString(), ...row };
       db.runs.unshift(r);
@@ -362,7 +363,7 @@ export function createDemoApi() {
       if (r.user_id !== me && !staff()) deny();
       checkRun({ ...r, ...patch }, r);
       if ((patch.user_id && patch.user_id !== r.user_id) || (patch.leader && patch.leader !== r.leader) || (patch.occurred_at && patch.occurred_at !== r.occurred_at)) {
-        patch = { ...patch, main_type_at: db.seasonMembers.find(m => m.season_id === r.season_id && m.user_id === (patch.user_id || r.user_id))?.main_type || null };
+        { const m = db.seasonMembers.find(x => x.season_id === r.season_id && x.user_id === (patch.user_id || r.user_id)); patch = { ...patch, main_type_at: m?.main_type || null, support_type_at: m?.support_type || null }; }
         db.runReviews = db.runReviews.filter(x => x.run_id !== r.id);   // the context changed: review again
       }
       if (patch.occurred_at && patch.occurred_at !== r.occurred_at) {

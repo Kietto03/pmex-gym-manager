@@ -395,6 +395,15 @@ f.onload = async () => {
     const roleUid = firstRole.dataset.roleOf;
     setVal(firstRole, 'Finisher'); await sleep(300);
     log($(`select[data-role-of="${roleUid}"][data-field=battle_role]`)?.value === 'Finisher', 'role saved and shown again');
+    { const fresh = $$('select[data-field=support_type]'), q = $$('.sq');
+      log(fresh.length >= 20 && q.length > 0 && !!$('.sq-side.re') && $$('.sq-m').length > 0, 'roles tab: squads by type list the core and the reinforcement squad of each type', `${q.length} types`);
+      const row = $$('select[data-field=main_type]').find(x => x.value), uid = row.dataset.roleOf, main = row.value;
+      const sup = $(`select[data-role-of="${uid}"][data-field=support_type]`);
+      log(![...sup.options].some(o => o.value === main), 'the reinforcement list never offers the main type');
+      const other = [...sup.options].find(o => o.value && o.value !== main).value; setVal(sup, other); await sleep(300);
+      log($(`select[data-role-of="${uid}"][data-field=support_type]`).value === other, 'reinforcement type saved and shown again');
+      setVal($(`select[data-role-of="${uid}"][data-field=main_type]`), other); await sleep(300);
+      log($(`select[data-role-of="${uid}"][data-field=support_type]`).value === '', 'making the reinforcement type the main type clears the reinforcement'); }
     setVal($('[data-rf=stageType]'), $('[data-rf=stageType] option:nth-child(2)').value); await sleep(250);
     log(/Filtered stages/.test($('.roles thead').innerText) && $$('.roles tbody tr').length > 3, 'roles tab: stage filter adds a stage column');
     setVal($('[data-rf=role]'), 'none'); await sleep(250);

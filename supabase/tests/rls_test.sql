@@ -250,6 +250,10 @@ select pg_temp.check('member cannot assign a battle role',          '00000000-00
   $$ insert into public.season_members (season_id, user_id, battle_role) select id, '00000000-0000-0000-0000-00000000000d', 'DDs' from public.seasons where name = 'SS-test' $$, 'row-level security');
 select pg_temp.check('mod assigns role and main type',              '00000000-0000-0000-0000-00000000000b',
   $$ update public.season_members set battle_role = 'DDs', main_type = 'Fire', banned = false where user_id = '00000000-0000-0000-0000-00000000000d' $$);
+select pg_temp.check('mod sets a reinforcement type',               '00000000-0000-0000-0000-00000000000b',
+  $$ update public.season_members set support_type = 'Grass' where user_id = '00000000-0000-0000-0000-00000000000d' $$);
+select pg_temp.check('the reinforcement type cannot equal the main type', '00000000-0000-0000-0000-00000000000b',
+  $$ update public.season_members set support_type = 'Fire' where user_id = '00000000-0000-0000-0000-00000000000d' $$, 'season_members_support_differs');
 select pg_temp.check('an unknown battle role is rejected',          '00000000-0000-0000-0000-00000000000b',
   $$ update public.season_members set battle_role = 'Boss' where user_id = '00000000-0000-0000-0000-00000000000d' $$, 'check');
 select pg_temp.check('member logs a run with its battle time',      '00000000-0000-0000-0000-00000000000d',

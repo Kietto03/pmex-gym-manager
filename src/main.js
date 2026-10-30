@@ -14,6 +14,7 @@ import { browserTz, allTimezones, validTz, toLocalInput, fromLocalInput, clockIn
 import { loadCatalog, loadGyms, PAIRS, loadPairDetail, loadPairMap, dexIdOf, pairById, pairName, pairImage, TYPES, TYPE_COLORS, typeIcon, roleIcon, roleKey,
   PLACEHOLDER, catalogRows, catalogVersion, GYMS, GYMS_META, seasonFromGym, leaderRule, leaderFocus, leaderImage, POMA, DEX, loadTags, wtzScore, rebuffs, pairByTrackerKey } from './catalog.js';
 import { byAcquisition, acqLabel } from './acquisition.js';
+import { squadsOf, runKind } from './squads.js';
 import { SHEET_SLOTS, fixedIds, rankForSlot, autoFill, suggestFacilitator } from './sheet.js';
 import { parseTrackerBackup, trackerRows } from './tracker.js';
 
@@ -710,7 +711,8 @@ const rolesFilter = { role: '', type: '', stageType: '', leader: '' };
 const stageTypeOf = (s, leader) => (s.leaders.find(l => l.name === leader)?.weakness || [])[0] || '';
 // A run is "main" when the stage's type (weakness of its Gym Leader) is the member's main type as it was when the run was logged,
 // "support" when it differs, "unclassified" when either is unknown. Reviews only confirm the label: points never change.
-const runClass = (s, r) => { const st = stageTypeOf(s, r.leader); return !r.main_type_at || !st ? 'unclassified' : r.main_type_at === st ? 'main' : 'support'; };
+// "reinforce" when it is the member's reinforcement type (they back up that type's core squad): planned, so it needs no review.
+const runClass = (s, r) => runKind(stageTypeOf(s, r.leader), r.main_type_at, r.support_type_at);
 const reviewOf = id => S.reviews.find(x => x.run_id === id);
 const REVIEW_LABEL = { pending: ['', 'Waiting for review'], confirmed: ['good', 'Confirmed'], needs_correction: ['bad', 'Needs correction'] };
 const reviewStatus = id => reviewOf(id)?.status || 'pending';
@@ -722,8 +724,8 @@ function planRoles(s) {
     const m = sm(p.id), mine = S.runs.filter(r => r.user_id === p.id);
     const stage = mine.filter(r => (!f.leader || r.leader === f.leader) && (!f.stageType || stageTypeOf(s, r.leader) === f.stageType));
     const by = k => mine.filter(r => runClass(s, r) === k), sum = a => a.reduce((x, r) => x + r.score, 0), sup = by('support');
-    return { p, role: m.battle_role || '', type: m.main_type || '', total: st.perMember[p.id]?.score || 0, banned: st.banned.has(p.id),
-      stage: stage.reduce((a, r) => a + r.score, 0), stageRuns: stage.length, mainPts: sum(by('main')), supPts: sum(sup), unPts: sum(by('unclassified')),
+    return { p, role: m.battle_role || '', type: m.main_type || '', reinType: m.support_type || '', total: st.perMember[p.id]?.score || 0, banned: st.banned.has(p.id),
+      stage: stage.reduce((a, r) => a + r.score, 0), stageRuns: stage.length, mainPts: sum(by('main')), reinPts: sum(by('reinforce')), supPts: sum(sup), unPts: sum(by('unclassified')),
       supRuns: sup.length, pend: sup.filter(r => reviewStatus(r.id) === 'pending').length };
   }).filter(r => (!f.role || (f.role === 'none' ? !r.role : r.role === f.role)) && (!f.type || (f.type === 'none' ? !r.type : r.type === f.type)))
     .sort((a, b) => (f.stageType || f.leader ? b.stage - a.stage : b.total - a.total));
@@ -731,7 +733,7 @@ function planRoles(s) {
   const sel = (name, val, opts, any) => `<select data-rf="${name}"><option value="">${t(any)}</option>${opts.map(([v, l]) => `<option value="${esc(v)}" ${val === v ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
   const typeOpts = TYPES.map(ty => [ty, t(ty)]);
   const others = S.seasons.filter(x => x.id !== s.id);
-  return `<section class="section"><h2>${t('Battle roles')} <small>${t('one role and one main type per member in each Gym Battle')}</small></h2>
+  return `<section class="section"><h2>${t('Battle roles')} <small>${t('one role, one main type and one optional reinforcement type per member in each Gym Battle')}</small></h2>
     <div class="card pad filters-row">
       ${sel('role', f.role, [['none', t('Not assigned')], ...BATTLE_ROLES.map(([k]) => [k, k])], 'All roles')}
       ${sel('type', f.type, [['none', t('Not assigned')], ...typeOpts], 'All main types')}
@@ -739,27 +741,44 @@ function planRoles(s) {
       ${sel('leader', f.leader, s.leaders.map(l => [l.name, l.name]), 'Any Gym Leader')}
       ${staff && others.length ? `<span class="spacer"></span><select id="roles-copy-from"><option value="">${t('Copy roles from…')}</option>${others.map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select>` : ''}
     </div>
+    ${squadsByType(s, rows)}
     <div class="card scroll"><table class="table roles">
-      <thead><tr><th>${t('Member')}</th><th>${t('Role')}</th><th>${t('Main type')}</th><th class="num">${t('Season total')}</th><th class="num">${t('Main')}</th><th class="num">${t('Support')}</th><th class="num">${t('Unclassified')}</th><th class="num">${t('Support runs')}</th>${stageOn ? `<th class="num">${t('Filtered stages')}</th>` : ''}</tr></thead>
+      <thead><tr><th>${t('Member')}</th><th>${t('Role')}</th><th>${t('Main type')}</th><th>${t('Reinforcement type')}</th><th class="num">${t('Season total')}</th><th class="num">${t('Main')}</th><th class="num">${t('Reinforcement')}</th><th class="num">${t('Support')}</th><th class="num">${t('Unclassified')}</th><th class="num">${t('Support runs')}</th>${stageOn ? `<th class="num">${t('Filtered stages')}</th>` : ''}</tr></thead>
       <tbody>${rows.map(r => `<tr class="${r.banned ? 'dim' : ''}"><td><a class="who" href="#/member/${r.p.id}">${av(r.p.id, 'xs')}${esc(nameOf(r.p))}</a>${r.banned ? ` <span class="badge bad">${t('locked')}</span>` : ''}</td>
         <td>${staff ? `<select data-role-of="${r.p.id}" data-field="battle_role"><option value="">${t('Not assigned')}</option>${BATTLE_ROLES.map(([k]) => `<option ${r.role === k ? 'selected' : ''}>${k}</option>`).join('')}</select>` : r.role ? `<span class="badge">${r.role}</span>` : `<span class="muted">${t('Not assigned')}</span>`}</td>
         <td>${staff ? `<select data-role-of="${r.p.id}" data-field="main_type"><option value="">${t('Not assigned')}</option>${TYPES.map(ty => `<option value="${ty}" ${r.type === ty ? 'selected' : ''}>${t(ty)}</option>`).join('')}</select>` : r.type ? typeTag(r.type) : `<span class="muted">${t('Not assigned')}</span>`}</td>
-        <td class="num"><b>${fmtN(r.total)}</b></td><td class="num">${fmtN(r.mainPts)}</td><td class="num">${fmtN(r.supPts)}</td><td class="num muted">${fmtN(r.unPts)}</td>
-        <td class="num">${r.supRuns ? `${r.supRuns}${r.pend ? ` <span class="badge gold" title="${t('Waiting for review')}">${r.pend}</span>` : ''}` : '—'}</td>${stageOn ? `<td class="num"><b>${fmtN(r.stage)}</b> <small class="muted">${t('{n} runs', { n: r.stageRuns })}</small></td>` : ''}</tr>`).join('') || `<tr><td colspan="5" class="muted pad">${t('Nobody matches these filters.')}</td></tr>`}</tbody></table></div>
+        <td>${staff ? `<select data-role-of="${r.p.id}" data-field="support_type" aria-label="${t('Reinforcement type')}"><option value="">${t('None')}</option>${TYPES.filter(ty => ty !== r.type).map(ty => `<option value="${ty}" ${r.reinType === ty ? 'selected' : ''}>${t(ty)}</option>`).join('')}</select>` : r.reinType ? typeTag(r.reinType) : `<span class="muted">—</span>`}</td>
+        <td class="num"><b>${fmtN(r.total)}</b></td><td class="num">${fmtN(r.mainPts)}</td><td class="num">${fmtN(r.reinPts)}</td><td class="num">${fmtN(r.supPts)}</td><td class="num muted">${fmtN(r.unPts)}</td>
+        <td class="num">${r.supRuns ? `${r.supRuns}${r.pend ? ` <span class="badge gold" title="${t('Waiting for review')}">${r.pend}</span>` : ''}` : '—'}</td>${stageOn ? `<td class="num"><b>${fmtN(r.stage)}</b> <small class="muted">${t('{n} runs', { n: r.stageRuns })}</small></td>` : ''}</tr>`).join('') || `<tr><td colspan="9" class="muted pad">${t('Nobody matches these filters.')}</td></tr>`}</tbody></table></div>
     ${supportReview(s)}
     <p class="muted">${t('Points come from the run log as it is: the season total never changes with the filters, the stage column only adds up the matching stages. A stage’s type is the weakness of its Gym Leader.')}</p></section>`;
+}
+function squadsByType(s, rows) {
+  const stageTypes = [...new Set(s.leaders.map(l => stageTypeOf(s, l.name)).filter(Boolean))];
+  const squads = squadsOf(rows, stageTypes, TYPES);
+  if (!squads.length) return '';
+  const chip = r => `<a class="sq-m ${r.banned ? 'dim' : ''}" href="#/member/${r.p.id}" title="${esc(nameOf(r.p))} · ${fmtN(r.total)}">${av(r.p.id, 'xs')}<span>${esc(nameOf(r.p))}</span></a>`;
+  return `<h3 class="section sq-title">${t('Squads by type')} <small>${t('core squad: main type · reinforcement squad: backs the core up')}</small></h3>
+  <div class="sq-grid">${squads.filter(q => q.core.length || q.reinforcement.length).map(q => `<article class="sq ${q.stage && (!q.core.length || !q.reinforcement.length) ? 'gap' : ''}" style="--tc:${TYPE_COLORS[q.type]}">
+    <header>${typeTag(q.type)}${q.stage ? `<small class="muted">${t('stage type')}</small>` : ''}</header>
+    <div class="sq-side"><b>${t('Core squad')} <small>${q.core.length}</small></b><div>${q.core.map(chip).join('') || `<em class="muted">${t('Nobody yet')}</em>`}</div></div>
+    <div class="sq-side re"><b>${t('Reinforcement squad')} <small>${q.reinforcement.length}</small></b><div>${q.reinforcement.map(chip).join('') || `<em class="muted">${t('Nobody yet')}</em>`}</div></div>
+  </article>`).join('')}</div>
+  ${squads.some(q => !q.core.length && !q.reinforcement.length) ? `<p class="muted sq-empty">${t('Stage types nobody covers yet')}: ${squads.filter(q => !q.core.length && !q.reinforcement.length).map(q => typeTag(q.type)).join(' ')}</p>` : ''}`;
 }
 document.addEventListener('change', async e => {
   const rf = e.target.dataset?.rf;
   if (rf) { rolesFilter[rf] = e.target.value; route(); return; }
   const of = e.target.dataset?.roleOf;
   if (of) {
-    if (await act(() => api.setSeasonRole(S.sid, of, { [e.target.dataset.field]: e.target.value || null }), t('Saved.'))) { S.sm = await api.seasonMembers(S.sid); route(); }
+    const field = e.target.dataset.field, value = e.target.value || null, patch = { [field]: value };
+    if (field === 'main_type' && value && (S.sm.find(m => m.user_id === of) || {}).support_type === value) patch.support_type = null;   // one type cannot be both
+    if (await act(() => api.setSeasonRole(S.sid, of, patch), t('Saved.'))) { S.sm = await api.seasonMembers(S.sid); route(); }
     return;
   }
   if (e.target.id === 'roles-copy-from' && e.target.value) {
     const from = +e.target.value, src = await api.seasonMembers(from);
-    const rows = src.filter(m => m.battle_role || m.main_type).map(m => ({ season_id: S.sid, user_id: m.user_id, battle_role: m.battle_role || null, main_type: m.main_type || null }));
+    const rows = src.filter(m => m.battle_role || m.main_type || m.support_type).map(m => ({ season_id: S.sid, user_id: m.user_id, battle_role: m.battle_role || null, main_type: m.main_type || null, ...(m.support_type ? { support_type: m.support_type } : {}) }));
     if (!rows.length) { toast(t('That Gym Battle has no roles to copy.')); e.target.value = ''; return; }
     if (!confirm(t('Copy {n} roles into this Gym Battle? Existing roles of those members are replaced; review them afterwards.', { n: rows.length }))) { e.target.value = ''; return; }
     if (await act(() => api.setSeasonRoles(rows), t('Roles copied.'))) { S.sm = await api.seasonMembers(S.sid); route(); }

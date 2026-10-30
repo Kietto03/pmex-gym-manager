@@ -1534,3 +1534,17 @@ svg.hlmode .g-tile { opacity: .22; transition: opacity .12s; } svg.hlmode .g-til
 .ev-kinds button { padding: 4px 12px; border: var(--bw) solid var(--line-2); border-radius: var(--r-pill); background: var(--surface); color: var(--text-2); font: 600 13px var(--mono); cursor: pointer; }
 .ev-kinds button.on { border-color: var(--text); background: var(--text); color: var(--surface); }
 .ev-kinds button:focus-visible { outline: 2px solid var(--accent, currentColor); outline-offset: 2px; }
+
+/* Squads by type: core and reinforcement */
+.sq-title { margin-top: 18px; }
+.sq-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 12px; margin: 0 0 18px; }
+.sq { display: grid; gap: 8px; padding: 10px 12px 12px; border: var(--bw) solid var(--line-2); border-top: 4px solid var(--tc); border-radius: var(--r-md); background: var(--surface); }
+.sq.gap { border-style: dashed; border-top-style: solid; }
+.sq > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.sq-side > b { display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px; font: 600 12px var(--mono); letter-spacing: .04em; text-transform: uppercase; color: var(--text-2); }
+.sq-side.re { padding-top: 8px; border-top: var(--bw) dashed var(--line-2); }
+.sq-side > div { display: flex; flex-wrap: wrap; gap: 6px; }
+.sq-m { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px 2px 2px; border: var(--bw) solid var(--line-2); border-radius: var(--r-pill); color: var(--text); font-size: 13px; text-decoration: none; }
+.sq-side.re .sq-m { border-style: dashed; }
+.sq-m.dim { opacity: .55; }
+.sq-empty { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: -6px 0 18px; }
