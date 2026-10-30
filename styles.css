@@ -1551,9 +1551,9 @@ svg.hlmode .g-tile { opacity: .22; transition: opacity .12s; } svg.hlmode .g-til
 
 /* Tiles not picked yet are a muted slate, not black: only the picked ones keep the full colour. A tile that can be picked now has a ring of its
    colour that breathes slowly; a locked one is flatter. Arc Suit pairs have gold tiles of their own. */
-:root { --tile-dark: #a3abbf; --tile-dark-2: #b6bdce; --tile-ink: #232a3d; --tile-deep: #6f778d; --tile-deep-2: #7f879c; --tile-deep-ink: #eef0f6; --open-mix: 34%; --k-arc: #e6b422; --k-arc-ink: #3a2600; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --tile-dark: #3a4054; --tile-dark-2: #464d63; --tile-ink: #e6e9f2; --tile-deep: #14161d; --tile-deep-2: #1a1d26; --tile-deep-ink: #6b7185; --open-mix: 55%; } }
-:root[data-theme="dark"] { --tile-dark: #3a4054; --tile-dark-2: #464d63; --tile-ink: #e6e9f2; --tile-deep: #14161d; --tile-deep-2: #1a1d26; --tile-deep-ink: #6b7185; --open-mix: 55%; }
+:root { --tile-dark: #626a80; --tile-dark-2: #727a90; --tile-ink: #f4f6fb; --tile-deep: #353b4d; --tile-deep-2: #3f4659; --tile-deep-ink: #c3c9d8; --open-mix: 30%; --on-lift: 22%; --k-arc: #e6b422; --k-arc-ink: #3a2600; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --tile-dark: #3a4054; --tile-dark-2: #464d63; --tile-ink: #e6e9f2; --tile-deep: #14161d; --tile-deep-2: #1a1d26; --tile-deep-ink: #6b7185; --open-mix: 55%; --on-lift: 0%; } }
+:root[data-theme="dark"] { --tile-dark: #3a4054; --tile-dark-2: #464d63; --tile-ink: #e6e9f2; --tile-deep: #14161d; --tile-deep-2: #1a1d26; --tile-deep-ink: #6b7185; --open-mix: 55%; --on-lift: 0%; }
 [data-style="ds"][data-theme="dark"] { --tile-dark: #353b55; --tile-dark-2: #424a6a; }
 [data-style="ds"] { --k-arc: #e0ae2a; } [data-style="studio"] { --k-arc: #d9ab3a; }
 [data-style="gameboy"] { --tile-dark: #8bac0f; --tile-dark-2: #9bbc0f; --tile-ink: #0f380f; --tile-deep: #306230; --tile-deep-2: #3d7a3d; --tile-deep-ink: #cfe3a0; --k-arc: #c9d84a; --k-arc-ink: #0f380f; }
@@ -1572,6 +1572,7 @@ svg.hlmode .g-tile { opacity: .22; transition: opacity .12s; } svg.hlmode .g-til
 .g-tile.open:nth-child(3n) .g-out { animation-delay: -.9s; } .g-tile.open:nth-child(3n+1) .g-out { animation-delay: -1.8s; }
 .g-tile.open:hover .g-in { fill: color-mix(in srgb, var(--c) 26%, var(--tile-dark-2)); }
 .g-tile.open:hover, .g-tile.on:hover { transform: scale(1.07); }
+.g-tile.on .g-in { fill: color-mix(in srgb, var(--c) calc(100% - var(--on-lift, 0%)), #fff); }
 .g-tile.on .g-out { filter: drop-shadow(0 0 4px color-mix(in srgb, var(--c) 85%, transparent)); stroke: color-mix(in srgb, var(--c) 55%, #000); stroke-width: 1.5; }
 .g-tile.pop { animation: g-pop .32s cubic-bezier(.2, 1.6, .4, 1); }
 .k-arc.g-tile.on .g-in { fill: url(#g-gold); }
