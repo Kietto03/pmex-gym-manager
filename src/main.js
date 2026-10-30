@@ -25,6 +25,7 @@ import { renderResources } from './pages/resources.js';
 import { renderStrategies } from './pages/strategies.js';
 import { renderLodge } from './pages/lodge.js';
 import { renderGrid, renderSharedGrid } from './pages/gridpage.js';
+import { shareImage } from './imageshare.js';
 import { renderGems } from './pages/gemspage.js';
 import { dataFreshness, freshnessIssues } from './pages/freshness.js';
 // ─── Chrome (header) ────────────────────────────────────────
@@ -1606,13 +1607,7 @@ document.addEventListener('click', async e => {
   const id = b.dataset.towerImg;
   b.disabled = true;
   try {
-    const canvas = await towerCanvas(id), blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
-    if (b.dataset.mode === 'copy') {
-      try { await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]); toast(t('Image copied.')); return; }
-      catch { toast(t('Copying images is not supported here — the image was saved instead.')); }
-    }
-    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `pasio-tower-${profile(id)?.username || id}.png` });
-    a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    await shareImage(b.dataset.mode, async () => { const canvas = await towerCanvas(id); return new Promise(res => canvas.toBlob(res, 'image/png')); }, `pasio-tower-${profile(id)?.username || id}.png`, { t, toast });
   } finally { b.disabled = false; }
 });
 // The tracker: how many towers are cleared, how many floors, and one tile per type. Floors are typed as numbers (no slider, nothing to scroll by accident).

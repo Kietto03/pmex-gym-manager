@@ -564,6 +564,9 @@ f.onload = async () => {
     log(!$('[data-glink]').disabled, 'grid build bar: shared with the gym, the link can be copied');
     $('[data-gimg=save]').click(); await sleep(2500);
     log(!$('.toast.show.bad') && !$('[data-gimg=save]').disabled, 'grid build bar: the build can be saved as an image');
+    { let downloads = 0; const proto = W().HTMLAnchorElement.prototype, orig = proto.click; proto.click = function () { if (this.download) downloads++; else orig.call(this); };
+      $('[data-gimg=copy]').click(); await sleep(2500); proto.click = orig;
+      log(downloads === 0, '"Copy image" never turns into a download behind your back', `${downloads} downloads`); }
     $('[data-gnew]').click(); await sleep(150); setVal($('#g-name'), ''); clickTile($('.g-tile.open')); await sleep(150); $('[data-gsave]').click(); await sleep(500);
     log($$('.gb-item:not(.new):not(.more)').length === 2 && /build 2/.test($$('.gb-item').map(c => c.innerText).join(' ')), 'grid build bar: a build saved without a name gets a suggested one');
     // anyone with the link: the grid opens signed out, view only, and asks to sign in to copy it

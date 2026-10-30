@@ -2,6 +2,7 @@
 import { $, esc, fmtN, img, pairIcon, typeTag, act, toast, api, S, profile, nameOf, ownedPair, hooks } from '../core.js';
 import { ico } from '../icons.js';
 import { gridSvg } from '../gridimage.js';
+import { shareImage } from '../imageshare.js';
 import { t } from '../i18n.js';
 import { splitDescription, count } from '../moves.js';
 import { byAcquisition, acqLabel } from '../acquisition.js';
@@ -391,28 +392,24 @@ const svgToPng = (svg, w, h, k = 2) => new Promise((res, rej) => {
 });
 async function gridImage(mode, btn) {
   gridKeepFields();
-  const p = pairById(G.pairId), own = ownedPair(S.me, G.pairId), t0 = totals(G.ix, G.active);
+  const p = pairById(G.pairId), own = ownedPair(S.me, G.pairId), t0 = totals(G.ix, G.active), name = G.name.trim() || defaultName();
   btn.disabled = true;
-  try {
+  const make = async () => {
     const palette = {}, probe = document.createElement('div'); document.body.appendChild(probe);
     for (const k of Object.keys(COLORS)) { probe.className = `k-${k}`; const cs = getComputedStyle(probe); palette[k] = { c: cs.getPropertyValue('--c').trim() || COLORS[k][1], ink: cs.getPropertyValue('--ct').trim() || '#111' }; }
     probe.remove();
     const glyphs = Object.fromEntries(Object.keys(GLYPH).map(k => [k, GLYPH[k]]));
     const per = {}; for (const c of G.ix.grid) { (per[c.color] ||= { all: 0, on: 0 }).all++; if (G.active.has(c.n)) per[c.color].on++; }
-    const model = { pair: p ? pairName(p) : G.pairId, type: p?.type, typeColor: TYPE_COLORS[p?.type] || '#8d99a6', name: G.name.trim() || defaultName(), purpose: G.purpose.trim(),
+    const model = { pair: p ? pairName(p) : G.pairId, type: p?.type, typeColor: TYPE_COLORS[p?.type] || '#8d99a6', name, purpose: G.purpose.trim(),
       owner: G.readonly ? G.from : nameOf(profile(S.me)), moveLevel: G.moveLevel, energy: t0.energy, cap: G.energyCap, orbs: t0.orbs, glyphs, palette,
       portrait: p ? await dataUri(pairImage(p, own?.ex, own?.stars)) : '', date: new Date().toISOString().slice(0, 10), footer: 'PMEX Gym Manager',
       legend: Object.entries(COLORS).filter(([k]) => per[k]).map(([k, [l]]) => ({ kind: k, label: t(l), on: per[k].on, all: per[k].all })),
       tiles: G.ix.grid.map(c => ({ ...hexXY(c, SIZE), on: G.active.has(c.n), wait: G.pending.has(c.n), lv: !G.active.has(c.n) && levelNeeded(c) > G.moveLevel ? levelNeeded(c) : 0, color: c.color, lines: tileLines(tileTitle(c)) })) };
-    const { svg, width, height } = gridSvg(model, { scale: 1.2 }), blob = await svgToPng(svg, width, height, 2);
-    if (mode === 'copy') {
-      try { await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]); toast(t('Image copied.')); return; }
-      catch { toast(t('Copying images is not supported here — the image was saved instead.')); }
-    }
-    const file = `grid-${(model.name || 'build').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'build'}.png`;
-    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: file });
-    a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-  } catch { toast(t('The image could not be made.'), true); } finally { btn.disabled = false; }
+    const { svg, width, height } = gridSvg(model, { scale: 1.2 });
+    return svgToPng(svg, width, height, 2);
+  };
+  try { await shareImage(mode, make, `grid-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'build'}.png`, { t, toast }); }
+  catch { toast(t('The image could not be made.'), true); } finally { btn.disabled = false; }
 }
 // Someone else's grid becomes one of yours (private, named "… (copy)"), and opens ready to edit
 async function gridCopy() {
