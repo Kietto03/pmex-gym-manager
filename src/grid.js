@@ -18,6 +18,9 @@ export const isArcPair = trainer => /^arc suit /i.test(String(trainer || ''));
 export const isArcTile = c => levelNeeded(c) >= 4 || (c.energy === 0 && levelNeeded(c) >= 1 && /power/i.test(c.title || ''));
 export const markArc = (grid, trainer) => (isArcPair(trainer) ? grid.map(c => (isArcTile(c) ? { ...c, color: 'arc', was: c.color } : c)) : grid);
 
+// The grid holds 60 energy plus 2 for each move level: 62 at level 1 up to 70 at level 5. A tile that would go over it cannot be switched on.
+export const energyCapFor = level => 60 + 2 * Math.max(1, Math.min(5, Math.round(level) || 1));
+
 export function indexGrid(grid) {
   const byPos = new Map(grid.map(c => [key(c.q, c.r), c]));
   const byN = new Map(grid.map(c => [c.n, c]));

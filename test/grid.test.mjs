@@ -90,3 +90,7 @@ import { markArc, isArcPair } from '../src/grid.js';
   assert.equal(whyNot(ix, act, ix.byN.get(3), { energyCap: 62 }), null, 'a limit of 62 leaves room for 2 more');
   console.log('energy limit: all passed');
 }
+
+import { energyCapFor } from '../src/grid.js';
+assert.deepEqual([1, 2, 3, 4, 5].map(energyCapFor), [62, 64, 66, 68, 70], 'move level 1..5 gives 62..70 energy');
+console.log('energy cap by move level: all passed');

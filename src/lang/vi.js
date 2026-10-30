@@ -451,6 +451,7 @@ export default {
   'Stage types nobody covers yet': 'Type của stage chưa có ai phụ trách',
   'Move level above what you have: this build is theoretical until the move is levelled': 'Move level cao hơn mức bạn đang có: build này mang tính lý thuyết cho đến khi nâng move',
   'Build': 'Build',
+  '60 plus 2 for each move level': '60 cộng 2 cho mỗi move level',
   'Nobody yet': 'Chưa có ai',
   'All roles': 'Mọi vai trò',
   'All main types': 'Mọi main type',

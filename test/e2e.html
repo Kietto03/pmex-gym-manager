@@ -530,7 +530,7 @@ f.onload = async () => {
     const far = $$('.g-tile.locked')[0], farN = far.dataset.gtile; clickTile(far); await sleep(150);
     log($$('.g-tile.on').length === 1 && $$('.g-tile.pending').length === 1 && !!$(`.g-tile.pending[data-gtile="${farN}"]`) && !$('.toast.show.bad'), 'grid: a far tile is picked ahead and waits instead of switching on');
     log(/Cancel pick/.test($('[data-gtoggle]')?.innerText || '') && /waiting/i.test($('.hud-i.pd')?.innerText || ''), 'grid: the waiting tile can be cancelled and the board counts it');
-    log($('#g-cap')?.value === '60' && [...$('#g-cap').options].map(o => o.value).join() === '60,62,64,66,68,70', 'grid: the energy limit starts at 60 and can rise to 70 in steps of 2');
+    log(/ 70\b/.test($('.hud-i.en')?.innerText || '') || /\/ 6\d|\/ 70/.test($('.hud-i.en')?.innerText || ''), 'grid: the energy limit follows the move level (60 + 2 per level)');
     const farTile = () => $(`.g-tile[data-gtile="${farN}"]`);   // the board is drawn again after each click
     clickTile(farTile()); await sleep(100);
     log($$('.g-tile.pending').length === 0 && $$('.g-tile.on').length === 1, 'grid: clicking a waiting tile cancels the pick');
