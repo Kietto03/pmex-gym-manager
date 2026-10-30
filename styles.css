@@ -1627,3 +1627,4 @@ svg.hlmode .g-tile { opacity: .22; transition: opacity .12s; } svg.hlmode .g-til
 .gh-chip { display: inline-flex; align-items: center; gap: 6px; max-width: 220px; padding: 2px 10px 2px 3px; border: var(--bw) solid var(--line-2); border-radius: var(--r-pill); background: var(--surface); color: var(--text); text-decoration: none; font: inherit; cursor: pointer; }
 .gh-chip span { display: grid; min-width: 0; } .gh-chip b { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .gh-chip small { font-size: 11px; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gh-chip.more { border-style: dashed; padding: 4px 12px; color: var(--text-2); }
+.mcard.me { border-color: var(--text); } .badge.you { background: var(--text); color: var(--surface); }

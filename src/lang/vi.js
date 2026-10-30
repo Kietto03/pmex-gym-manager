@@ -482,6 +482,7 @@ export default {
   'Clear all tiles': 'Bỏ chọn hết',
   'Former member': 'Thành viên cũ',
   'Tap a tile to read it. To change this grid, copy it to your builds first.': 'Chạm vào node để đọc. Muốn chỉnh grid này, hãy copy về build của bạn trước.',
+  'You': 'Bạn',
   'Nobody yet': 'Chưa có ai',
   'All roles': 'Mọi vai trò',
   'All main types': 'Mọi main type',

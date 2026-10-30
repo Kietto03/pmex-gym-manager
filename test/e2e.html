@@ -420,6 +420,7 @@ f.onload = async () => {
     await go('#/members');
     await until(() => $('.mcard'));
     log(!!$('.clock'), 'member cards show a local clock or "not set"');
+    log($('.mcard')?.classList.contains('me') && $$('.mcard.me').length === 1, 'members: your own card comes first');
     $('[data-mview=dash]').click(); await sleep(250);
     log($$('.heatmap tbody tr').length >= 19 && !!$('.heatmap tfoot') && /Updated/.test($('.heatmap thead').innerText), 'staff tower dashboard: members x types, totals, average, last update');
     $('[data-dash-type]').click(); await sleep(250);

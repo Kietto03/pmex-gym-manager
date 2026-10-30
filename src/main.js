@@ -1115,14 +1115,14 @@ setInterval(tickClocks, 20000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) tickClocks(); });
 function renderMembers() {
   if (memberView === 'types' || (memberView === 'dash' && !isStaff())) memberView = 'list';
-  const rows = memberRows();
+  const rows = [...memberRows()].sort((a, b) => (b.p.id === S.me) - (a.p.id === S.me));   // your own card first, the others in their usual order
   const heat = (v, max, ty) => `<td class="heat" style="--h:${Math.min(1, v / max).toFixed(2)};--tc:${TYPE_COLORS[ty]}"><b>${v || '·'}</b></td>`;
 
   return `<div class="toolbar"><h1>${t('Members')} <small>${t('{n} people', { n: S.profiles.length })}</small></h1>
     <div class="seg">${[['list', 'Cards'], ['tower', 'Tower by type'], ...(isStaff() ? [['dash', 'Tower dashboard']] : [])].map(([k, l]) => `<button class="${memberView === k ? 'on' : ''}" data-mview="${k}">${t(l)}</button>`).join('')}</div></div>
   ${memberView === 'dash' && isStaff() ? towerDashboard(rows) : memberView === 'list' ? `<div class="mgrid">${rows.map(r => `
-    <article class="card mcard ${r.banned ? 'dim' : ''}">
-      <div class="mtop">${av(r.p.id)}<div><a class="mname" href="#/member/${r.p.id}">${esc(nameOf(r.p))}</a>
+    <article class="card mcard ${r.banned ? 'dim' : ''} ${r.p.id === S.me ? 'me' : ''}">
+      <div class="mtop">${av(r.p.id)}<div><a class="mname" href="#/member/${r.p.id}">${esc(nameOf(r.p))}</a>${r.p.id === S.me ? ` <span class="badge you">${t('You')}</span>` : ''}
         <small class="muted">@${esc(r.p.username)}</small> ${rankTag(r.p.role)}${r.banned ? ` <span class="badge bad">${t('locked')}</span>` : ''}</div></div>
       <div class="clock-row">${clockHtml(r.p)}</div>
       <div class="mstats"><div><b>${r.pairs}</b>${t('pairs')}</div><div><b>${r.ex}</b>EX</div><div><b>${r.tower}</b>${t('floors')}</div><div><b>${fmtK(r.season?.score || 0)}</b>${t('score')}</div></div>
