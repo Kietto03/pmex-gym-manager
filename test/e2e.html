@@ -490,7 +490,8 @@ f.onload = async () => {
     // 6i. Trainer Lodge lookup
     await go('#/lodge');
     await until(() => $('.lodge-t'));
-    log($$('.lodge-t').length === 58, 'lodge: every sync pair of the source is listed', $$('.lodge-t').length);
+    const lodgeN = (await (await fetch('../data/lodge.json')).json()).trainers.length;
+    log($$('.lodge-t').length === lodgeN, 'lodge: every sync pair of the source is listed', $$('.lodge-t').length);
     $('[data-lodge-trainer]').click(); await sleep(200);
     log($$('.lodge-cols > div').length === 3 && /10 points/.test($('.lodge-cols').innerText) && $$('.lodge-topic').length > 20, 'lodge: topics by points for one trainer');
     log($$('.lodge-topic').every(x => x.style.getPropertyValue('--c')), 'lodge: every topic carries its category colour');
