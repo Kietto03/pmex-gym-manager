@@ -18,8 +18,24 @@ const G = { pairId: '', detail: null, err: '', ix: null, active: new Set(), pend
   name: '', purpose: '', visibility: 'private', saved: null, hash: '', msg: '', from: '', openedId: 0, draft: false, readonly: false, moreShared: false };
 const gridZoom = () => { try { return +localStorage.getItem('gym-grid-zoom') || 1; } catch { return 1; } };
 const setZoom = z => { try { localStorage.setItem('gym-grid-zoom', Math.max(0.4, Math.min(2.4, z)).toFixed(2)); } catch { /* private mode */ } };
+// the grid page lives at #/grid/… and, for a link shared with anyone, at #/g/…
+const onGridPage = () => /^#\/(grid|g)\//.test(location.hash);
 const BUILD_WHY = { 'not-adjacent': 'next to no active tile', 'move-level': 'needs a higher move level', energy: 'over the energy limit', unknown: 'tile no longer exists' };
 
+// A grid opened from its "anyone with the link" address: signed in or not. It is fetched by its token and shown like any other member's grid.
+export function renderSharedGrid(token = '') {
+  const head = `<div class="toolbar"><h1>${t('Sync Grid')}</h1></div>`;
+  if (G.pub?.token !== token) {
+    G.pub = { token, state: 'loading' };
+    api.sharedGrid(token).then(b => { if (G.pub?.token === token) { G.pub = { token, state: b ? 'ok' : 'gone', build: b }; hooks.route(); } })
+      .catch(() => { if (G.pub?.token === token) { G.pub = { token, state: 'gone' }; hooks.route(); } });
+  }
+  if (G.pub.state === 'loading') return `${head}<p class="muted">${t('Loading…')}</p>`;
+  if (G.pub.state === 'gone') return `${head}<div class="empty card"><h2>${t('This grid is not shared any more')}</h2><p class="muted">${t('Its owner may have changed who can see it, or the link is wrong.')}</p></div>`;
+  const b = G.pub.build;
+  if (!S.builds.some(x => x.id === b.id)) S.builds = [...S.builds, b];
+  return renderGrid(b.pair_id, b.id);
+}
 export function renderGrid(pairId = '', buildId = '') {
   if (!pairId) return gridHome();
   if (G.pairId !== pairId || G.me !== S.me || (buildId && G.openedId !== +buildId)) {   // another account on the same page starts from a clean state
@@ -27,12 +43,12 @@ export function renderGrid(pairId = '', buildId = '') {
     const mine = ownedPair(S.me, pairId);
     if (mine) { G.moveLevel = Math.min(5, mine.level || 5); G.energyCap = energyCapFor(G.moveLevel); }
     const b = buildId && S.builds.find(x => x.id === +buildId);
-    if (b && b.user_id === S.me) Object.assign(G, { buildId: b.id, openedId: b.id, name: b.name, purpose: b.purpose, visibility: b.visibility, moveLevel: b.move_level, energyCap: energyCapFor(b.move_level), active: new Set(b.nodes), saved: b });
+    if (b && b.user_id && b.user_id === S.me) Object.assign(G, { buildId: b.id, openedId: b.id, name: b.name, purpose: b.purpose, visibility: b.visibility, moveLevel: b.move_level, energyCap: energyCapFor(b.move_level), active: new Set(b.nodes), saved: b });
     else if (b) Object.assign(G, { buildId: null, openedId: b.id, readonly: true, from: authorOf(b), name: b.name, purpose: b.purpose, visibility: 'gym', moveLevel: b.move_level, energyCap: energyCapFor(b.move_level), active: new Set(b.nodes), saved: b });   // someone else's grid: view only; "Copy to my builds" makes one you can edit
     else { const d = loadDraft(pairId); if (d) Object.assign(G, { name: d.name || '', purpose: d.purpose || '', visibility: d.visibility || 'private', moveLevel: d.moveLevel, energyCap: energyCapFor(d.moveLevel), active: new Set(d.nodes), draft: true }); }
     const dexId = pairById(pairId) && dexIdOf(pairById(pairId));
-    (dexId ? loadPairDetail(dexId) : Promise.reject(new Error('unmapped'))).then(d => { G.detail = d; G.ix = indexGrid(markArc(d.grid || [], pairById(pairId)?.trainer)); G.hash = gridHash(d.grid || []); if (location.hash.startsWith('#/grid/')) hooks.route(); })
-      .catch(() => { G.err = 'load'; if (location.hash.startsWith('#/grid/')) hooks.route(); });
+    (dexId ? loadPairDetail(dexId) : Promise.reject(new Error('unmapped'))).then(d => { G.detail = d; G.ix = indexGrid(markArc(d.grid || [], pairById(pairId)?.trainer)); G.hash = gridHash(d.grid || []); if (onGridPage()) hooks.route(); })
+      .catch(() => { G.err = 'load'; if (onGridPage()) hooks.route(); });
   }
   const p = pairById(pairId);
   const head = `<div class="toolbar"><h1>${t('Sync Grid')}</h1><a class="btn ghost" href="#/grid">${ico('left')} ${t('All builds')}</a></div>`;
@@ -64,7 +80,7 @@ async function loadArt() {
   if (artData !== null) return;
   artData = false;
   try { const r = await fetch('data/pkmn-art.json'); if (r.ok) artData = await r.json(); } catch { /* the Dex sprites stay */ }
-  if (artData && location.hash.startsWith('#/grid/') && G.detail) redrawHead();
+  if (artData && onGridPage() && G.detail) redrawHead();
 }
 // A picture that does not load is replaced by the next address of its list (data-fb, separated by |) until none is left
 window.plFallback = img => {
@@ -280,7 +296,7 @@ function pairTile(p) {
 }
 // Grids the gym members shared, one short line per grid (the pair's icon says which pair), following the filters of the list
 function sharedStrip() {
-  const list = S.builds.filter(b => b.user_id !== S.me && b.visibility === 'gym').map(b => ({ b, p: pairById(b.pair_id) })).filter(x => x.p && pairOk(x.p));
+  const list = S.builds.filter(b => b.user_id !== S.me && b.visibility !== 'private').map(b => ({ b, p: pairById(b.pair_id) })).filter(x => x.p && pairOk(x.p));
   if (!list.length) return '';
   const shown = GF.allShared ? list : list.slice(0, 12);
   return `<section class="gh-shared"><div class="gh-h"><b>${t('Shared by the gym')}</b> <small>${list.length}</small></div>
@@ -329,7 +345,7 @@ const capText = b => `${t('Move level')} ${b.move_level}/5 · ${t('Cap')} ${ener
 // The grids of this pair: yours, then the ones the gym shared (a few first, the rest on demand)
 function buildLists() {
   const pid = encodeURIComponent(G.pairId), mine = S.builds.filter(b => b.user_id === S.me && b.pair_id === G.pairId);
-  const others = S.builds.filter(b => b.user_id !== S.me && b.visibility === 'gym' && b.pair_id === G.pairId), shown = G.moreShared ? others : others.slice(0, 6);
+  const others = S.builds.filter(b => b.user_id !== S.me && b.visibility !== 'private' && b.pair_id === G.pairId), shown = G.moreShared ? others : others.slice(0, 6);
   const item = (b, who) => `<a class="gb-item ${b.id === G.openedId ? 'on' : ''}" href="#/grid/${pid}/${b.id}"><b>${esc(b.name)}</b><small>${who ? `${esc(authorOf(b))} · ` : ''}${esc(capText(b))}</small></a>`;
   return `<div class="gb-lists"><div><span class="gb-h">${t('Your grids')} <small>${mine.length}</small></span><div class="gb-items">${mine.map(b => item(b, false)).join('')}<a class="gb-item new" href="#/grid/${pid}" data-gnew>+ ${t('New grid')}</a></div></div>
     ${others.length ? `<div><span class="gb-h">${t('Shared by the gym')} <small>${others.length}</small></span><div class="gb-items">${shown.map(b => item(b, true)).join('')}${others.length > 6 ? `<button type="button" class="gb-item more" data-gmore>${G.moreShared ? t('Show fewer') : t('Show {n} more', { n: others.length - 6 })}</button>` : ''}</div></div>` : ''}</div>`;
@@ -341,11 +357,11 @@ function buildBar() {
       <button class="btn sm ghost" data-glink ${linkOn ? '' : 'disabled'} title="${linkOn ? '' : linkTip}">${t('Copy link')}</button></div>`;
   if (G.readonly) {   // someone else's grid: only to look at, or to copy into your own builds
     return `<div class="gb-bar card gb-view"><div class="gb-top"><div class="gb-title"><b>${esc(G.name)}</b><small>${t('by {n}', { n: esc(G.from) })} · ${esc(capText(G.saved))} · ${t('Energy')} ${t0.energy}/${G.energyCap}</small>${G.purpose ? `<small>${esc(G.purpose)}</small>` : ''}</div>
-      <span class="gb-state ok" id="g-state" role="status">${t('View only')}</span><button class="btn primary" data-gcopy>${t('Copy to my builds')}</button></div>
-    ${shareRow(true, '')}${buildLists()}</div>`;
+      <span class="gb-state ok" id="g-state" role="status">${t('View only')}</span>${S.me ? `<button class="btn primary" data-gcopy>${t('Copy to my builds')}</button>` : `<button class="btn primary" data-gsignin>${t('Sign in to copy it')}</button>`}</div>
+    ${shareRow(true, '')}${S.me ? buildLists() : ''}</div>`;
   }
   const problems = validate(G.ix, [...G.active], { moveLevel: G.moveLevel, energyCap: G.energyCap }), [cls, label] = stateOf();
-  const shared = G.buildId && G.visibility === 'gym' && G.saved?.visibility === 'gym';
+  const shared = G.buildId && G.visibility !== 'private' && G.saved?.visibility === G.visibility;
   return `<div class="gb-bar card"><div class="gb-top">
       <input id="g-name" class="gb-name" value="${esc(G.name)}" placeholder="${esc(defaultName())}" maxlength="80" autocomplete="off" aria-label="${t('Name')}">
       <span class="gb-state ${cls}" id="g-state" role="status">${esc(label)}</span>
@@ -358,8 +374,9 @@ function buildBar() {
     ${problems.length ? `<p class="notice">${ico('lock')} ${t('This build breaks the rules:')} ${[...new Set(problems.map(p => t(BUILD_WHY[p.code])))].join(', ')}</p>` : ''}${G.msg ? `<p class="form-err">${esc(G.msg)}</p>` : ''}
     <div class="gb-share"><b>${t('Share')}</b>
       <button class="btn sm" data-gimg="save">${ico('out')} ${t('Save as image')}</button><button class="btn sm ghost" data-gimg="copy">${t('Copy image')}</button>
-      <label class="gb-vis">${t('Who can see it')}<select id="g-vis"><option value="private" ${G.visibility === 'private' ? 'selected' : ''}>${t('Only me')}</option><option value="gym" ${G.visibility === 'gym' ? 'selected' : ''}>${t('The whole gym')}</option></select></label>
+      <label class="gb-vis">${t('Who can see it')}<select id="g-vis"><option value="private" ${G.visibility === 'private' ? 'selected' : ''}>${t('Only me')}</option><option value="gym" ${G.visibility === 'gym' ? 'selected' : ''}>${t('The whole gym')}</option><option value="link" ${G.visibility === 'link' ? 'selected' : ''}>${t('Anyone with the link')}</option></select></label>
       <button class="btn sm ghost" data-glink ${shared ? '' : 'disabled'} title="${shared ? '' : t('Save the build and share it with the whole gym to get a link')}">${t('Copy link')}</button></div>
+    ${G.visibility === 'link' ? `<p class="muted gb-hint">${t('Anyone who has the link can see this grid, even outside the gym.')}</p>` : ''}
     ${buildLists()}</div>`;
 }
 const refreshState = () => { const [cls, label] = stateOf(), el = $('#g-state'); if (el) { el.className = `gb-state ${cls}`; el.textContent = label; } };
@@ -474,11 +491,12 @@ document.addEventListener('click', async e => {
     G.msg = ''; gridRedraw(); return;
   }
   const gimg = e.target.closest('[data-gimg]'); if (gimg) { gridImage(gimg.dataset.gimg, gimg); return; }
-  if (e.target.closest('[data-glink]')) { const url = `${location.href.split('#')[0]}#/grid/${encodeURIComponent(G.pairId)}/${G.buildId}`; try { await navigator.clipboard.writeText(url); toast(t('Link copied.')); } catch { prompt(t('Copy this link'), url); } return; }
+  if (e.target.closest('[data-glink]')) { const sb = G.saved, base = location.href.split('#')[0], url = sb?.visibility === 'link' && sb.share_token ? `${base}#/g/${sb.share_token}` : `${base}#/grid/${encodeURIComponent(G.pairId)}/${sb?.id ?? G.buildId}`; try { await navigator.clipboard.writeText(url); toast(t('Link copied.')); } catch { prompt(t('Copy this link'), url); } return; }
   const gnew = e.target.closest('[data-gnew]'); if (gnew) { e.preventDefault(); Object.assign(G, { buildId: null, saved: null, openedId: 0, from: '', readonly: false, draft: false, name: '', purpose: '', visibility: 'private', active: new Set(), pending: new Set(), blocked: new Map(), msg: '' }); history.replaceState(null, '', `#/grid/${encodeURIComponent(G.pairId)}`); gridRedraw(); return; }
   if (e.target.closest('[data-gmore]')) { G.moreShared = !G.moreShared; redrawBar(); return; }
   if (e.target.closest('[data-greset-saved]') && G.saved) { const b = G.saved; Object.assign(G, { name: b.name, purpose: b.purpose, visibility: b.visibility, moveLevel: b.move_level, energyCap: energyCapFor(b.move_level), active: new Set(b.nodes), pending: new Set(), blocked: new Map(), msg: '' }); gridRedraw(); return; }
   if (e.target.closest('[data-gcopy]')) { gridCopy(); return; }
+  if (e.target.closest('[data-gsignin]')) { try { sessionStorage.setItem('pmex-after-login', location.hash); } catch { /* no storage */ } location.hash = '#/login'; hooks.route(); return; }
   if (e.target.closest('[data-gsave]')) gridSave(false);
   if (e.target.closest('[data-gsave-new]')) gridSave(true);
   if (e.target.closest('[data-greset]')) { gridKeepFields(); G.active = new Set(); G.pending = new Set(); G.blocked = new Map(); G.msg = ''; gridRedraw(); }

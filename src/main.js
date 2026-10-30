@@ -24,7 +24,7 @@ import { renderInfo } from './pages/info.js';
 import { renderResources } from './pages/resources.js';
 import { renderStrategies } from './pages/strategies.js';
 import { renderLodge } from './pages/lodge.js';
-import { renderGrid } from './pages/gridpage.js';
+import { renderGrid, renderSharedGrid } from './pages/gridpage.js';
 import { renderGems } from './pages/gemspage.js';
 import { dataFreshness, freshnessIssues } from './pages/freshness.js';
 // ─── Chrome (header) ────────────────────────────────────────
@@ -110,7 +110,7 @@ document.addEventListener('change', e => {
 // ─── Router ─────────────────────────────────────────────────
 const view = $('#view');
 const routes = { '': renderOverview, log: renderLog, plan: renderPlan, info: renderInfo, resources: renderResources, strategies: renderStrategies, lodge: renderLodge, grid: renderGrid, gems: renderGems, roster: renderRoster, members: renderMembers, member: renderMember,
-  settings: renderSettings, account: renderSettings, admin: renderAdmin };
+  settings: renderSettings, account: renderSettings, admin: renderAdmin, g: renderSharedGrid };
 const after = {};
 function renderNotFound() {
   return `<div class="empty card"><h1>${t('Page not found')}</h1><p class="muted">${t('This address does not lead anywhere. It may be an old link.')}</p>
@@ -118,7 +118,7 @@ function renderNotFound() {
 }
 
 function route() {
-  if (!S.me) { renderHeader(''); renderLogin(); return; }
+  if (!S.me && !/^#\/g\/[0-9a-f-]{36}/i.test(location.hash)) { renderHeader(''); renderLogin(); return; }   // a grid shared with anyone who has the link opens without signing in
   const [, name = '', ...args] = location.hash.replace(/^#/, '').split('/').map(decodeURIComponent);
   const fn = Object.hasOwn(routes, name) ? routes[name] : name === 'login' ? renderOverview : renderNotFound;
   renderHeader(name === 'member' ? (args[0] === S.me || !args[0] ? '' : 'members') : name === 'account' ? 'settings' : name);
@@ -200,7 +200,9 @@ async function signIn(username, password) {
     S.me = await api.session();
     await loadAll();
     autoCatalog();
-    if (!location.hash || location.hash === '#/login') location.hash = '#/';
+    let back = ''; try { back = sessionStorage.getItem('pmex-after-login') || ''; sessionStorage.removeItem('pmex-after-login'); } catch { /* no storage */ }
+    if (back) location.hash = back;   // came from a shared link: back to it after signing in
+    else if (!location.hash || location.hash === '#/login') location.hash = '#/';
     route();
     setTimeout(greet, 600);
   } catch (e) { $('#login-err').textContent = e.message; }

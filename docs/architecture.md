@@ -334,7 +334,7 @@ Các hàm SQL `season_circuit`, `season_tickets_granted`, `season_active_round` 
 
 ### 6.4 Migration
 
-Mỗi thay đổi schema là một file trong `supabase/migrations/` đặt tên theo thời gian. Danh sách theo thứ tự: nền (`gym_manager`), tách Sub-DPS, gói A v2.0 (vai trò theo mùa, `occurred_at`, múi giờ), `resources`, `strategy_library`, `grid_builds`, `gems`, `support_reviews`, `reinforcement_squad` (type tiếp viện: `season_members.support_type`, `runs.support_type_at`). Migration chạy lên production **chỉ khi admin cho phép** (có thể ảnh hưởng dữ liệu thật). Mỗi migration viết để chạy lại được (`if not exists`, `create or replace`).
+Mỗi thay đổi schema là một file trong `supabase/migrations/` đặt tên theo thời gian. Danh sách theo thứ tự: nền (`gym_manager`), tách Sub-DPS, gói A v2.0 (vai trò theo mùa, `occurred_at`, múi giờ), `resources`, `strategy_library`, `grid_builds`, `gems`, `support_reviews`, `grid_build_authors`, `grid_public_links`, `reinforcement_squad` (type tiếp viện: `season_members.support_type`, `runs.support_type_at`). Migration chạy lên production **chỉ khi admin cho phép** (có thể ảnh hưởng dữ liệu thật). Mỗi migration viết để chạy lại được (`if not exists`, `create or replace`).
 
 ---
 
@@ -724,3 +724,4 @@ Nguyên tắc: logic mới đi kèm test thuần trước; thay đổi giao di�
 - Mở build của người khác (link hoặc danh sách gym) thì thành bản sao của riêng mình: lưu tạo build mới, không sửa build gốc.
 - Ảnh: `src/gridimage.js` (`gridSvg`) viết SVG với màu cụ thể (không phụ thuộc CSS), trang chuyển thành PNG bằng canvas. Giới hạn energy: `energyCapFor(level) = 60 + 2 × level` (`src/grid.js`).
 - Grid của người khác (đã chia sẻ với gym) chỉ xem: tên grid, tác giả, Move level và Cap; muốn sửa thì `Copy to my builds` (tạo bản riêng tư của mình). Danh sách pair chỉ hiện grid đã chia sẻ của người khác, một dòng rút gọn, lọc theo bộ lọc của danh sách. Migration `grid_build_authors`: build đã chia sẻ ở lại khi thành viên rời gym (giữ `author_name`), build riêng tư đi cùng thành viên.
+- "Anyone with the link" (`visibility = 'link'`): link dạng `#/g/<token>`, token ngẫu nhiên (`share_token`), không dùng số build. Người chưa đăng nhập chỉ đi vào được qua hàm `shared_grid(token)` (security definer, chỉ trả build `link`); bảng vẫn đóng với `anon`. Trang `renderSharedGrid` hiện grid chỉ xem; nút "Sign in to copy it" lưu địa chỉ vào `sessionStorage` và quay lại sau khi đăng nhập. Thành viên gym thấy build `link` như build `gym`.

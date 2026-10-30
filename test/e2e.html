@@ -566,6 +566,21 @@ f.onload = async () => {
     log(!$('.toast.show.bad') && !$('[data-gimg=save]').disabled, 'grid build bar: the build can be saved as an image');
     $('[data-gnew]').click(); await sleep(150); setVal($('#g-name'), ''); clickTile($('.g-tile.open')); await sleep(150); $('[data-gsave]').click(); await sleep(500);
     log($$('.gb-item:not(.new):not(.more)').length === 2 && /build 2/.test($$('.gb-item').map(c => c.innerText).join(' ')), 'grid build bar: a build saved without a name gets a suggested one');
+    // anyone with the link: the grid opens signed out, view only, and asks to sign in to copy it
+    setVal($('#g-vis'), 'link'); await sleep(100);
+    log(/even outside the gym/.test($('.gb-hint')?.innerText || ''), 'grid share: "Anyone with the link" says who can then see it');
+    $('[data-gsave]').click(); await sleep(500);
+    let linkText = ''; Object.defineProperty(W().navigator, 'clipboard', { configurable: true, value: { writeText: async v => { linkText = v; } } });
+    $('[data-glink]').click(); await sleep(200);
+    log(/#\/g\/[0-9a-f-]{36}$/.test(linkText), 'grid share: the link of an "anyone with the link" grid carries a token, not the build number', linkText.slice(-44));
+    await go('#/account'); (await until(() => $('[data-signout]'))).click(); await until(() => $$('[data-demo]').length === 3);
+    await go('#/g/' + linkText.split('#/g/')[1]); await until(() => $$('.g-tile').length > 30, 20000); await sleep(300);
+    log(!$('#g-name') && /View only/.test($('#g-state').innerText) && !!$('[data-gsignin]') && !$('[data-gcopy]') && !$('.gb-lists'), 'grid share: signed out, the shared grid is view only and asks to sign in to copy it');
+    await go('#/g/00000000-0000-4000-8000-000000000000'); await sleep(500);
+    log(/not shared any more/.test(W().document.body.innerText), 'grid share: a wrong or withdrawn link says so');
+    await go('#/'); await sleep(300);
+    const adm2 = await until(() => $$('[data-demo]').length === 3 && $$('[data-demo]')); adm2[0].click(); await until(() => $('.kpis'));
+    await go(buildHash); await until(() => $$('.g-tile').length > 30, 20000); await sleep(300);
     // another member opens the shared grid: view only, then copies it
     const pairHash = W().location.hash.replace(/\/\d+$/, '');
     await go('#/account'); (await until(() => $('[data-signout]'))).click();

@@ -392,6 +392,21 @@ select pg_temp.check('moving the run in time re-snapshots and resets the review'
   $$ update public.runs set occurred_at = now() - interval '20 minutes' where leader = 'Roark' and round = 2 and user_id = '00000000-0000-0000-0000-00000000000d';
      do $d$ begin if (select count(*) from public.run_reviews) <> 0 then raise exception 'review kept'; end if; if (select main_type_at from public.runs where leader = 'Roark' and round = 2) is distinct from 'Water' then raise exception 'not re-snapshotted'; end if; end $d$ $$);
 
+-- "Anyone with the link": a signed-out visitor reaches a link-shared build through its token only
+do $$ declare tl uuid; tg uuid; r jsonb; begin
+  insert into public.grid_builds (user_id, pair_id, name, nodes, visibility) values
+    ('00000000-0000-0000-0000-00000000000b', 'x', 'Linked', '{1}', 'link'), ('00000000-0000-0000-0000-00000000000b', 'x', 'Gym only', '{1}', 'gym');
+  select share_token into tl from public.grid_builds where name = 'Linked';
+  select share_token into tg from public.grid_builds where name = 'Gym only';
+  set local role anon;
+  r := public.shared_grid(tl);
+  if r is null or r->>'name' <> 'Linked' or (r->>'user_id') is not null then raise exception 'link build not reachable by token'; end if;
+  if public.shared_grid(tg) is not null then raise exception 'gym build reachable by token'; end if;
+  if public.shared_grid(gen_random_uuid()) is not null then raise exception 'unknown token answered'; end if;
+  begin perform count(*) from public.grid_builds; raise exception 'anon read the table'; exception when insufficient_privilege then null; end;
+  reset role;
+end $$;
+
 -- A member who leaves keeps the builds shared with the gym (with the author's name); the private ones go with them
 do $$ begin
   insert into public.grid_builds (user_id, pair_id, name, nodes, visibility) values

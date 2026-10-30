@@ -505,7 +505,7 @@ export function createDemoApi() {
     },
     async deleteGemEvent(id) { staff() || deny(); db.gems.events = db.gems.events.filter(x => x.id !== id); db.gems.rewards = db.gems.rewards.filter(x => x.event_id !== id); },
     async saveGemSettings(patch) { staff() || deny(); Object.assign(db.gems.settings, patch); },
-    gridBuilds: async () => clone(db.gridBuilds.filter(b => b.user_id === me || b.visibility === 'gym')).sort((a, b) => b.updated_at.localeCompare(a.updated_at)),
+    gridBuilds: async () => clone(db.gridBuilds.filter(b => b.user_id === me || b.visibility !== 'private')).sort((a, b) => b.updated_at.localeCompare(a.updated_at)),
     async saveGridBuild(row) {
       if (!(row.name || '').trim()) deny(t('Give it a name.'));
       const old = row.id && db.gridBuilds.find(b => b.id === row.id);
@@ -513,9 +513,10 @@ export function createDemoApi() {
       const now = new Date().toISOString();
       if (old) { Object.assign(old, row, { updated_at: now }); return clone(old); }
       const me_ = db.profiles.find(x => x.id === me);
-      const b = { id: Math.max(0, ...db.gridBuilds.map(x => x.id)) + 1, visibility: 'private', purpose: '', energy_cap: null, move_level: 5, ...row, user_id: me, author_name: me_?.display_name || me_?.username || '', created_at: now, updated_at: now };
+      const b = { id: Math.max(0, ...db.gridBuilds.map(x => x.id)) + 1, visibility: 'private', purpose: '', energy_cap: null, move_level: 5, ...row, user_id: me, share_token: crypto.randomUUID(), author_name: me_?.display_name || me_?.username || '', created_at: now, updated_at: now };
       db.gridBuilds.push(b); return clone(b);
     },
+    async sharedGrid(token) { const b = db.gridBuilds.find(x => x.share_token === token && x.visibility === 'link'); return b ? { ...clone(b), user_id: null } : null; },
     async deleteGridBuild(id) { const b = db.gridBuilds.find(x => x.id === id); if (!b || b.user_id !== me) deny(); db.gridBuilds = db.gridBuilds.filter(x => x.id !== id); },
     facilitators: async sid => clone(db.facilitators.filter(f => f.season_id === sid)),
     async saveFacilitator(row) {

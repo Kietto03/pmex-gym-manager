@@ -170,6 +170,7 @@ function supabaseApi(sb) {
 
     gridBuilds: () => all(() => sb.from('grid_builds').select('*').order('updated_at', { ascending: false })),
     saveGridBuild: async ({ id, ...patch }) => ok(id ? await sb.from('grid_builds').update(patch).eq('id', id).select().single() : await sb.from('grid_builds').insert(patch).select().single()),
+    sharedGrid: async token => ok(await sb.rpc('shared_grid', { p_token: token })),   // a grid shared with anyone who has the link: reachable signed out
     deleteGridBuild: async id => ok(await sb.from('grid_builds').delete().eq('id', id)),
 
     facilitators: sid => all(() => sb.from('facilitator_plans').select('*').eq('season_id', sid).order('leader').order('user_id')),
