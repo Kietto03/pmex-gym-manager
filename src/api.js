@@ -138,7 +138,7 @@ function supabaseApi(sb) {
     results: sid => all(() => sb.from('season_results').select('*').eq('season_id', sid).order('points', { ascending: false, nullsFirst: false })),
 
     resources: () => all(() => sb.from('resource_links').select('*').order('category').order('title')),
-    saveResource: async row => ok(row.id ? await sb.from('resource_links').update(row).eq('id', row.id) : await sb.from('resource_links').insert(row)),
+    saveResource: async ({ id, ...patch }) => ok(id ? await sb.from('resource_links').update(patch).eq('id', id) : await sb.from('resource_links').insert(patch)),
     deleteResource: async id => ok(await sb.from('resource_links').delete().eq('id', id)),
 
     strategies: async () => {
@@ -162,14 +162,14 @@ function supabaseApi(sb) {
       const [settings, events, rewards] = await Promise.all([sb.from('gem_settings').select('*').maybeSingle(), all(() => sb.from('gem_events').select('*').order('start_date')), all(() => sb.from('gem_rewards').select('*').order('start_date'))]);
       return { settings: ok(settings) || { reset_timezone: 'UTC', reset_hour: 0 }, events, rewards };
     },
-    saveGemReward: async row => ok(row.id ? await sb.from('gem_rewards').update(row).eq('id', row.id) : await sb.from('gem_rewards').insert(row)),
+    saveGemReward: async ({ id, ...patch }) => ok(id ? await sb.from('gem_rewards').update(patch).eq('id', id) : await sb.from('gem_rewards').insert(patch)),
     deleteGemReward: async id => ok(await sb.from('gem_rewards').delete().eq('id', id)),
-    saveGemEvent: async row => ok(row.id ? await sb.from('gem_events').update(row).eq('id', row.id) : await sb.from('gem_events').insert(row)),
+    saveGemEvent: async ({ id, ...patch }) => ok(id ? await sb.from('gem_events').update(patch).eq('id', id) : await sb.from('gem_events').insert(patch)),
     deleteGemEvent: async id => ok(await sb.from('gem_events').delete().eq('id', id)),
     saveGemSettings: async patch => ok(await sb.from('gem_settings').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', 1)),
 
     gridBuilds: () => all(() => sb.from('grid_builds').select('*').order('updated_at', { ascending: false })),
-    saveGridBuild: async row => ok(row.id ? await sb.from('grid_builds').update(row).eq('id', row.id).select().single() : await sb.from('grid_builds').insert(row).select().single()),
+    saveGridBuild: async ({ id, ...patch }) => ok(id ? await sb.from('grid_builds').update(patch).eq('id', id).select().single() : await sb.from('grid_builds').insert(patch).select().single()),
     deleteGridBuild: async id => ok(await sb.from('grid_builds').delete().eq('id', id)),
 
     facilitators: sid => all(() => sb.from('facilitator_plans').select('*').eq('season_id', sid).order('leader').order('user_id')),
