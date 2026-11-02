@@ -356,7 +356,7 @@ function renderOverview() {
         <tbody>${board.map((m, i) => {
           const banned = st.banned.has(m.user_id) || m.excluded, gone = !m.user_id || !profile(m.user_id);
           return `<tr class="${banned ? 'dim' : ''}"><td class="rank r${i + 1}">${i + 1}</td>
-            <td>${gone ? `<span class="muted">${esc(m.name)} (${t('left the gym')})</span>` : `<a class="who" href="#/member/${m.user_id}">${av(m.user_id, 'xs')}${esc(m.name)}</a>`}${banned ? ` <span class="badge bad">${t('locked')}</span>` : ''}</td>
+            <td>${gone ? `<span class="muted">${esc(m.name)} (${t('has been removed')})</span>` : `<a class="who" href="#/member/${m.user_id}">${av(m.user_id, 'xs')}${esc(m.name)}</a>`}${banned ? ` <span class="badge bad">${t('locked')}</span>` : ''}</td>
             <td class="num"><b>${fmtN(m.score)}</b></td><td class="num">${m.tickets}</td>
             <td class="num">${over || gone || banned ? '—' : Math.max(0, st.granted - m.tickets)}</td>
             <td class="num">${m.tickets ? fmtN(Math.round(m.score / m.tickets)) : '—'}</td><td class="num">${m.runs}</td></tr>`;

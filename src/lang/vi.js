@@ -33,7 +33,7 @@ export default {
   'Member scores': 'Bảng điểm thành viên',
   'e.g. {n}': 'VD: {n}',
   'Score': 'Điểm', 'Tickets': 'Vé', 'Left': 'Còn', 'Avg / ticket': 'TB / vé', 'Runs': 'Lượt',
-  'left the gym': 'đã rời gym', 'locked': 'bị khoá',
+  'has been removed': 'đã bị xoá khỏi gym', 'locked': 'bị khoá',
   'Tickets left': 'Còn vé', '{n} unused': '{n} vé chưa dùng',
   'Everyone has used the tickets handed out so far.': 'Mọi người đã dùng hết số vé được phát.',
   'Recent runs': 'Lượt gần đây', 'No runs yet.': 'Chưa có lượt nào.',
