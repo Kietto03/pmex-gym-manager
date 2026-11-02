@@ -1,17 +1,19 @@
 import assert from 'node:assert/strict';
-import { parseArt, serebiiTrainerSlugs, serebiiPokemonNames, parseIds } from '../tools/build-art.mjs';
+import { parseArt, parseStems, addShiny, serebiiTrainerSlugs, serebiiPokemonNames, parseIds } from '../tools/build-art.mjs';
 
-const html = `
-<div class="image-item"><a href="x"><img id="normal_pm0006_00_lizardon" data-src="static/data/pkmn/pm0006_00_lizardon_256.png" alt="Charizard"></a>
-<a><img id="shiny_pm0006_00_lizardon" data-src="static/data/pkmn/pm0006_00_lizardon_rare_256.png" alt="Shiny Charizard" class="shiny-img"></a></div>
-<div class="image-item"><a><img id="normal_pm0006_51_megalizardonX" data-src="static/data/pkmn/pm0006_51_megalizardonX_256.png" alt="Mega Charizard X"></a></div>
-<div class="image-item"><a><img id="normal_pm0006_71_15_lizardon" data-src="static/data/pkmn/pm0006_71_15_lizardon_256.png" alt="Charizard"></a></div>
-<div class="image-item"><a><img id="normal_pm0679_00_hitomoshi" data-src="static/data/pkmn/pm0679_00_hitomoshi_256.png" alt="Honedge &amp; Co"></a></div>`;
-const a = parseArt(html);
+const html = `<script type="application/json" id="lb-anims">{"x":{"stems":["pm0006_00_lizardon","pm0006_51_megalizardonX","pm0006_71_15_lizardon","pm0679_00_hitomoshi","pm0006_00_lizardon"],"sections":[]}}</script>`;
+const prev = { '0006': [['00', 'lizardon', 'Charizard', 1], ['51', 'megalizardonX', 'Mega Charizard X']] };
+const a = parseArt(html, prev);
 assert.deepEqual(Object.keys(a), ['0006', '0679']);
-assert.deepEqual(a['0006'], [['00', 'lizardon', 'Charizard', 1], ['51', 'megalizardonX', 'Mega Charizard X'], ['71', '15_lizardon', 'Charizard']]);   // a shiny twin is a flag on its picture, not an entry of its own
-assert.equal(a['0679'][0][2], 'Honedge & Co');
+assert.deepEqual(a['0006'].slice(0, 2), [['00', 'lizardon', 'Charizard', 1], ['51', 'megalizardonX', 'Mega Charizard X']], 'names and the shiny flag of a known picture are kept');
+assert.deepEqual(a['0006'][2], ['71', '15_lizardon', 'Lizardon'], 'a new picture gets a name made from its file name');
+assert.equal(a['0679'][0][1], 'hitomoshi');
 assert.deepEqual(parseArt('<html>nothing</html>'), {});
+assert.deepEqual(parseStems('"pm0001_00_fushigidane","pm0001_00_fushigidane","ch0001_00_x"'), ['pm0001_00_fushigidane'], 'each picture once, trainers apart');
+const asked = [];
+const withShiny = await addShiny(parseArt(html, prev), prev, async url => { asked.push(url); return /hitomoshi/.test(url); });
+assert.equal(asked.length, 2, 'only the pictures that are new are asked about their shiny twin');
+assert.equal(withShiny['0679'][0][3], 1); assert.equal(withShiny['0006'][2][3], undefined);
 // Serebii backups: the names a picture could have there
 assert.deepEqual(serebiiTrainerSlugs({ trainerName: 'Hau', trainerAlt: 'Arc Suit' }), ['hau-arcsuit']);
 assert.deepEqual(serebiiTrainerSlugs({ trainerName: 'Hau', trainerAlt: 'Sygna Suit' }), ['hau-sygnasuit', 'hau-sygna']);
@@ -26,5 +28,12 @@ assert.deepEqual(serebiiPokemonNames({ internalPokemonName: 'pm0892_12_00_wulaos
 assert.deepEqual(serebiiPokemonNames({ internalPokemonName: 'pm0026_61_araichu' }), [], 'a form that cannot be named for sure is not guessed');
 assert.deepEqual(serebiiPokemonNames({ internalPokemonName: '' }), []);
 assert.deepEqual(serebiiPokemonNames({ internalPokemonName: 'pm0857_00_00_tebrim_rare' }), [], 'Serebii has no shiny pictures');
-assert.deepEqual([...parseIds('static/data/chara/ch0098_00_hau_1024.png static/data/chara/ch0098_00_hau_expose_1024.png', /static\/data\/chara\/(ch\d{4}_\d\d_[A-Za-z0-9]+)_1024\.png/g)], ['ch0098_00_hau']);
+assert.deepEqual([...parseIds('"ch0098_00_hau","ch0099_01_x"', /"(ch\d{4}_\d\d_[A-Za-z0-9]+)"/g)], ['ch0098_00_hau', 'ch0099_01_x']);
 console.log('art index: all passed');
+{
+  const { pool } = await import('../tools/build-art.mjs');
+  let running = 0, peak = 0;
+  const got = await pool([1, 2, 3, 4, 5, 6, 7], 3, async x => { running++; peak = Math.max(peak, running); await new Promise(r => setTimeout(r, 5)); running--; return x * 2; });
+  assert.equal(peak, 3, 'at most n at a time'); assert.deepEqual([...got.values()].sort((a, b) => a - b), [2, 4, 6, 8, 10, 12, 14]);
+  console.log('pool: all passed');
+}
