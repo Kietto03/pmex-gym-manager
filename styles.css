@@ -55,29 +55,39 @@
   color-scheme: dark;
 }
 
-/* ─── Game Boy: the four greens of the LCD (#081820 · #346856 · #88c070 · #e0f8d0), sharp pixel corners, a magenta button red ─── */
+/* ─── Game Boy: the four shades of an LCD, in the screen colour the member picks (--gb0 darkest … --gb3 lightest; --gbx is the red of the A and B buttons) ─── */
 [data-style="gameboy"] {
-  --bg: #88c070; --surface: #e0f8d0; --surface-2: #cdeabb; --surface-3: #b4daa0;
-  --line: #88c070; --line-2: #346856;
-  --ink: #081820; --text: #081820; --text-2: #1f4a3b; --muted: #2c5a49;
-  --good: #346856; --good-soft: #b4daa0; --bad: #8f2457; --bad-soft: #eec6d6; --warn-soft: #d4e49a; --warn-ink: #081820; --sa: #081820;
-  --focus: #081820;
+  --gb0: #081820; --gb1: #346856; --gb2: #88c070; --gb3: #e0f8d0; --gbx: #8f2457; --gbx-hi: #e07aa6;
+  --bg: var(--gb2); --surface: var(--gb3); --surface-2: color-mix(in srgb, var(--gb3) 78%, var(--gb2)); --surface-3: color-mix(in srgb, var(--gb3) 45%, var(--gb2));
+  --line: var(--gb2); --line-2: var(--gb1);
+  --ink: var(--gb0); --text: var(--gb0); --text-2: color-mix(in srgb, var(--gb0) 66%, var(--gb1)); --muted: color-mix(in srgb, var(--gb0) 46%, var(--gb1));
+  --good: var(--gb1); --good-soft: color-mix(in srgb, var(--gb3) 45%, var(--gb2)); --bad: var(--gbx); --bad-soft: color-mix(in srgb, var(--gbx) 16%, var(--gb3)); --warn-soft: color-mix(in srgb, var(--gb3) 60%, var(--gb2)); --warn-ink: var(--gb0); --sa: var(--gb0);
+  --focus: var(--gb0);
   --display: 'Pixelify Sans', VT323, monospace; --sans: 'Pixelify Sans', VT323, monospace; --mono: 'Pixelify Sans', VT323, monospace;
   --r-lg: 0; --r-md: 0; --r-sm: 0; --r-pill: 0; --r-round: 0; --bw: 2px;
-  --shadow: 4px 4px 0 #346856; --shadow-lg: 6px 6px 0 #081820;
-  --stage: #081820; --stage-2: #153a3a; --stage-text: #e0f8d0;
+  --shadow: 4px 4px 0 var(--gb1); --shadow-lg: 6px 6px 0 var(--gb0);
+  --stage: var(--gb0); --stage-2: color-mix(in srgb, var(--gb0) 74%, var(--gb1)); --stage-text: var(--gb3);
   --label-track: .06em; --label-case: uppercase;
+  --accent: var(--gb1); --accent-2: var(--gb0); --accent-ink: var(--gb3); --accent-soft: color-mix(in srgb, var(--gb1) 14%, transparent);
   color-scheme: light;
 }
 [data-style="gameboy"][data-theme="dark"] {
-  --bg: #081820; --surface: #0f2a30; --surface-2: #153640; --surface-3: #1d4552;
-  --line: #234a44; --line-2: #88c070;
-  --ink: #e0f8d0; --text: #e0f8d0; --text-2: #a9d894; --muted: #88b878;
-  --good: #88c070; --good-soft: #1d4a3a; --bad: #e07aa6; --bad-soft: #3a1a2c; --warn-soft: #2d4a22; --warn-ink: #e0f8d0;
-  --shadow: 4px 4px 0 #346856; --shadow-lg: 6px 6px 0 #346856;
-  --stage: #040d12; --stage-2: #0f2a30; --stage-text: #88c070;
+  --bg: var(--gb0); --surface: color-mix(in srgb, var(--gb0) 80%, var(--gb1)); --surface-2: color-mix(in srgb, var(--gb0) 62%, var(--gb1)); --surface-3: color-mix(in srgb, var(--gb0) 44%, var(--gb1));
+  --line: color-mix(in srgb, var(--gb0) 48%, var(--gb1)); --line-2: var(--gb2);
+  --ink: var(--gb3); --text: var(--gb3); --text-2: color-mix(in srgb, var(--gb3) 50%, var(--gb2)); --muted: color-mix(in srgb, var(--gb3) 22%, var(--gb2));
+  --good: var(--gb2); --good-soft: color-mix(in srgb, var(--gb0) 50%, var(--gb1)); --bad: var(--gbx-hi); --bad-soft: color-mix(in srgb, var(--gbx) 30%, var(--gb0)); --warn-soft: color-mix(in srgb, var(--gb0) 60%, var(--gb1)); --warn-ink: var(--gb3);
+  --shadow: 4px 4px 0 var(--gb1); --shadow-lg: 6px 6px 0 var(--gb1);
+  --stage: color-mix(in srgb, var(--gb0) 60%, #000); --stage-2: color-mix(in srgb, var(--gb0) 80%, var(--gb1)); --stage-text: var(--gb2);
+  --accent: var(--gb2); --accent-2: var(--gb3); --accent-ink: var(--gb0); --accent-soft: color-mix(in srgb, var(--gb2) 14%, transparent);
   color-scheme: dark;
 }
+/* the screen colours (each is a real handheld or a flavour of one) */
+[data-gb="red"]    { --gb0: #2a0a14; --gb1: #8a2a3e; --gb2: #e07a86; --gb3: #ffe6e2; --gbx: #2a0a14; --gbx-hi: #ffd0d4; }
+[data-gb="blue"]   { --gb0: #0b1730; --gb1: #2f559e; --gb2: #86aee6; --gb3: #e8f2ff; --gbx: #9b1c31; --gbx-hi: #ff9aa8; }
+[data-gb="yellow"] { --gb0: #2a1a00; --gb1: #8a5a10; --gb2: #e8b030; --gb3: #fff2c4; --gbx: #9b1c31; --gbx-hi: #ff9aa8; }
+[data-gb="purple"] { --gb0: #1c1030; --gb1: #5b3c9a; --gb2: #a98ee6; --gb3: #f1eaff; --gbx: #9b1c31; --gbx-hi: #ff9ec0; }
+[data-gb="pink"]   { --gb0: #2e0f22; --gb1: #a83c78; --gb2: #f08cbc; --gb3: #ffe6f2; --gbx: #2e0f22; --gbx-hi: #ffd4e6; }
+[data-gb="gray"]   { --gb0: #101010; --gb1: #5a5a5a; --gb2: #a8a8a8; --gb3: #f2f2f2; --gbx: #9b1c31; --gbx-hi: #ff8c9c; }
 
 /* ─── Studio: quiet paper and ink ─── */
 [data-style="studio"] {
@@ -115,8 +125,6 @@
 [data-theme="dark"][data-accent="green"]  { --accent: #3ee61c; --accent-2: #74f25a; --accent-ink: #062600; }
 [data-theme="dark"][data-accent="purple"] { --accent: #9c78ff; --accent-2: #b89bff; }
 [data-theme="dark"][data-accent="pink"]   { --accent: #ff4d87; --accent-2: #ff77a3; }
-[data-style="gameboy"][data-accent] { --accent: #346856; --accent-2: #081820; --accent-ink: #e0f8d0; }
-[data-style="gameboy"][data-theme="dark"][data-accent] { --accent: #88c070; --accent-2: #e0f8d0; --accent-ink: #081820; }
 [data-accent] { --accent-soft: color-mix(in srgb, var(--accent) 14%, transparent); }
 
 * { box-sizing: border-box; }
@@ -1218,8 +1226,8 @@ small { font-size: 12px; }   /* the browser default (83% of the parent) fell to 
 :root { --k-blue: #779eff; --k-blue-ink: #0f1f45; --k-green: #47d147; --k-green-ink: #0d300d; --k-red: #ff0066; --k-red-ink: #2a0010; --k-yellow: #ffc266; --k-yellow-ink: #3d2600; --k-rainbow: #bf80ff; --k-rainbow-ink: #2a0f4d; }
 [data-style="ds"] { --k-blue: #5b8def; --k-green: #3fbf6a; --k-red: #e8467f; --k-yellow: #f2b23c; --k-rainbow: #a276f0; }
 [data-style="studio"] { --k-blue: #7f96d6; --k-green: #6fae6f; --k-red: #cf5b84; --k-yellow: #d6a85c; --k-rainbow: #a085d6; --k-red-ink: #2a0010; }
-[data-style="gameboy"] { --k-blue: #346856; --k-blue-ink: #e0f8d0; --k-green: #88c070; --k-green-ink: #081820; --k-red: #8f2457; --k-red-ink: #e0f8d0; --k-yellow: #d4e49a; --k-yellow-ink: #081820; --k-rainbow: #3a5a9b; --k-rainbow-ink: #e0f8d0; }
-[data-style="gameboy"][data-theme="dark"] { --k-blue: #88c070; --k-blue-ink: #081820; --k-green: #c4e8a8; --k-green-ink: #081820; --k-red: #e07aa6; --k-red-ink: #081820; --k-yellow: #e0f8d0; --k-yellow-ink: #081820; --k-rainbow: #8aa8e8; --k-rainbow-ink: #081820; }
+[data-style="gameboy"] { --k-blue: var(--gb1); --k-blue-ink: var(--gb3); --k-green: var(--gb2); --k-green-ink: var(--gb0); --k-red: var(--gbx); --k-red-ink: var(--gb3); --k-yellow: color-mix(in srgb, var(--gb3) 55%, var(--gb2)); --k-yellow-ink: var(--gb0); --k-rainbow: color-mix(in srgb, var(--gb1) 55%, var(--gbx)); --k-rainbow-ink: var(--gb3); }
+[data-style="gameboy"][data-theme="dark"] { --k-blue: var(--gb2); --k-blue-ink: var(--gb0); --k-green: color-mix(in srgb, var(--gb3) 60%, var(--gb2)); --k-green-ink: var(--gb0); --k-red: var(--gbx-hi); --k-red-ink: var(--gb0); --k-yellow: var(--gb3); --k-yellow-ink: var(--gb0); --k-rainbow: color-mix(in srgb, var(--gb2) 55%, var(--gbx-hi)); --k-rainbow-ink: var(--gb0); }
 .k-blue { --c: var(--k-blue); --ct: var(--k-blue-ink); } .k-green { --c: var(--k-green); --ct: var(--k-green-ink); } .k-red { --c: var(--k-red); --ct: var(--k-red-ink); }
 .k-yellow { --c: var(--k-yellow); --ct: var(--k-yellow-ink); } .k-rainbow { --c: var(--k-rainbow); --ct: var(--k-rainbow-ink); }
 .gl { flex: none; }
@@ -1531,8 +1539,8 @@ svg.hlmode .g-tile { opacity: .22; transition: opacity .12s; } svg.hlmode .g-til
 :root[data-theme="dark"] { --tile-dark: #3a4054; --tile-dark-2: #464d63; --tile-ink: #e6e9f2; --tile-deep: #14161d; --tile-deep-2: #1a1d26; --tile-deep-ink: #6b7185; --open-mix: 55%; --on-lift: 0%; }
 [data-style="ds"][data-theme="dark"] { --tile-dark: #2c3b63; --tile-dark-2: #384a78; }
 [data-style="ds"] { --k-arc: #e0ae2a; } [data-style="studio"] { --k-arc: #d9ab3a; }
-[data-style="gameboy"] { --tile-dark: #6aa860; --tile-dark-2: #78b86a; --tile-ink: #081820; --tile-deep: #346856; --tile-deep-2: #3f7560; --tile-deep-ink: #e0f8d0; --k-arc: #e8c840; --k-arc-ink: #081820; --open-mix: 30%; --on-lift: 0%; }
-[data-style="gameboy"][data-theme="dark"] { --tile-dark: #234a44; --tile-dark-2: #2c5a52; --tile-ink: #e0f8d0; --tile-deep: #081820; --tile-deep-2: #0f2a30; --tile-deep-ink: #88c070; --open-mix: 40%; --on-lift: 0%; }
+[data-style="gameboy"] { --tile-dark: color-mix(in srgb, var(--gb2) 74%, var(--gb1)); --tile-dark-2: color-mix(in srgb, var(--gb2) 86%, var(--gb1)); --tile-ink: var(--gb0); --tile-deep: var(--gb1); --tile-deep-2: color-mix(in srgb, var(--gb1) 82%, var(--gb2)); --tile-deep-ink: var(--gb3); --k-arc: #e8c840; --k-arc-ink: #081820; --open-mix: 30%; --on-lift: 0%; }
+[data-style="gameboy"][data-theme="dark"] { --tile-dark: color-mix(in srgb, var(--gb0) 46%, var(--gb1)); --tile-dark-2: color-mix(in srgb, var(--gb0) 32%, var(--gb1)); --tile-ink: var(--gb3); --tile-deep: var(--gb0); --tile-deep-2: color-mix(in srgb, var(--gb0) 78%, var(--gb1)); --tile-deep-ink: var(--gb2); --open-mix: 40%; --on-lift: 0%; }
 .k-arc { --c: var(--k-arc); --ct: var(--k-arc-ink); }
 .g-tile { transform-box: fill-box; transform-origin: center; transition: transform .16s ease; }
 .g-tile.open .g-out, .g-tile.locked .g-out { fill: color-mix(in srgb, var(--c) 34%, var(--tile-dark)); }
@@ -1656,8 +1664,8 @@ svg.hlmode .g-tile { opacity: .22; transition: opacity .12s; } svg.hlmode .g-til
    Game Boy: the LCD. Four greens, a pixel typeface, square corners, hard shadows, dithering where a screen would fade,
    a dark bezel for the menu with the two stripes of the original, and a faint dot-matrix grid over everything.
    ═══════════════════════════════════════════════════════════════ */
-[data-style="gameboy"] { --edge: #081820; font-size-adjust: none; }
-[data-style="gameboy"][data-theme="dark"] { --edge: #88c070; }
+[data-style="gameboy"] { --edge: var(--gb0); font-size-adjust: none; }
+[data-style="gameboy"][data-theme="dark"] { --edge: var(--gb2); }
 [data-style="gameboy"] body { font-size: 16px; line-height: 1.5; font-weight: 400; letter-spacing: .01em; }
 /* the dot-matrix grid sits behind the content, never over the text */
 [data-style="gameboy"] body { background-image: repeating-linear-gradient(0deg, color-mix(in srgb, var(--edge) 9%, transparent) 0 1px, transparent 1px 4px), repeating-linear-gradient(90deg, color-mix(in srgb, var(--edge) 6%, transparent) 0 1px, transparent 1px 4px); background-color: var(--bg); }
@@ -1667,20 +1675,20 @@ svg.hlmode .g-tile { opacity: .22; transition: opacity .12s; } svg.hlmode .g-til
 [data-style="gameboy"] .banner .spr { filter: contrast(1.06) saturate(.7) drop-shadow(0 4px 0 rgba(0, 0, 0, .35)); }
 /* the bezel */
 [data-style="gameboy"] .topbar { backdrop-filter: none; -webkit-backdrop-filter: none; background: var(--stage); color: var(--stage-text); border-bottom: 0; box-shadow: none; }
-[data-style="gameboy"] .topbar::before { height: 4px; background: linear-gradient(90deg, #8f2457 0 33.3%, #3a5a9b 33.3% 66.6%, #88c070 66.6% 100%); opacity: 1; }
-[data-style="gameboy"] .topbar::after { content: ''; position: absolute; left: 0; right: 0; bottom: -6px; height: 6px; background: linear-gradient(180deg, #8f2457 0 2px, transparent 2px 4px, #3a5a9b 4px 6px); pointer-events: none; }
+[data-style="gameboy"] .topbar::before { height: 4px; background: linear-gradient(90deg, var(--gbx) 0 33.3%, var(--gb1) 33.3% 66.6%, var(--gb2) 66.6% 100%); opacity: 1; }
+[data-style="gameboy"] .topbar::after { content: ''; position: absolute; left: 0; right: 0; bottom: -6px; height: 6px; background: linear-gradient(180deg, var(--gbx) 0 2px, transparent 2px 4px, var(--gb1) 4px 6px); pointer-events: none; }
 [data-style="gameboy"] :is(.topbar .brand, .topbar .demo-flag) { color: var(--stage-text); }
 [data-style="gameboy"] .topbar .demo-flag { border-color: var(--stage-text); }
-[data-style="gameboy"] .nav { background: var(--stage-2); border: 2px solid #346856; }
+[data-style="gameboy"] .nav { background: var(--stage-2); border: 2px solid var(--gb1); }
 [data-style="gameboy"] .nav a { color: var(--stage-text); font-weight: 500; }
-[data-style="gameboy"] .nav a:hover { background: #346856; color: #e0f8d0; }
-[data-style="gameboy"] .nav a.on { background: #e0f8d0; color: #081820; box-shadow: none; }
+[data-style="gameboy"] .nav a:hover { background: var(--gb1); color: var(--gb3); }
+[data-style="gameboy"] .nav a.on { background: var(--gb3); color: var(--gb0); box-shadow: none; }
 [data-style="gameboy"] .nav a.on .ico { color: inherit; }
-[data-style="gameboy"] .subnav { border-top-color: #346856; }
-[data-style="gameboy"] .subnav a { color: #88c070; }
-[data-style="gameboy"] .subnav a:hover, [data-style="gameboy"] .subnav a.on { color: #e0f8d0; }
-[data-style="gameboy"] .subnav a::after { height: 3px; border-radius: 0; background: #e0f8d0; }
-[data-style="gameboy"] :is(.topbar .user, .topbar .lang, .topbar .icon-btn) { background: var(--stage-2); border-color: #346856; color: var(--stage-text); }
+[data-style="gameboy"] .subnav { border-top-color: var(--gb1); }
+[data-style="gameboy"] .subnav a { color: var(--gb2); }
+[data-style="gameboy"] .subnav a:hover, [data-style="gameboy"] .subnav a.on { color: var(--gb3); }
+[data-style="gameboy"] .subnav a::after { height: 3px; border-radius: 0; background: var(--gb3); }
+[data-style="gameboy"] :is(.topbar .user, .topbar .lang, .topbar .icon-btn) { background: var(--stage-2); border-color: var(--gb1); color: var(--stage-text); }
 /* panels and keys */
 [data-style="gameboy"] .card { border: 2px solid var(--edge); box-shadow: var(--shadow); }
 [data-style="gameboy"] .btn { background: var(--surface); border: 2px solid var(--edge); box-shadow: 3px 3px 0 var(--line-2); font-weight: 600; }
@@ -1699,7 +1707,7 @@ svg.hlmode .g-tile { opacity: .22; transition: opacity .12s; } svg.hlmode .g-til
 [data-style="gameboy"] :is(input, select, textarea):focus { outline: 2px solid var(--edge); outline-offset: 2px; }
 [data-style="gameboy"] .tile-btn:hover, [data-style="gameboy"] .mcard:hover { transform: translate(-2px, -2px); box-shadow: 5px 5px 0 var(--edge); }
 [data-style="gameboy"] .banner { border: 2px solid var(--edge);
-  background: repeating-conic-gradient(rgba(224, 248, 208, .07) 0 25%, transparent 0 50%) 0 0 / 4px 4px, radial-gradient(60% 90% at 88% 0%, color-mix(in srgb, var(--tc, var(--accent)) 30%, transparent), transparent 70%), linear-gradient(180deg, var(--stage-2), var(--stage)); }
+  background: repeating-conic-gradient(color-mix(in srgb, var(--gb3) 7%, transparent) 0 25%, transparent 0 50%) 0 0 / 4px 4px, radial-gradient(60% 90% at 88% 0%, color-mix(in srgb, var(--tc, var(--accent)) 30%, transparent), transparent 70%), linear-gradient(180deg, var(--stage-2), var(--stage)); }
 [data-style="gameboy"] .table thead th { background: var(--surface-2); border-bottom: 2px solid var(--edge); }
 [data-style="gameboy"] .type { background: color-mix(in srgb, var(--tc) 22%, var(--surface)); }
 [data-style="gameboy"] .plate { --tc: var(--text-2) !important; }
@@ -1708,15 +1716,19 @@ svg.hlmode .g-tile { opacity: .22; transition: opacity .12s; } svg.hlmode .g-til
 [data-style="gameboy"] ::-webkit-scrollbar { width: 12px; height: 12px; }
 [data-style="gameboy"] ::-webkit-scrollbar-track { background: var(--surface-2); }
 [data-style="gameboy"] ::-webkit-scrollbar-thumb { background: var(--line-2); border: 2px solid var(--surface-2); }
-[data-style="gameboy"] .gim-tag.r-spec, [data-style="gameboy"] .r-spec { background: #346856; color: #e0f8d0; }
-[data-style="gameboy"] .gim-tag.r-phys, [data-style="gameboy"] .r-phys { background: #081820; color: #e0f8d0; }
-[data-style="gameboy"] .gim-tag.r-pmove, [data-style="gameboy"] .r-pmove { background: #e0f8d0; color: #081820; box-shadow: inset 0 0 0 2px #081820; }
-[data-style="gameboy"] .gim-tag.r-se, [data-style="gameboy"] .r-se { background: #8f2457; color: #e0f8d0; }
-[data-style="gameboy"][data-theme="dark"] .gim-tag.r-spec, [data-style="gameboy"][data-theme="dark"] .r-spec { background: #88c070; color: #081820; }
-[data-style="gameboy"][data-theme="dark"] .gim-tag.r-phys, [data-style="gameboy"][data-theme="dark"] .r-phys { background: #e0f8d0; color: #081820; }
-[data-style="gameboy"][data-theme="dark"] .gim-tag.r-pmove, [data-style="gameboy"][data-theme="dark"] .r-pmove { background: #081820; color: #e0f8d0; box-shadow: inset 0 0 0 2px #88c070; }
-[data-style="gameboy"][data-theme="dark"] .gim-tag.r-se, [data-style="gameboy"][data-theme="dark"] .r-se { background: #e07aa6; color: #081820; }
+[data-style="gameboy"] .gim-tag.r-spec, [data-style="gameboy"] .r-spec { background: var(--gb1); color: var(--gb3); }
+[data-style="gameboy"] .gim-tag.r-phys, [data-style="gameboy"] .r-phys { background: var(--gb0); color: var(--gb3); }
+[data-style="gameboy"] .gim-tag.r-pmove, [data-style="gameboy"] .r-pmove { background: var(--gb3); color: var(--gb0); box-shadow: inset 0 0 0 2px var(--gb0); }
+[data-style="gameboy"] .gim-tag.r-se, [data-style="gameboy"] .r-se { background: var(--gbx); color: var(--gb3); }
+[data-style="gameboy"][data-theme="dark"] .gim-tag.r-spec, [data-style="gameboy"][data-theme="dark"] .r-spec { background: var(--gb2); color: var(--gb0); }
+[data-style="gameboy"][data-theme="dark"] .gim-tag.r-phys, [data-style="gameboy"][data-theme="dark"] .r-phys { background: var(--gb3); color: var(--gb0); }
+[data-style="gameboy"][data-theme="dark"] .gim-tag.r-pmove, [data-style="gameboy"][data-theme="dark"] .r-pmove { background: var(--gb0); color: var(--gb3); box-shadow: inset 0 0 0 2px var(--gb2); }
+[data-style="gameboy"][data-theme="dark"] .gim-tag.r-se, [data-style="gameboy"][data-theme="dark"] .r-se { background: var(--gbx-hi); color: var(--gb0); }
 /* Game Boy: digits in the clearer pixel face (the text face makes a 5 look like an S), and the sprite stands lose their type tints */
 [data-style="gameboy"] :is(.num, .kpi b, .hero-side .big, .stats b, .tw-head b, .cell span, .mstats b, .rank, .hud-i b, .tc-n, .gb-state) { font-family: VT323, 'Pixelify Sans', monospace; font-size: 1.22em; font-weight: 400; letter-spacing: .03em; }
 [data-style="gameboy"] .stand { --tc: var(--line-2) !important; }
 [data-style="gameboy"] .stand, [data-style="gameboy"] .stand::before { background-image: none; }
+/* Game Boy: the live/cleared marks of the banner follow the screen colour too */
+[data-style="gameboy"] .phase.battle { background: color-mix(in srgb, var(--stage-text) 16%, transparent); color: var(--stage-text); }
+[data-style="gameboy"] .phase.upcoming { background: color-mix(in srgb, var(--stage-text) 10%, transparent); color: var(--stage-text); }
+[data-style="gameboy"] .stand.done small { color: var(--stage-text); }

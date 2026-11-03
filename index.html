@@ -14,7 +14,7 @@
       var g = function (k, d) { try { return localStorage.getItem(k) || d; } catch (e) { return d; } };
       var r = document.documentElement, style = g('gym-style', 'switch'), mode = g('gym-theme', 'auto');
       r.dataset.style = style;
-      r.dataset.accent = g('gym-accent', 'red');
+      r.dataset.accent = g('gym-accent', 'red'); r.dataset.gb = g('gym-gb', 'green');
       r.dataset.theme = mode === 'dark' || (mode !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
       r.lang = g('gym-lang', 'en');
       var fonts = { switch: 'family=Nunito:wght@500;600;700;800;900', ds: 'family=M+PLUS+Rounded+1c:wght@500;700;800&family=Nunito:wght@500;600;700;800;900',

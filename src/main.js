@@ -4,7 +4,7 @@
    ═══════════════════════════════════════════════════════════════ */
 import { createApi, isDemo } from './api.js';
 import { ico } from './icons.js';
-import { STYLES, ACCENTS, MODES, getAppearance, applyAppearance } from './appearance.js';
+import { STYLES, ACCENTS, GB_SCREENS, MODES, getAppearance, applyAppearance } from './appearance.js';
 import { MASCOTS, MASCOT_STYLES, mascotHead, mountCompanion } from './mascot.js?v=20261028-viola';
 import { t, getLang, setLang, LANGS, locale } from './i18n.js';
 import { TOWER_TOP, circuitAt, circuitGuide, roundShort, seasonState, pointsIn, validateRun, readiness, pairWeight, levelLabel, suggestTeam } from './rules.js';
@@ -1758,13 +1758,14 @@ function renderSettings() {
     <h2 class="title">${t('Style')}</h2>
     <div class="style-grid">${STYLES.map(x => `
       <button class="style-card ${a.style === x.id ? 'on' : ''}" data-set-style="${x.id}">
-        <span class="preview" data-style="${x.id}" data-theme="${document.documentElement.dataset.theme}" data-accent="${a.accent}">
+        <span class="preview" data-style="${x.id}" data-theme="${document.documentElement.dataset.theme}" data-accent="${a.accent}" data-gb="${a.gb}">
           <i class="pv-bar"></i><i class="pv-card"><b></b><b></b></i><i class="pv-btn"></i></span>
         <b>${x.name}</b><small>${t(x.note)}</small></button>`).join('')}</div>
     <div class="set-row"><span>${t('Mode')}</span>
       <div class="seg">${MODES.map(([k, l]) => `<button class="${a.mode === k ? 'on' : ''}" data-set-mode="${k}">${k === 'light' ? ico('sun') : k === 'dark' ? ico('moon') : ''}${t(l)}</button>`).join('')}</div></div>
-    <div class="set-row"><span>${t('Accent')}</span>
-      <div class="swatches">${ACCENTS.map(x => `<button class="swatch ${a.accent === x.id ? 'on' : ''}" data-set-accent="${x.id}" style="--sw:${x.color}" title="${t(x.name)}" aria-label="${t(x.name)}"></button>`).join('')}</div></div>
+    ${a.style === 'gameboy' ? `<div class="set-row"><span>${t('Screen colour')}</span>
+      <div class="swatches">${GB_SCREENS.map(x => `<button class="swatch ${a.gb === x.id ? 'on' : ''}" data-set-gb="${x.id}" style="--sw:${x.color}" title="${t(x.name)}" aria-label="${t(x.name)}"></button>`).join('')}</div></div>` : `<div class="set-row"><span>${t('Accent')}</span>
+      <div class="swatches">${ACCENTS.map(x => `<button class="swatch ${a.accent === x.id ? 'on' : ''}" data-set-accent="${x.id}" style="--sw:${x.color}" title="${t(x.name)}" aria-label="${t(x.name)}"></button>`).join('')}</div></div>`}
     <div class="set-row"><span>${t('Mascot')}</span>
       <div class="mascot-set">
         <div class="mascot-pick">${[...MASCOTS.map(m => [m.id, m.name]), ['off', t('Off')]].map(([k, l]) => `<button class="${a.mascot === k || (k === 'kai' && !MASCOTS.some(m => m.id === a.mascot) && a.mascot !== 'off') ? 'on' : ''}" data-set-mascot="${k}">${k === 'off' ? `<span class="m-off">${ico('x')}</span>` : mascotHead(k, a.mascotStyle)}<span>${esc(l)}</span></button>`).join('')}</div>
@@ -1783,10 +1784,10 @@ function renderSettings() {
   </div>`;
 }
 document.addEventListener('click', e => {
-  const el = e.target.closest('[data-set-style],[data-set-mode],[data-set-accent],[data-set-mascot],[data-set-mstyle]');
+  const el = e.target.closest('[data-set-style],[data-set-mode],[data-set-accent],[data-set-gb],[data-set-mascot],[data-set-mstyle]');
   if (!el) return;
   const d = el.dataset;
-  applyAppearance(d.setStyle ? { style: d.setStyle } : d.setMode ? { mode: d.setMode } : d.setMascot ? { mascot: d.setMascot } : d.setMstyle ? { mascotStyle: d.setMstyle } : { accent: d.setAccent });
+  applyAppearance(d.setStyle ? { style: d.setStyle } : d.setMode ? { mode: d.setMode } : d.setMascot ? { mascot: d.setMascot } : d.setMstyle ? { mascotStyle: d.setMstyle } : d.setGb ? { gb: d.setGb } : { accent: d.setAccent });
   showMascot();
   if (d.setMascot && d.setMascot !== 'off') companion.greet(t(MASCOTS.find(m => m.id === d.setMascot).cry[1]));
   route();
