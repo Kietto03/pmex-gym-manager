@@ -31,51 +31,51 @@
   color-scheme: dark;
 }
 
-/* ─── DS: silver handheld, pixel titles, hard edges and drop shadows ─── */
+/* ─── DS: a touch-screen handheld: silver and white, rounded glossy keys, a blue-navy ink ─── */
 [data-style="ds"] {
-  --bg: #d5d8df; --surface: #fbfbfd; --surface-2: #eef0f4; --surface-3: #dde0e7;
-  --line: #b9bdc8; --line-2: #7d8394;
-  --ink: #23232b; --text: #23232b; --text-2: #4a4b57; --muted: #5a5c67;
-  --good: #1a8f4c; --good-soft: #d9f0e2; --bad: #c8281c; --bad-soft: #f8dcd9; --warn-soft: #f6edcf; --warn-ink: #6d5200; --sa: #7b46e6;
+  --bg: #dde5f1; --surface: #ffffff; --surface-2: #eef2fa; --surface-3: #d9e2f1;
+  --line: #c2cde2; --line-2: #8393b2;
+  --ink: #13233f; --text: #13233f; --text-2: #3b4c6b; --muted: #526283;
+  --good: #14894a; --good-soft: #d6f1e2; --bad: #cc2a24; --bad-soft: #fbe0de; --warn-soft: #fbf0cd; --warn-ink: #6d5200; --sa: #7243e0;
   --focus: var(--accent);
-  --display: VT323, monospace; --sans: Nunito, system-ui, sans-serif; --mono: VT323, monospace;
-  --r-lg: 3px; --r-md: 2px; --r-sm: 2px; --r-pill: 3px; --r-round: 3px; --bw: 2px;
-  --shadow: 4px 4px 0 rgba(35, 35, 43, .16); --shadow-lg: 6px 6px 0 rgba(35, 35, 43, .25);
-  --stage: #23232b; --stage-2: #34343f; --stage-text: #f2f3f7;
-  --label-track: .06em; --label-case: uppercase;
+  --display: 'M PLUS Rounded 1c', Nunito, system-ui, sans-serif; --sans: Nunito, system-ui, sans-serif; --mono: Nunito, system-ui, sans-serif;
+  --r-lg: 16px; --r-md: 12px; --r-sm: 8px; --r-pill: 999px; --r-round: 50%; --bw: 2px;
+  --shadow: 0 3px 0 #b4c1d9, 0 10px 20px -12px rgba(19, 35, 63, .4); --shadow-lg: 0 5px 0 #a6b5d1, 0 22px 40px -14px rgba(19, 35, 63, .5);
+  --stage: #13233f; --stage-2: #23407a; --stage-text: #f2f6ff;
+  --label-track: .04em; --label-case: none;
   color-scheme: light;
 }
 [data-style="ds"][data-theme="dark"] {
-  --bg: #121217; --surface: #1c1c24; --surface-2: #24242e; --surface-3: #2e2e3a;
-  --line: #3a3a49; --line-2: #5c5c70;
-  --ink: #ececf4; --text: #ececf4; --text-2: #b9b9c8; --muted: #9797aa;
-  --good-soft: rgba(26, 143, 76, .22); --bad-soft: rgba(200, 40, 28, .22); --warn-soft: rgba(230, 190, 60, .14); --warn-ink: #f0cf6a;
-  --shadow: 4px 4px 0 rgba(0, 0, 0, .45); --shadow-lg: 6px 6px 0 rgba(0, 0, 0, .6);
-  --stage: #0b0b10; --stage-2: #1a1a22;
+  --bg: #0c1424; --surface: #16213a; --surface-2: #1d2b4a; --surface-3: #263860;
+  --line: #2b3d63; --line-2: #5b72a3;
+  --ink: #eaf1ff; --text: #eaf1ff; --text-2: #bccaea; --muted: #94a6cc;
+  --good-soft: rgba(20, 137, 74, .24); --bad-soft: rgba(204, 42, 36, .24); --warn-soft: rgba(230, 190, 60, .14); --warn-ink: #f0cf6a;
+  --shadow: 0 3px 0 #060b17, 0 10px 20px -12px rgba(0, 0, 0, .7); --shadow-lg: 0 5px 0 #060b17, 0 22px 40px -14px rgba(0, 0, 0, .8);
+  --stage: #070d1b; --stage-2: #162548;
   color-scheme: dark;
 }
 
-/* ─── Game Boy: the four greens ─── */
+/* ─── Game Boy: the four greens of the LCD (#081820 · #346856 · #88c070 · #e0f8d0), sharp pixel corners, a magenta button red ─── */
 [data-style="gameboy"] {
-  --bg: #c4cf9c; --surface: #dde5bd; --surface-2: #d0daa9; --surface-3: #bac78c;
-  --line: #8fa45c; --line-2: #306230;
-  --ink: #0f380f; --text: #0f380f; --text-2: #295429; --muted: #3f5325;
-  --good: #306230; --good-soft: #b5c781; --bad: #7a2a14; --bad-soft: #d9c7a0; --warn-soft: #d3d99c; --warn-ink: #0f380f; --sa: #0f380f;
-  --focus: #0f380f;
-  --display: VT323, monospace; --sans: Nunito, system-ui, sans-serif; --mono: VT323, monospace;
-  --r-lg: 2px; --r-md: 2px; --r-sm: 1px; --r-pill: 2px; --r-round: 2px; --bw: 2px;
-  --shadow: 3px 3px 0 #8fa45c; --shadow-lg: 5px 5px 0 #306230;
-  --stage: #0f380f; --stage-2: #1d4d1d; --stage-text: #c4d88a;
+  --bg: #88c070; --surface: #e0f8d0; --surface-2: #cdeabb; --surface-3: #b4daa0;
+  --line: #88c070; --line-2: #346856;
+  --ink: #081820; --text: #081820; --text-2: #1f4a3b; --muted: #2c5a49;
+  --good: #346856; --good-soft: #b4daa0; --bad: #8f2457; --bad-soft: #eec6d6; --warn-soft: #d4e49a; --warn-ink: #081820; --sa: #081820;
+  --focus: #081820;
+  --display: 'Pixelify Sans', VT323, monospace; --sans: 'Pixelify Sans', VT323, monospace; --mono: 'Pixelify Sans', VT323, monospace;
+  --r-lg: 0; --r-md: 0; --r-sm: 0; --r-pill: 0; --r-round: 0; --bw: 2px;
+  --shadow: 4px 4px 0 #346856; --shadow-lg: 6px 6px 0 #081820;
+  --stage: #081820; --stage-2: #153a3a; --stage-text: #e0f8d0;
   --label-track: .06em; --label-case: uppercase;
   color-scheme: light;
 }
 [data-style="gameboy"][data-theme="dark"] {
-  --bg: #0f2a0f; --surface: #163916; --surface-2: #1d461d; --surface-3: #275527;
-  --line: #306230; --line-2: #8bac0f;
-  --ink: #c4d88a; --text: #c4d88a; --text-2: #abcf11; --muted: #a9c881;
-  --good: #9bbc0f; --good-soft: #245524; --bad: #e0a060; --bad-soft: #3d3a1a; --warn-soft: #274d1a; --warn-ink: #c4d88a;
-  --shadow: 3px 3px 0 #061806; --shadow-lg: 5px 5px 0 #061806;
-  --stage: #061806; --stage-2: #0f2a0f; --stage-text: #9bbc0f;
+  --bg: #081820; --surface: #0f2a30; --surface-2: #153640; --surface-3: #1d4552;
+  --line: #234a44; --line-2: #88c070;
+  --ink: #e0f8d0; --text: #e0f8d0; --text-2: #a9d894; --muted: #88b878;
+  --good: #88c070; --good-soft: #1d4a3a; --bad: #e07aa6; --bad-soft: #3a1a2c; --warn-soft: #2d4a22; --warn-ink: #e0f8d0;
+  --shadow: 4px 4px 0 #346856; --shadow-lg: 6px 6px 0 #346856;
+  --stage: #040d12; --stage-2: #0f2a30; --stage-text: #88c070;
   color-scheme: dark;
 }
 
@@ -115,8 +115,8 @@
 [data-theme="dark"][data-accent="green"]  { --accent: #3ee61c; --accent-2: #74f25a; --accent-ink: #062600; }
 [data-theme="dark"][data-accent="purple"] { --accent: #9c78ff; --accent-2: #b89bff; }
 [data-theme="dark"][data-accent="pink"]   { --accent: #ff4d87; --accent-2: #ff77a3; }
-[data-style="gameboy"][data-accent] { --accent: #306230; --accent-2: #0f380f; --accent-ink: #dde5bd; }
-[data-style="gameboy"][data-theme="dark"][data-accent] { --accent: #9bbc0f; --accent-2: #b8d13a; --accent-ink: #0f2a0f; }
+[data-style="gameboy"][data-accent] { --accent: #346856; --accent-2: #081820; --accent-ink: #e0f8d0; }
+[data-style="gameboy"][data-theme="dark"][data-accent] { --accent: #88c070; --accent-2: #e0f8d0; --accent-ink: #081820; }
 [data-accent] { --accent-soft: color-mix(in srgb, var(--accent) 14%, transparent); }
 
 * { box-sizing: border-box; }
@@ -714,29 +714,6 @@ td .muted .ico { width: 14px; height: 14px; vertical-align: -2px; }
 [data-style="switch"] .banner { border: 0; }
 
 /* ═══════════════════════════════════════════════════════════════
-   DS + Game Boy: pixel titles, square edges, hard shadows, scanlines
-   ═══════════════════════════════════════════════════════════════ */
-:is([data-style="ds"], [data-style="gameboy"]) { font-size-adjust: .52; }
-:is([data-style="ds"], [data-style="gameboy"]) h1, :is([data-style="ds"], [data-style="gameboy"]) h2, :is([data-style="ds"], [data-style="gameboy"]) h3 { font-weight: 400; letter-spacing: .01em; line-height: 1; }
-:is([data-style="ds"], [data-style="gameboy"]) :is(.num, .kpi b, .hero-side .big, .stats b, .tw-head b, .cell span, .mstats b, .rank) { font-weight: 400; letter-spacing: .02em; }
-:is([data-style="ds"], [data-style="gameboy"]) .spr, :is([data-style="ds"], [data-style="gameboy"]) .pi { image-rendering: pixelated; }
-:is([data-style="ds"], [data-style="gameboy"]) .topbar { backdrop-filter: none; background: var(--surface); border-bottom: var(--bw) solid var(--line-2); }
-:is([data-style="ds"], [data-style="gameboy"]) .card { box-shadow: var(--shadow); }
-:is([data-style="ds"], [data-style="gameboy"]) .btn { box-shadow: 2px 2px 0 var(--line-2); }
-:is([data-style="ds"], [data-style="gameboy"]) .btn:active { transform: translate(2px, 2px); box-shadow: none; }
-:is([data-style="ds"], [data-style="gameboy"]) .btn.primary { box-shadow: 2px 2px 0 var(--ink); }
-:is([data-style="ds"], [data-style="gameboy"]) .nav a.on { background: var(--accent); color: var(--accent-ink); box-shadow: 2px 2px 0 var(--ink); }
-:is([data-style="ds"], [data-style="gameboy"]) .banner { border: var(--bw) solid var(--ink);
-  background: repeating-linear-gradient(0deg, rgba(0, 0, 0, .14) 0 1px, transparent 1px 3px), radial-gradient(60% 90% at 88% 0%, color-mix(in srgb, var(--tc, var(--accent)) 30%, transparent), transparent 70%), linear-gradient(180deg, var(--stage-2), var(--stage)); }
-:is([data-style="ds"], [data-style="gameboy"]) .stand { border-width: 2px; }
-:is([data-style="ds"], [data-style="gameboy"]) .tile-btn:hover, :is([data-style="ds"], [data-style="gameboy"]) .mcard:hover { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 var(--line-2); }
-:is([data-style="ds"], [data-style="gameboy"]) .hero h1, :is([data-style="ds"], [data-style="gameboy"]) .login-art h1, :is([data-style="ds"], [data-style="gameboy"]) .profile-head h1 { letter-spacing: .01em; line-height: .95; }
-[data-style="ds"] .topbar { background: linear-gradient(180deg, var(--surface), var(--surface-2)); }
-[data-style="gameboy"] .type { background: color-mix(in srgb, var(--tc) 22%, var(--surface)); }
-[data-style="gameboy"] .pi, [data-style="gameboy"] .spr { filter: saturate(.85); }
-[data-style="gameboy"] .banner .spr { filter: sepia(.2) saturate(.8) drop-shadow(0 4px 0 rgba(0, 0, 0, .35)); }
-
-/* ═══════════════════════════════════════════════════════════════
    Companion mascot (page-mascot sheets) + speech card
    ═══════════════════════════════════════════════════════════════ */
 .m-head { display: inline-block; flex: none; width: 36px; height: 36px; background-size: 300% 300%; background-repeat: no-repeat; }
@@ -760,8 +737,6 @@ td .muted .ico { width: 14px; height: 14px; vertical-align: -2px; }
 .m-say p { margin: 0; font-size: 13.5px; line-height: 1.45; min-height: 1.45em; }
 .m-close { position: absolute; top: 6px; right: 8px; width: 20px; height: 20px; border: 0; border-radius: var(--r-round); background: none; color: var(--muted); font-size: 15px; line-height: 1; }
 .m-close:hover { background: var(--surface-2); color: var(--text); }
-:is([data-style="ds"], [data-style="gameboy"]) .m-say { box-shadow: 4px 4px 0 var(--line-2); }
-:is([data-style="ds"], [data-style="gameboy"]) .m-say::after { border-radius: 0; }
 .mascot-set { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
 .mascot-pick { display: flex; gap: 8px; flex-wrap: wrap; }
 .mascot-pick button { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 92px; padding: 8px 6px; border-radius: var(--r-md); border: var(--bw) solid var(--line); background: var(--surface); font-weight: 700; font-size: 12.5px; color: var(--text); }
@@ -1241,10 +1216,10 @@ small { font-size: 12px; }   /* the browser default (83% of the parent) fell to 
    Everything reads the style tokens (fonts, radius, borders, palette), so the four styles each get their own version.
    ═══════════════════════════════════════════════════════════════ */
 :root { --k-blue: #779eff; --k-blue-ink: #0f1f45; --k-green: #47d147; --k-green-ink: #0d300d; --k-red: #ff0066; --k-red-ink: #2a0010; --k-yellow: #ffc266; --k-yellow-ink: #3d2600; --k-rainbow: #bf80ff; --k-rainbow-ink: #2a0f4d; }
-[data-style="ds"] { --k-blue: #6f8fe0; --k-green: #5cb85c; --k-red: #e0457d; --k-yellow: #e8b45a; --k-rainbow: #a97ee0; }
+[data-style="ds"] { --k-blue: #5b8def; --k-green: #3fbf6a; --k-red: #e8467f; --k-yellow: #f2b23c; --k-rainbow: #a276f0; }
 [data-style="studio"] { --k-blue: #7f96d6; --k-green: #6fae6f; --k-red: #cf5b84; --k-yellow: #d6a85c; --k-rainbow: #a085d6; --k-red-ink: #2a0010; }
-[data-style="gameboy"] { --k-blue: #306230; --k-blue-ink: #dde5bd; --k-green: #8bac0f; --k-green-ink: #0f380f; --k-red: #0f380f; --k-red-ink: #dde5bd; --k-yellow: #9bbc0f; --k-yellow-ink: #0f380f; --k-rainbow: #5d7a36; --k-rainbow-ink: #dde5bd; }
-[data-style="gameboy"][data-theme="dark"] { --k-blue: #9bbc0f; --k-blue-ink: #0f2a0f; --k-green: #c4d88a; --k-green-ink: #0f2a0f; --k-red: #c4d88a; --k-red-ink: #0f2a0f; --k-yellow: #8bac0f; --k-yellow-ink: #0f2a0f; --k-rainbow: #6f9440; --k-rainbow-ink: #0f2a0f; }
+[data-style="gameboy"] { --k-blue: #346856; --k-blue-ink: #e0f8d0; --k-green: #88c070; --k-green-ink: #081820; --k-red: #8f2457; --k-red-ink: #e0f8d0; --k-yellow: #d4e49a; --k-yellow-ink: #081820; --k-rainbow: #3a5a9b; --k-rainbow-ink: #e0f8d0; }
+[data-style="gameboy"][data-theme="dark"] { --k-blue: #88c070; --k-blue-ink: #081820; --k-green: #c4e8a8; --k-green-ink: #081820; --k-red: #e07aa6; --k-red-ink: #081820; --k-yellow: #e0f8d0; --k-yellow-ink: #081820; --k-rainbow: #8aa8e8; --k-rainbow-ink: #081820; }
 .k-blue { --c: var(--k-blue); --ct: var(--k-blue-ink); } .k-green { --c: var(--k-green); --ct: var(--k-green-ink); } .k-red { --c: var(--k-red); --ct: var(--k-red-ink); }
 .k-yellow { --c: var(--k-yellow); --ct: var(--k-yellow-ink); } .k-rainbow { --c: var(--k-rainbow); --ct: var(--k-rainbow-ink); }
 .gl { flex: none; }
@@ -1554,10 +1529,10 @@ svg.hlmode .g-tile { opacity: .22; transition: opacity .12s; } svg.hlmode .g-til
 :root { --tile-dark: #626a80; --tile-dark-2: #727a90; --tile-ink: #f4f6fb; --tile-deep: #353b4d; --tile-deep-2: #3f4659; --tile-deep-ink: #c3c9d8; --open-mix: 30%; --on-lift: 22%; --k-arc: #e6b422; --k-arc-ink: #3a2600; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --tile-dark: #3a4054; --tile-dark-2: #464d63; --tile-ink: #e6e9f2; --tile-deep: #14161d; --tile-deep-2: #1a1d26; --tile-deep-ink: #6b7185; --open-mix: 55%; --on-lift: 0%; } }
 :root[data-theme="dark"] { --tile-dark: #3a4054; --tile-dark-2: #464d63; --tile-ink: #e6e9f2; --tile-deep: #14161d; --tile-deep-2: #1a1d26; --tile-deep-ink: #6b7185; --open-mix: 55%; --on-lift: 0%; }
-[data-style="ds"][data-theme="dark"] { --tile-dark: #353b55; --tile-dark-2: #424a6a; }
+[data-style="ds"][data-theme="dark"] { --tile-dark: #2c3b63; --tile-dark-2: #384a78; }
 [data-style="ds"] { --k-arc: #e0ae2a; } [data-style="studio"] { --k-arc: #d9ab3a; }
-[data-style="gameboy"] { --tile-dark: #8bac0f; --tile-dark-2: #9bbc0f; --tile-ink: #0f380f; --tile-deep: #306230; --tile-deep-2: #3d7a3d; --tile-deep-ink: #cfe3a0; --k-arc: #c9d84a; --k-arc-ink: #0f380f; }
-[data-style="gameboy"][data-theme="dark"] { --tile-dark: #2f5a2f; --tile-dark-2: #3a6b3a; --tile-ink: #d3e6a0; --tile-deep: #0f380f; --tile-deep-2: #1a4a1a; --tile-deep-ink: #8bac0f; }
+[data-style="gameboy"] { --tile-dark: #6aa860; --tile-dark-2: #78b86a; --tile-ink: #081820; --tile-deep: #346856; --tile-deep-2: #3f7560; --tile-deep-ink: #e0f8d0; --k-arc: #e8c840; --k-arc-ink: #081820; --open-mix: 30%; --on-lift: 0%; }
+[data-style="gameboy"][data-theme="dark"] { --tile-dark: #234a44; --tile-dark-2: #2c5a52; --tile-ink: #e0f8d0; --tile-deep: #081820; --tile-deep-2: #0f2a30; --tile-deep-ink: #88c070; --open-mix: 40%; --on-lift: 0%; }
 .k-arc { --c: var(--k-arc); --ct: var(--k-arc-ink); }
 .g-tile { transform-box: fill-box; transform-origin: center; transition: transform .16s ease; }
 .g-tile.open .g-out, .g-tile.locked .g-out { fill: color-mix(in srgb, var(--c) 34%, var(--tile-dark)); }
@@ -1633,3 +1608,115 @@ svg.hlmode .g-tile { opacity: .22; transition: opacity .12s; } svg.hlmode .g-til
 .gh-chip.more { border-style: dashed; padding: 4px 12px; color: var(--text-2); }
 .mcard.me { border-color: var(--text); } .badge.you { background: var(--text); color: var(--surface); }
 .gb-hint { margin: 0; font-size: 13px; }
+
+/* ═══════════════════════════════════════════════════════════════
+   DS: a touch-screen handheld. Silver-white panels with a pale blue dot screen behind them, rounded glossy keys that press down,
+   recessed fields, a rail for the menu. Sharp edges are not the point here: it is smooth, bright and tactile.
+   ═══════════════════════════════════════════════════════════════ */
+[data-style="ds"] body { background: radial-gradient(circle, color-mix(in srgb, var(--line-2) 24%, transparent) 1.3px, transparent 1.7px) 0 0 / 22px 22px, linear-gradient(180deg, color-mix(in srgb, var(--bg) 80%, #fff), var(--bg) 46%) fixed; }
+[data-style="ds"] h1, [data-style="ds"] h2, [data-style="ds"] h3 { font-weight: 800; letter-spacing: -.01em; }
+[data-style="ds"] :is(.num, .kpi b, .hero-side .big, .stats b, .tw-head b, .cell span, .mstats b, .rank) { font-weight: 800; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+[data-style="ds"] .spr { image-rendering: pixelated; }
+[data-style="ds"] .topbar { backdrop-filter: none; -webkit-backdrop-filter: none; background: linear-gradient(180deg, #ffffff 0%, #eaf0fa 55%, #d3deef 100%); border-bottom: 2px solid var(--line-2); box-shadow: 0 3px 0 rgba(19, 35, 63, .1); }
+[data-style="ds"][data-theme="dark"] .topbar { background: linear-gradient(180deg, #243764 0%, #1a2850 55%, #131d3a 100%); box-shadow: 0 3px 0 rgba(0, 0, 0, .35); }
+[data-style="ds"] .nav { background: var(--surface-3); border: 2px solid var(--line-2); box-shadow: inset 0 2px 4px rgba(19, 35, 63, .2); }
+[data-style="ds"] .nav a { color: var(--text-2); font-weight: 800; }
+[data-style="ds"] .nav a:hover { background: color-mix(in srgb, var(--surface) 60%, transparent); }
+[data-style="ds"] .nav a.on, [data-style="ds"] .pill.on { background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 62%, #fff) 0%, var(--accent) 52%, var(--accent-2) 100%); color: var(--accent-ink); border-color: var(--accent-2);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, .28), inset 0 1px 0 rgba(255, 255, 255, .6); text-shadow: 0 1px 0 rgba(0, 0, 0, .18); }
+[data-style="ds"] .nav a.on .ico { color: inherit; }
+[data-style="ds"] .subnav a::after { height: 3px; }
+[data-style="ds"] .card { border: 2px solid var(--line); box-shadow: var(--shadow), inset 0 2px 0 rgba(255, 255, 255, .85); }
+[data-style="ds"][data-theme="dark"] .card { box-shadow: var(--shadow), inset 0 2px 0 rgba(255, 255, 255, .05); }
+[data-style="ds"] .btn { background: linear-gradient(180deg, #ffffff, #e4ebf8); border: 2px solid var(--line-2); border-radius: var(--r-md); font-weight: 800;
+  box-shadow: 0 3px 0 var(--line-2), inset 0 1px 0 #fff; }
+[data-style="ds"][data-theme="dark"] .btn { background: linear-gradient(180deg, #2b3e6c, #1f2f55); box-shadow: 0 3px 0 #0a1020, inset 0 1px 0 rgba(255, 255, 255, .12); }
+[data-style="ds"] .btn:hover { border-color: var(--ink); }
+[data-style="ds"] .btn:active { transform: translateY(3px); box-shadow: 0 0 0 var(--line-2), inset 0 1px 0 #fff; }
+[data-style="ds"] .btn.primary { background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 62%, #fff) 0%, var(--accent) 52%, var(--accent-2) 100%); color: var(--accent-ink); border-color: var(--accent-2);
+  box-shadow: 0 3px 0 var(--accent-2), inset 0 1px 0 rgba(255, 255, 255, .55); text-shadow: 0 1px 0 rgba(0, 0, 0, .2); }
+[data-style="ds"] .btn.primary:active { box-shadow: 0 0 0 var(--accent-2), inset 0 1px 0 rgba(255, 255, 255, .55); }
+[data-style="ds"] .btn.ghost, [data-style="ds"] .btn.ghost:active { background: transparent; border-color: transparent; box-shadow: none; }
+[data-style="ds"] .btn.ghost:hover { background: var(--surface-2); border-color: var(--line); }
+[data-style="ds"] .btn:disabled { box-shadow: none; filter: saturate(.4); }
+[data-style="ds"] .pill, [data-style="ds"] .tchip, [data-style="ds"] .lg { border: 2px solid var(--line); background: linear-gradient(180deg, var(--surface), var(--surface-2)); font-weight: 700; }
+[data-style="ds"] .seg { background: var(--surface-3); border: 2px solid var(--line-2); box-shadow: inset 0 2px 4px rgba(19, 35, 63, .18); }
+[data-style="ds"] .seg button.on { background: linear-gradient(180deg, #fff, #e8eefa); box-shadow: 0 2px 0 var(--line-2); }
+[data-style="ds"][data-theme="dark"] .seg button.on { background: linear-gradient(180deg, #2b3e6c, #1f2f55); box-shadow: 0 2px 0 #0a1020; }
+[data-style="ds"] :is(input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea) { border: 2px solid var(--line-2); border-radius: var(--r-md); background: var(--surface); box-shadow: inset 0 2px 4px rgba(19, 35, 63, .14); }
+[data-style="ds"] :is(input, select, textarea):focus { outline: 3px solid color-mix(in srgb, var(--accent) 55%, transparent); outline-offset: 1px; border-color: var(--accent); }
+[data-style="ds"] .tile-btn:hover, [data-style="ds"] .mcard:hover { transform: translateY(-3px); box-shadow: 0 6px 0 var(--line-2), 0 14px 20px -12px rgba(19, 35, 63, .4); }
+[data-style="ds"] .banner { border: 2px solid var(--ink);
+  background: linear-gradient(115deg, rgba(255, 255, 255, .13) 0 18%, transparent 18%), radial-gradient(60% 90% at 88% 0%, color-mix(in srgb, var(--tc, var(--accent)) 38%, transparent), transparent 70%), linear-gradient(180deg, var(--stage-2), var(--stage)); }
+[data-style="ds"] .table thead th { background: linear-gradient(180deg, var(--surface-2), var(--surface-3)); color: var(--text-2); font-weight: 800; }
+[data-style="ds"] .m-say { box-shadow: 0 4px 0 var(--line-2), 0 14px 24px -12px rgba(19, 35, 63, .4); }
+[data-style="ds"] .grid-scroll { background-image: radial-gradient(color-mix(in srgb, var(--line-2) 40%, transparent) 1.2px, transparent 1.6px); background-size: 18px 18px; }
+
+/* ═══════════════════════════════════════════════════════════════
+   Game Boy: the LCD. Four greens, a pixel typeface, square corners, hard shadows, dithering where a screen would fade,
+   a dark bezel for the menu with the two stripes of the original, and a faint dot-matrix grid over everything.
+   ═══════════════════════════════════════════════════════════════ */
+[data-style="gameboy"] { --edge: #081820; font-size-adjust: none; }
+[data-style="gameboy"][data-theme="dark"] { --edge: #88c070; }
+[data-style="gameboy"] body { font-size: 16px; line-height: 1.5; font-weight: 400; letter-spacing: .01em; }
+/* the dot-matrix grid sits behind the content, never over the text */
+[data-style="gameboy"] body { background-image: repeating-linear-gradient(0deg, color-mix(in srgb, var(--edge) 9%, transparent) 0 1px, transparent 1px 4px), repeating-linear-gradient(90deg, color-mix(in srgb, var(--edge) 6%, transparent) 0 1px, transparent 1px 4px); background-color: var(--bg); }
+[data-style="gameboy"] h1, [data-style="gameboy"] h2, [data-style="gameboy"] h3 { font-weight: 600; letter-spacing: .02em; line-height: 1.1; }
+[data-style="gameboy"] :is(.num, .kpi b, .hero-side .big, .stats b, .tw-head b, .cell span, .mstats b, .rank) { font-weight: 600; letter-spacing: .02em; }
+[data-style="gameboy"] :is(.pi, .spr) { image-rendering: pixelated; filter: contrast(1.06) saturate(.7); }
+[data-style="gameboy"] .banner .spr { filter: contrast(1.06) saturate(.7) drop-shadow(0 4px 0 rgba(0, 0, 0, .35)); }
+/* the bezel */
+[data-style="gameboy"] .topbar { backdrop-filter: none; -webkit-backdrop-filter: none; background: var(--stage); color: var(--stage-text); border-bottom: 0; box-shadow: none; }
+[data-style="gameboy"] .topbar::before { height: 4px; background: linear-gradient(90deg, #8f2457 0 33.3%, #3a5a9b 33.3% 66.6%, #88c070 66.6% 100%); opacity: 1; }
+[data-style="gameboy"] .topbar::after { content: ''; position: absolute; left: 0; right: 0; bottom: -6px; height: 6px; background: linear-gradient(180deg, #8f2457 0 2px, transparent 2px 4px, #3a5a9b 4px 6px); pointer-events: none; }
+[data-style="gameboy"] :is(.topbar .brand, .topbar .demo-flag) { color: var(--stage-text); }
+[data-style="gameboy"] .topbar .demo-flag { border-color: var(--stage-text); }
+[data-style="gameboy"] .nav { background: var(--stage-2); border: 2px solid #346856; }
+[data-style="gameboy"] .nav a { color: var(--stage-text); font-weight: 500; }
+[data-style="gameboy"] .nav a:hover { background: #346856; color: #e0f8d0; }
+[data-style="gameboy"] .nav a.on { background: #e0f8d0; color: #081820; box-shadow: none; }
+[data-style="gameboy"] .nav a.on .ico { color: inherit; }
+[data-style="gameboy"] .subnav { border-top-color: #346856; }
+[data-style="gameboy"] .subnav a { color: #88c070; }
+[data-style="gameboy"] .subnav a:hover, [data-style="gameboy"] .subnav a.on { color: #e0f8d0; }
+[data-style="gameboy"] .subnav a::after { height: 3px; border-radius: 0; background: #e0f8d0; }
+[data-style="gameboy"] :is(.topbar .user, .topbar .lang, .topbar .icon-btn) { background: var(--stage-2); border-color: #346856; color: var(--stage-text); }
+/* panels and keys */
+[data-style="gameboy"] .card { border: 2px solid var(--edge); box-shadow: var(--shadow); }
+[data-style="gameboy"] .btn { background: var(--surface); border: 2px solid var(--edge); box-shadow: 3px 3px 0 var(--line-2); font-weight: 600; }
+[data-style="gameboy"] .btn:hover { border-color: var(--edge); background: repeating-conic-gradient(var(--surface-3) 0 25%, var(--surface) 0 50%) 0 0 / 4px 4px; }
+[data-style="gameboy"] .btn:active { transform: translate(3px, 3px); box-shadow: none; }
+[data-style="gameboy"] .btn.primary { background: var(--ink); border-color: var(--ink); color: var(--surface); box-shadow: 3px 3px 0 var(--line-2); }
+[data-style="gameboy"] .btn.primary:hover { background: repeating-conic-gradient(var(--line-2) 0 25%, var(--ink) 0 50%) 0 0 / 4px 4px; border-color: var(--ink); }
+[data-style="gameboy"] .btn.ghost, [data-style="gameboy"] .btn.ghost:active { background: transparent; border-color: transparent; box-shadow: none; }
+[data-style="gameboy"] .btn.ghost:hover { background: repeating-conic-gradient(var(--surface-3) 0 25%, transparent 0 50%) 0 0 / 4px 4px; border-color: var(--edge); }
+[data-style="gameboy"] .btn:disabled { background: repeating-conic-gradient(var(--surface-3) 0 25%, var(--surface) 0 50%) 0 0 / 4px 4px; box-shadow: none; opacity: .6; }
+[data-style="gameboy"] :is(.pill, .tchip, .lg) { border: 2px solid var(--edge); background: var(--surface); font-weight: 500; }
+[data-style="gameboy"] .pill.on { background: var(--ink); color: var(--surface); }
+[data-style="gameboy"] .seg { background: var(--surface-2); border: 2px solid var(--edge); }
+[data-style="gameboy"] .seg button.on { background: var(--ink); color: var(--surface); box-shadow: none; }
+[data-style="gameboy"] :is(input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea) { border: 2px solid var(--edge); border-radius: 0; background: var(--surface); box-shadow: inset 2px 2px 0 var(--surface-3); }
+[data-style="gameboy"] :is(input, select, textarea):focus { outline: 2px solid var(--edge); outline-offset: 2px; }
+[data-style="gameboy"] .tile-btn:hover, [data-style="gameboy"] .mcard:hover { transform: translate(-2px, -2px); box-shadow: 5px 5px 0 var(--edge); }
+[data-style="gameboy"] .banner { border: 2px solid var(--edge);
+  background: repeating-conic-gradient(rgba(224, 248, 208, .07) 0 25%, transparent 0 50%) 0 0 / 4px 4px, radial-gradient(60% 90% at 88% 0%, color-mix(in srgb, var(--tc, var(--accent)) 30%, transparent), transparent 70%), linear-gradient(180deg, var(--stage-2), var(--stage)); }
+[data-style="gameboy"] .table thead th { background: var(--surface-2); border-bottom: 2px solid var(--edge); }
+[data-style="gameboy"] .type { background: color-mix(in srgb, var(--tc) 22%, var(--surface)); }
+[data-style="gameboy"] .plate { --tc: var(--text-2) !important; }
+[data-style="gameboy"] .m-say { box-shadow: 4px 4px 0 var(--edge); }
+[data-style="gameboy"] .m-say::after { border-radius: 0; }
+[data-style="gameboy"] ::-webkit-scrollbar { width: 12px; height: 12px; }
+[data-style="gameboy"] ::-webkit-scrollbar-track { background: var(--surface-2); }
+[data-style="gameboy"] ::-webkit-scrollbar-thumb { background: var(--line-2); border: 2px solid var(--surface-2); }
+[data-style="gameboy"] .gim-tag.r-spec, [data-style="gameboy"] .r-spec { background: #346856; color: #e0f8d0; }
+[data-style="gameboy"] .gim-tag.r-phys, [data-style="gameboy"] .r-phys { background: #081820; color: #e0f8d0; }
+[data-style="gameboy"] .gim-tag.r-pmove, [data-style="gameboy"] .r-pmove { background: #e0f8d0; color: #081820; box-shadow: inset 0 0 0 2px #081820; }
+[data-style="gameboy"] .gim-tag.r-se, [data-style="gameboy"] .r-se { background: #8f2457; color: #e0f8d0; }
+[data-style="gameboy"][data-theme="dark"] .gim-tag.r-spec, [data-style="gameboy"][data-theme="dark"] .r-spec { background: #88c070; color: #081820; }
+[data-style="gameboy"][data-theme="dark"] .gim-tag.r-phys, [data-style="gameboy"][data-theme="dark"] .r-phys { background: #e0f8d0; color: #081820; }
+[data-style="gameboy"][data-theme="dark"] .gim-tag.r-pmove, [data-style="gameboy"][data-theme="dark"] .r-pmove { background: #081820; color: #e0f8d0; box-shadow: inset 0 0 0 2px #88c070; }
+[data-style="gameboy"][data-theme="dark"] .gim-tag.r-se, [data-style="gameboy"][data-theme="dark"] .r-se { background: #e07aa6; color: #081820; }
+/* Game Boy: digits in the clearer pixel face (the text face makes a 5 look like an S), and the sprite stands lose their type tints */
+[data-style="gameboy"] :is(.num, .kpi b, .hero-side .big, .stats b, .tw-head b, .cell span, .mstats b, .rank, .hud-i b, .tc-n, .gb-state) { font-family: VT323, 'Pixelify Sans', monospace; font-size: 1.22em; font-weight: 400; letter-spacing: .03em; }
+[data-style="gameboy"] .stand { --tc: var(--line-2) !important; }
+[data-style="gameboy"] .stand, [data-style="gameboy"] .stand::before { background-image: none; }

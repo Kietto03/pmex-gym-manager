@@ -21,8 +21,8 @@ export const MODES = [['auto', 'Auto'], ['light', 'Light mode'], ['dark', 'Dark 
 
 const FONTS = {
   switch: 'family=Nunito:wght@500;600;700;800;900',
-  ds: 'family=VT323&family=Nunito:wght@500;600;700;800;900',
-  gameboy: 'family=VT323&family=Nunito:wght@500;600;700;800;900',
+  ds: 'family=M+PLUS+Rounded+1c:wght@500;700;800&family=Nunito:wght@500;600;700;800;900',
+  gameboy: 'family=Pixelify+Sans:wght@400..700&family=VT323',
   studio: 'family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Geist:wght@400..700&family=Geist+Mono:wght@400..600',
 };
 
