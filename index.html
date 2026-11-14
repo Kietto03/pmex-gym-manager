@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en" data-style="switch" data-theme="light" data-accent="red">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Gym manager for Pokémon Masters EX: members, sync pairs, Pasio Tower and Gym Battle run logs.">
+  <title>PMEX Gym Manager</title>
+  <link rel="icon" href="https://pomasters.github.io/SyncPairsTracker/images/icon_masterex.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <script>
+    // Same logic as src/appearance.js, run before the first paint
+    (function () {
+      var g = function (k, d) { try { return localStorage.getItem(k) || d; } catch (e) { return d; } };
+      var r = document.documentElement, style = g('gym-style', 'switch'), mode = g('gym-theme', 'auto');
+      r.dataset.style = style;
+      r.dataset.accent = g('gym-accent', 'red'); r.dataset.gb = g('gym-gb', 'green');
+      r.dataset.theme = mode === 'dark' || (mode !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+      r.lang = g('gym-lang', 'en');
+      var fonts = { switch: 'family=Nunito:wght@500;600;700;800;900', ds: 'family=M+PLUS+Rounded+1c:wght@500;700;800&family=Nunito:wght@500;600;700;800;900',
+        gameboy: 'family=Pixelify+Sans:wght@400..700&family=VT323',
+        studio: 'family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Geist:wght@400..700&family=Geist+Mono:wght@400..600' };
+      document.write('<link id="style-fonts" rel="stylesheet" href="https://fonts.googleapis.com/css2?' + (fonts[style] || fonts.switch) + '&display=swap">');
+    })();
+  </script>
+  <link rel="stylesheet" href="styles.css?v=e359fe90">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#/">
+      <span id="brand-mascot"></span>
+      <span id="brand-name">Gym Manager</span>
+      <span id="demo-flag" class="demo-flag" hidden>Demo</span>
+    </a>
+    <nav id="nav" class="nav" aria-label="Sections"></nav>
+    <div class="top-right">
+      <span id="userbox"></span>
+      <a id="settings-link" class="icon-btn" href="#/settings" aria-label="Settings"></a>
+    </div>
+    <nav id="subnav" class="subnav" aria-label="Pages" hidden></nav>
+  </header>
+
+  <main id="view" class="view"><p class="muted loading">Loading…</p></main>
+  <div id="companion" class="companion" hidden></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <footer class="footer">
+    Sync pair data &amp; icons: <a href="https://pomasters.github.io/SyncPairsTracker/" target="_blank" rel="noopener">PoMasters Sync Pairs Tracker</a> ·
+    Gym Battle data &amp; sprites: <a id="dex-link" href="https://kietto03.github.io/pmex-supez-dex/" target="_blank" rel="noopener">PMEX Dex</a> ·
+    Fan project, not affiliated with Nintendo, DeNA or The Pokémon Company.
+  </footer>
+
+  <!--importmap--><script type="importmap">{"imports":{"./src/acquisition.js":"./src/acquisition.js?v=e359fe90","./src/api.js":"./src/api.js?v=e359fe90","./src/appearance.js":"./src/appearance.js?v=e359fe90","./src/art.js":"./src/art.js?v=e359fe90","./src/catalog.js":"./src/catalog.js?v=e359fe90","./src/circuits.js":"./src/circuits.js?v=e359fe90","./src/core.js":"./src/core.js?v=e359fe90","./src/demo.js":"./src/demo.js?v=e359fe90","./src/forms.js":"./src/forms.js?v=e359fe90","./src/freshness.js":"./src/freshness.js?v=e359fe90","./src/gems.js":"./src/gems.js?v=e359fe90","./src/grid.js":"./src/grid.js?v=e359fe90","./src/gridimage.js":"./src/gridimage.js?v=e359fe90","./src/i18n.js":"./src/i18n.js?v=e359fe90","./src/icons.js":"./src/icons.js?v=e359fe90","./src/imageshare.js":"./src/imageshare.js?v=e359fe90","./src/lang/es.js":"./src/lang/es.js?v=e359fe90","./src/lang/ja.js":"./src/lang/ja.js?v=e359fe90","./src/lang/vi.js":"./src/lang/vi.js?v=e359fe90","./src/main.js":"./src/main.js?v=e359fe90","./src/mascot.js":"./src/mascot.js?v=e359fe90","./src/moves.js":"./src/moves.js?v=e359fe90","./src/pages/clears.js":"./src/pages/clears.js?v=e359fe90","./src/pages/freshness.js":"./src/pages/freshness.js?v=e359fe90","./src/pages/gemsextra.js":"./src/pages/gemsextra.js?v=e359fe90","./src/pages/gemspage.js":"./src/pages/gemspage.js?v=e359fe90","./src/pages/gridpage.js":"./src/pages/gridpage.js?v=e359fe90","./src/pages/info.js":"./src/pages/info.js?v=e359fe90","./src/pages/lodge.js":"./src/pages/lodge.js?v=e359fe90","./src/pages/resources.js":"./src/pages/resources.js?v=e359fe90","./src/pages/strategies.js":"./src/pages/strategies.js?v=e359fe90","./src/pairmap.js":"./src/pairmap.js?v=e359fe90","./src/ranking.js":"./src/ranking.js?v=e359fe90","./src/rules.js":"./src/rules.js?v=e359fe90","./src/sheet.js":"./src/sheet.js?v=e359fe90","./src/squads.js":"./src/squads.js?v=e359fe90","./src/stats.js":"./src/stats.js?v=e359fe90","./src/time.js":"./src/time.js?v=e359fe90","./src/tracker.js":"./src/tracker.js?v=e359fe90"}}</script><!--/importmap-->
+  <script src="config.js?v=e359fe90"></script>
+  <script type="module" src="src/main.js?v=e359fe90"></script>
+</body>
+</html>

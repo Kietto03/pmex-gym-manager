@@ -1,0 +1,546 @@
+/* ═══════════════════════════════════════════════════════════════
+   Demo backend — same interface as the Supabase one, kept in memory.
+   Sample gym: 1 admin, 2 mods, 17 members with made-up nicknames, their
+   pairs and towers, a finished season and a live one filled with runs
+   that follow the real rules. Reloading the page resets everything.
+   ═══════════════════════════════════════════════════════════════ */
+import { validTz } from './time.js';
+import { GYMS, catalogRows, seasonFromGym, TYPES, pairById } from './catalog.js';
+import { autoFill, suggestFacilitator } from './sheet.js';
+import { circuitAt, seasonState, validateRun, suggestTeam } from './rules.js';
+import { t } from './i18n.js';
+
+// Deterministic randomness so every visit shows the same sample gym
+let seed = 7;
+const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+const pick = a => a[Math.floor(rnd() * a.length)];
+const uid = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+
+const NICKS = ['Lumina', 'Kaiser', 'Mochi', 'Rook', 'Astra', 'Pip', 'Nova', 'Bramble', 'Tofu', 'Zephyr', 'Juno',
+  'Pixel', 'Marlow', 'Echo', 'Saffron', 'Quill', 'Onyx', 'Tansy', 'Vireo', 'Coda'];
+
+function seedData() {
+  const profiles = NICKS.map((nick, i) => ({
+    id: uid(i + 1), username: nick.toLowerCase(), display_name: nick, facebook: '', note: '', avatar: '', avatar_url: '',
+    role: i === 0 ? 'admin' : i < 3 ? 'mod' : 'member', joined_at: '2026-01-01',
+    created_at: new Date(Date.now() - (40 - i) * 864e5).toISOString(),
+  }));
+  const catalog = catalogRows();
+  const memberPairs = [], tower = [];
+  for (const p of profiles) {
+    const skill = 0.3 + rnd() * 0.7;
+    for (const c of catalog) {
+      if (rnd() > 0.10 + skill * 0.18) continue;
+      const level = c.max_bonus === 10 && rnd() < skill * 0.5 ? 5 + Math.ceil(rnd() * 5) : 1 + Math.floor(rnd() * 5 * skill + rnd());
+      const stars = Math.min(5, c.rarity + Math.floor(rnd() * (6 - c.rarity) * (0.4 + skill)));
+      const ex = stars === 5 && rnd() < skill * 0.6;
+      memberPairs.push({ user_id: p.id, pair_id: c.id, level: Math.min(level, c.max_bonus), stars, ex,
+        ex_role: ex && !!c.ex_role && rnd() < skill * 0.6, note: '', updated_at: new Date().toISOString() });
+    }
+    for (const t of TYPES) {
+      const f = Math.round(Math.min(40, Math.max(0, 40 * skill - 8 + rnd() * 16)));
+      if (f) tower.push({ user_id: p.id, type: t, floor: f, updated_at: new Date().toISOString() });
+    }
+  }
+
+  // Live season = newest datamine gym, Battle opened 3 days ago; the previous gym is a finished season
+  const seasons = [];
+  const gyms = GYMS();
+  const live = gyms[gyms.length - 1], past = gyms[gyms.length - 2];
+  if (past) seasons.push({ ...seasonFromGym(past), id: 1, name: `${past.name} (demo)`, is_active: false,
+    battle_start: new Date(Date.now() - 40 * 864e5).toISOString(), battle_end: new Date(Date.now() - 33 * 864e5).toISOString() });
+  if (live) seasons.push({ ...seasonFromGym(live), id: 2, name: `${live.name} (demo)`, is_active: true,
+    battle_start: new Date(Date.now() - 3.2 * 864e5).toISOString(), battle_end: new Date(Date.now() + 3.8 * 864e5).toISOString() });
+  for (const s of seasons) Object.assign(s, { tickets_day1: 12, tickets_daily: 3, ticket_cap: 30, gym_ticket_cap: 600,
+    target_score: s.is_active ? 18000000 : 15000000, created_by: uid(1), created_at: s.battle_start });
+
+  const seasonMembers = [{ season_id: 2, user_id: uid(20), banned: true, note: 'Took a break mid-season' }];
+  // Battle roles for the running season: a few members with a role and main type, the rest not assigned yet
+  const ROLES = ['DDs', 'HHs', 'Facilitator', 'Finisher', 'Helper'], MAINS = ['Fire', 'Water', 'Grass', 'Electric', 'Ice', 'Dragon'];
+  profiles.slice(0, 8).forEach((p, i) => { const m = seasonMembers.find(x => x.season_id === 2 && x.user_id === p.id); const r = { battle_role: ROLES[i % 5], main_type: MAINS[i % 6], support_type: i % 2 ? MAINS[(i + 2) % 6] : null }; if (m) Object.assign(m, r); else seasonMembers.push({ season_id: 2, user_id: p.id, banned: false, note: '', ...r }); });
+  const runs = [];
+  let runId = 1;
+  for (const s of seasons) simulate(s, profiles, memberPairs, seasonMembers.filter(m => m.season_id === s.id), runs, () => runId++);
+
+  // An older Gym Battle that was kept in a spreadsheet: only the final results are known
+  const results = [];
+  const arch = seasons.find(x => !x.is_active);
+  if (arch) {
+    const old = { ...JSON.parse(JSON.stringify(arch)), id: 3, name: 'Archive Gym Battle (demo)', is_active: false, battle_start: '2026-08-01T00:00:00Z', battle_end: '2026-08-08T00:00:00Z' };
+    seasons.push(old);
+    [[profiles[0], 30, 1214000, 'Red & Articuno (3/5 EXR)\nKieran & Furret (1/5 EXR)'], [profiles[1], 28, 902500, ''], [null, 25, 686502, 'Steven & Metagross (3/5 EXR)']]
+      .forEach(([p, tk, pts, ice], i) => results.push({ season_id: 3, name: p ? p.display_name : 'Former member', user_id: p ? p.id : null, tickets: tk, points: pts, teams: ice ? { ICE: ice } : {} }));
+  }
+
+  for (const r of runs) { const m = seasonMembers.find(x => x.season_id === r.season_id && x.user_id === r.user_id); r.main_type_at = m?.main_type || null; r.support_type_at = m?.support_type || null; }
+  const assignments = [], notes = [];
+  const live2 = seasons.find(s => s.is_active);
+  if (live2) {
+    live2.leaders.forEach((l, i) => {
+      for (const p of [profiles[3 + (i * 2) % 17], profiles[4 + (i * 2) % 16]]) {
+        const team = suggestTeam(memberPairs.filter(m => m.user_id === p.id), l.weakness || [], pairById).map(x => x.pair_id);
+        assignments.push({ season_id: live2.id, leader: l.name, user_id: p.id, team, note: '', updated_by: uid(2), updated_at: live2.battle_start });
+      }
+    });
+    notes.push({ season_id: live2.id, leader: live2.leaders[0].name, note: 'Open with the Field pair to set the zone, then bring in the DPS.', updated_by: uid(2) });
+  }
+  // One facilitator (profiles[5]) sets up every fight; the rules text is the sample the Strategy tab shows
+  const facilitators = [];
+  if (live2) {
+    live2.strategy = DEMO_STRATEGY;
+    const fp = profiles[5];
+    for (const l of live2.leaders) {
+      const team = suggestFacilitator(memberPairs.filter(m => m.user_id === fp.id), l.weakness || []).map(x => x.pair_id);
+      facilitators.push({ season_id: live2.id, leader: l.name, user_id: fp.id, team, does: ['rebuff', 'stats', 'status'],
+        note: 'One ticket before each battle, from Circuit 4.', updated_by: uid(2), updated_at: live2.battle_start });
+    }
+  }
+  const activity = runs.slice(0, 30).map((r, i) => ({ id: i + 1, at: r.created_at, actor: r.created_by, actor_name: r.member_name,
+    action: 'runs.insert', detail: { leader: r.leader, round: r.round, score: r.score } }));
+  return { profiles, catalog, memberPairs, tower, seasons, seasonMembers, runs, assignments, notes, activity, facilitators, results, resources: seedResources(), gridBuilds: [], runReviews: [], ...seedGems(), ...seedStrategies(profiles, catalog), sheet: seedSheet(profiles, memberPairs) };
+}
+
+const DEMO_STRATEGY = `# 1. General requirements for all sync pairs
+- By default, every sync pair has its **EX** and **EX Role** unlocked.
+- Move level at least 3/5; 5/5 or Superawakened is strongly preferred.
+- Ideally each team has:
+  - a way to lower the opponent's Type Rebuff
+  - one or two damage dealers
+  - a way to create and extend Zones or Weather (EX Zones first)
+  - a way to lower the opponent's stats, and to apply status conditions
+
+# 2. Ticket usage
+- Use your tickets efficiently.
+- Finished a battle at ~99% of the opponent's HP? Restart it instead of spending another ticket on the last 1%.
+- Spend all your tickets before the event ends.
+
+# 3. Team appointment
+- Each Type is mainly appointed to two members. When both are done and have tickets left, they may help other Types.
+- The remaining member is the **Facilitator**: from Circuit 4 they spend one ticket before each battle to make it easier for the others.`;
+
+// Every member's roster sheet, filled with the suggestions (as if each had done "Auto-fill")
+function seedSheet(profiles, memberPairs) {
+  const rows = [];
+  for (const p of profiles) {
+    const mine = memberPairs.filter(m => m.user_id === p.id);
+    for (const ty of TYPES) for (const [slot, pair_id] of Object.entries(autoFill(mine, ty))) rows.push({ user_id: p.id, type: ty, slot, pair_id, updated_by: p.id });
+  }
+  return rows;
+}
+
+// Fill a season with runs that pass validateRun, the way a gym plays it
+function seedStrategies(profiles, catalog) {
+  const pick = ty => catalog.filter(c => c.type === ty).slice(0, 3).map(c => ({ pair_id: c.id }));
+  const now = new Date().toISOString();
+  const rev = (id, strategy_id, extra) => ({ id, strategy_id, rev_no: 1, title: '', boss: '', weakness: '', season_label: '', conditions: '', team: [], grid_note: '', rotation: '', video_url: '', status: 'published',
+    author_id: profiles[3].id, review_note: '', reviewed_by: profiles[1].id, reviewed_at: now, created_at: now, updated_at: now, ...extra });
+  return {
+    strategies: [{ id: 1, mode: 'GvG', created_by: profiles[3].id, created_at: now, archived: false, published_rev: 1 },
+      { id: 2, mode: 'DC 3v1', created_by: profiles[3].id, created_at: now, archived: false, published_rev: 2 },
+      { id: 3, mode: 'GvG', created_by: profiles[5].id, created_at: now, archived: false, published_rev: null }],
+    revisions: [
+      rev(1, 1, { title: 'Roark: Grass sweep', boss: 'Roark', weakness: 'Grass', season_label: 'Pasio No. 4', conditions: 'Opponents take zero physical damage: bring Special strikers.', team: pick('Grass'), rotation: 'Turn 1: set Sunny, Turn 2: sync move, Turn 3: finisher.', video_url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' }),
+      rev(2, 2, { title: 'Dragon 3v1 safe rotation', boss: 'Clair', weakness: 'Dragon', season_label: 'D.C season 12', conditions: 'Three teams of three.', team: pick('Dragon'), rotation: 'Lead with the Fairy sync, finish with the Dragon striker.' }),
+      rev(3, 3, { title: 'Ice rush (draft for review)', boss: 'Falkner', weakness: 'Ice', status: 'pending', author_id: profiles[5].id, team: pick('Ice'), rotation: 'Fast clear in two sync moves.', reviewed_by: null, reviewed_at: null })],
+  };
+}
+function seedGems() {
+  const day = n => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
+  const r = (id, label, kind, a, b, free_gems, extra = {}) => ({ id, event_id: null, label, kind, start_date: day(a), end_date: day(b), free_gems, certainty: 'confirmed', condition: '', source: 'demo', ...extra });
+  return { gems: { settings: { reset_timezone: 'UTC', reset_hour: 0 }, events: [{ id: 1, name: 'Anniversary week', start_date: day(-2), end_date: day(6), source: 'demo', note: '' }],
+    rewards: [r(1, 'Daily login', 'daily', -10, 20, 10), r(2, 'Mission milestone', 'on_date', 2, 2, 300), r(3, 'Anniversary mission', 'window', -2, 6, 500, { event_id: 1, condition: 'Clear 5 missions' }),
+      r(4, 'Ranking reward', 'on_date', 1, 1, null), r(5, 'Old bonus', 'on_date', -5, -5, 100)] } };
+}
+function seedResources() {
+  const mk = (id, category, title, url, language, scope, source, status = 'ok') => ({ id, category, title, url, language, scope, source, author: '', version: '', effective: null, checked_at: new Date(Date.now() - id * 864e5).toISOString(), status, note: '' });
+  return [mk(1, 'tier_cn', 'Tier list (China) by role', 'https://docs.qq.com/sheet/demo', 'zh', 'by role', 'Tencent Docs'),
+    mk(2, 'tier_spark', 'Spark tier list', 'https://docs.google.com/document/demo', 'en', 'Spark', 'Google Docs'),
+    mk(3, 'tier_jp', 'Tier list (Japan)', 'https://gamewith.jp/pokemonmasters/demo', 'ja', 'all roles', 'GameWith', 'broken'),
+    mk(4, 'tracker', 'Pasio Tower tracker', 'https://www.pomatowers.com/tracker', 'en', 'Pasio Tower', 'pomatowers.com'),
+    mk(5, 'guide', 'Trainer Lodge topics', 'https://www.serebii.net/pokemonmasters/trainerlodgetopics.shtml', 'en', 'Trainer Lodge', 'Serebii', 'unchecked')];
+}
+function simulate(season, profiles, memberPairs, seasonMembers, runs, nextId) {
+  // The admin, first mod and first member are the "try it" accounts: keep tickets for them to spend
+  const tryIt = new Set(['admin', 'mod', 'member'].map(r => profiles.find(p => p.role === r)?.id));
+  const players = profiles;
+  const start = Date.parse(season.battle_start), end = Date.parse(season.battle_end);
+  const stop = Math.min(Date.now(), end);
+  for (let t = start + 36e5; t < stop; t += 36e5 * 3) {
+    const mine = runs.filter(r => r.season_id === season.id);
+    const st = seasonState(season, mine, seasonMembers, t);
+    if (st.finished) break;
+    for (const p of players) {
+      if (rnd() > 0.35) continue;
+      const now = seasonState(season, runs.filter(r => r.season_id === season.id), seasonMembers, t);
+      if (now.finished) break;
+      if (tryIt.has(p.id) && season.is_active && (now.perMember[p.id]?.tickets || 0) >= now.granted - 9) continue;
+      const c = circuitAt(season, now.active);
+      const open = now.leaders.filter(l => (now.pts[now.active]?.[l] || 0) < c.pts);
+      const leader = pick(open);
+      const left = c.pts - (now.pts[now.active]?.[leader] || 0);
+      const tickets = c.fixed || 1 + Math.floor(rnd() * 3);
+      const score = Math.max(1, Math.min(left, Math.round(c.pts * (0.4 + rnd() * 0.9) * tickets / 3)));
+      const owned = memberPairs.filter(m => m.user_id === p.id);
+      const team = Array.from({ length: 3 }, () => pick(owned)).filter(Boolean)
+        .filter((x, i, a) => a.findIndex(y => y.pair_id === x.pair_id) === i)
+        .map(x => ({ pair_id: x.pair_id, level: x.level, ex: x.ex, ex_role: x.ex_role }));
+      const run = { user_id: p.id, leader, round: now.active, tickets, score, team };
+      if (validateRun(season, now, run, { isStaff: false })) continue;
+      runs.push({ id: nextId(), season_id: season.id, member_name: p.display_name, note: '', created_by: p.id,
+        created_at: new Date(t + rnd() * 36e5).toISOString(), updated_at: new Date(t).toISOString(), ...run });
+      runs.at(-1).occurred_at = new Date(Math.min(Date.parse(runs.at(-1).created_at), Date.now() - 120000)).toISOString(); runs.at(-1).occurred_inferred = false;
+    }
+  }
+  runs.sort((a, b) => b.occurred_at.localeCompare(a.occurred_at));
+}
+
+export function createDemoApi() {
+  const db = seedData();
+  let me = null;
+  const role = () => db.profiles.find(p => p.id === me)?.role;
+  const staff = () => ['admin', 'mod'].includes(role());
+  const deny = msg => { throw new Error(msg || t('Not allowed.')); };
+  const selfOrStaff = id => (id === me || staff() || deny());
+  const clone = x => JSON.parse(JSON.stringify(x));
+  const seasonRuns = sid => db.runs.filter(r => r.season_id === sid);
+  let nextRun = Math.max(0, ...db.runs.map(r => r.id)) + 1;
+
+  // The battle time must sit inside the Gym Battle and not in the future; it never moves the run to another round
+  function checkTime(s, iso) {
+    const at = Date.parse(iso);
+    if (!(at >= Date.parse(s.battle_start) && at <= Date.parse(s.battle_end) && at <= Date.now() + 3e5)) throw new Error(t('The battle time must be inside the Gym Battle (and not in the future).'));
+    return new Date(at).toISOString();
+  }
+  function checkRun(row, editing) {
+    const s = db.seasons.find(x => x.id === row.season_id);
+    const st = seasonState(s, seasonRuns(s.id).filter(r => r !== editing), db.seasonMembers.filter(m => m.season_id === s.id));
+    // seasonState above already excludes the edited run, so validate as a new one but keep staff/edit leniency
+    const err = validateRun(s, st, row, { isStaff: staff() || !!editing });
+    if (err) throw new Error(err);
+  }
+
+  return {
+    mode: 'demo',
+    demoUsers: () => ['admin', 'mod', 'member'].map(r => db.profiles.find(p => p.role === r)),
+    async session() { return me; },
+    async signIn(username) {
+      const p = db.profiles.find(x => x.username === username.trim().toLowerCase());
+      if (!p) throw new Error(t('Wrong username or password.'));
+      me = p.id;
+    },
+    async signOut() { me = null; },
+    async changePassword(pw) { if (String(pw).length < 8) throw new Error(t('Password must be at least 8 characters.')); },
+
+    async adminUsers(body) {
+      if (role() !== 'admin') deny(t('Only the admin can manage accounts.'));
+      if (body.action === 'create') {
+        if (!/^[a-z0-9_.-]{3,32}$/.test(body.username || '')) deny(t('Username: 3–32 characters, lowercase letters, digits, _ . -'));
+        if (db.profiles.some(p => p.username === body.username)) deny(t('Username already taken.'));
+        if (String(body.password || '').length < 8) deny(t('Password must be at least 8 characters.'));
+        const id = uid(1000 + db.profiles.length);
+        db.profiles.push({ id, username: body.username, display_name: body.display_name || '', facebook: '', note: '', avatar: '', avatar_url: '',
+          role: body.role || 'member', joined_at: new Date().toISOString().slice(0, 10), created_at: new Date().toISOString() });
+        return { id };
+      }
+      if (body.action === 'delete') {
+        if (body.user_id === me) deny(t('You cannot delete your own admin account.'));
+        db.profiles = db.profiles.filter(p => p.id !== body.user_id);
+        db.memberPairs = db.memberPairs.filter(x => x.user_id !== body.user_id);
+        db.tower = db.tower.filter(x => x.user_id !== body.user_id);
+        db.assignments = db.assignments.filter(x => x.user_id !== body.user_id);
+        db.facilitators = db.facilitators.filter(x => x.user_id !== body.user_id);
+        db.sheet = db.sheet.filter(x => x.user_id !== body.user_id);
+        db.seasonMembers = db.seasonMembers.filter(x => x.user_id !== body.user_id);
+        for (const r of db.runs) if (r.user_id === body.user_id) r.user_id = null;   // runs keep member_name
+        return { ok: true };
+      }
+      if (body.action === 'reset_password') return { ok: true };
+      if (body.action === 'set_role') {
+        db.profiles.find(p => p.id === body.user_id).role = body.role;
+        return { ok: true };
+      }
+      deny(t('Unknown action.'));
+    },
+
+    profiles: async () => clone(db.profiles),
+    async updateProfile(id, patch) {
+      selfOrStaff(id);
+      if (('role' in patch || 'username' in patch) && role() !== 'admin') deny(t('Only the admin can change roles.'));
+      if (patch.timezone && !validTz(patch.timezone)) deny(t('“{z}” is not a valid time zone.', { z: patch.timezone }));
+      Object.assign(db.profiles.find(p => p.id === id), patch);
+    },
+
+    async uploadAvatar(id, blob) {
+      selfOrStaff(id);
+      const url = await new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob); });
+      db.profiles.find(p => p.id === id).avatar_url = url;
+      return url;
+    },
+    async removeAvatar(id) { selfOrStaff(id); db.profiles.find(p => p.id === id).avatar_url = ''; },
+
+    catalogCount: async () => db.catalog.length,
+    async syncCatalog(rows) { staff() || deny(); db.catalog = clone(rows); },
+
+    memberPairs: async () => clone(db.memberPairs),
+    async upsertMemberPair(row) {
+      selfOrStaff(row.user_id);
+      const c = db.catalog.find(x => x.id === row.pair_id);
+      if (row.level > c.max_bonus) deny(t('{pair} only goes up to {n}/5.', { pair: `${c.trainer} & ${c.pokemon}`, n: c.max_bonus }));
+      if (row.ex_role && !c.ex_role) deny(t('{pair} has no EX Role.', { pair: `${c.trainer} & ${c.pokemon}` }));
+      const i = db.memberPairs.findIndex(x => x.user_id === row.user_id && x.pair_id === row.pair_id);
+      const full = { level: 1, stars: c.rarity, ex: false, ex_role: false, note: '', ...(i >= 0 ? db.memberPairs[i] : {}), ...row, updated_at: new Date().toISOString() };
+      const name = `${c.trainer} & ${c.pokemon}`;
+      if (full.stars < c.rarity || full.stars > 5) deny(t('{pair} starts at {n}★.', { pair: name, n: c.rarity }));
+      if (full.ex && full.stars < 5) deny(t('Raise {pair} to 5★ before 6★ EX.', { pair: name }));
+      if (i >= 0) db.memberPairs[i] = full; else db.memberPairs.push(full);
+      return clone(full);
+    },
+    async upsertMemberPairs(rows) { for (const r of rows) await this.upsertMemberPair(r); },
+    async deleteMemberPairs(user_id, ids) { for (const id of ids) await this.deleteMemberPair(user_id, id); },
+    async deleteMemberPair(user_id, pair_id) {
+      selfOrStaff(user_id);
+      db.memberPairs = db.memberPairs.filter(x => !(x.user_id === user_id && x.pair_id === pair_id));
+      for (const a of db.assignments) if (a.user_id === user_id) a.team = a.team.filter(x => x !== pair_id);
+      for (const f of db.facilitators) if (f.user_id === user_id) f.team = f.team.filter(x => x !== pair_id);
+      db.sheet = db.sheet.filter(x => !(x.user_id === user_id && x.pair_id === pair_id));
+    },
+
+    tower: async () => clone(db.tower),
+    async upsertTower(row) {
+      selfOrStaff(row.user_id);
+      if (!(row.floor >= 0 && row.floor <= 40)) deny(t('Tower floors go from 0 to 40.'));
+      const i = db.tower.findIndex(x => x.user_id === row.user_id && x.type === row.type);
+      if (i >= 0) db.tower[i] = { ...db.tower[i], ...row }; else db.tower.push({ ...row });
+    },
+
+    seasons: async () => clone(db.seasons).sort((a, b) => b.battle_start.localeCompare(a.battle_start)),
+    async createSeason(row) {
+      staff() || deny();
+      const s = { id: Math.max(0, ...db.seasons.map(x => x.id)) + 1, is_active: false, created_at: new Date().toISOString(), ...row };
+      db.seasons.push(s);
+      return clone(s);
+    },
+    async updateSeason(id, patch) { staff() || deny(); Object.assign(db.seasons.find(s => s.id === id), patch); },
+    async setActiveSeason(id) { staff() || deny(); for (const s of db.seasons) s.is_active = s.id === id; },
+    async deleteSeason(id) {
+      staff() || deny();
+      db.seasons = db.seasons.filter(s => s.id !== id);
+      db.runs = db.runs.filter(r => r.season_id !== id);
+    },
+
+    seasonMembers: async sid => clone(db.seasonMembers.filter(m => m.season_id === sid)),
+    async setSeasonRole(season_id, user_id, patch) {
+      staff() || deny();
+      let m = db.seasonMembers.find(x => x.season_id === season_id && x.user_id === user_id);
+      if (!m) db.seasonMembers.push(m = { season_id, user_id, banned: false, note: '' });
+      if (patch.support_type && patch.support_type === (patch.main_type !== undefined ? patch.main_type : m.main_type)) throw new Error('The reinforcement type must differ from the main type');   // the same rule as the database check
+      Object.assign(m, patch);
+    },
+    async setSeasonRoles(rows) { for (const r of rows) await this.setSeasonRole(r.season_id, r.user_id, { battle_role: r.battle_role, main_type: r.main_type, support_type: r.support_type ?? null }); },
+    async setBanned(season_id, user_id, banned) {
+      staff() || deny();
+      const m = db.seasonMembers.find(x => x.season_id === season_id && x.user_id === user_id);
+      if (m) m.banned = banned; else db.seasonMembers.push({ season_id, user_id, banned, note: '' });
+    },
+
+    runs: async sid => clone(seasonRuns(sid)).sort((a, b) => b.occurred_at.localeCompare(a.occurred_at) || b.id - a.id),
+    async createRun(row) {
+      if (row.user_id !== me && !staff()) deny();
+      checkRun(row, null);
+      const s = db.seasons.find(x => x.id === row.season_id);
+      row = { ...row, occurred_at: checkTime(s, row.occurred_at || new Date(Math.min(Math.max(Date.now(), Date.parse(s.battle_start)), Date.parse(s.battle_end))).toISOString()) };
+      const p = db.profiles.find(x => x.id === row.user_id);
+      { const m = db.seasonMembers.find(x => x.season_id === row.season_id && x.user_id === row.user_id); row = { ...row, main_type_at: m?.main_type || null, support_type_at: m?.support_type || null }; }
+      const r = { id: nextRun++, member_name: p?.display_name || p?.username || '', note: '', created_by: me,
+        created_at: new Date().toISOString(), updated_at: new Date().toISOString(), ...row };
+      db.runs.unshift(r);
+      db.activity.unshift({ id: Date.now(), at: r.created_at, actor: me, actor_name: db.profiles.find(x => x.id === me)?.display_name,
+        action: 'runs.insert', detail: { leader: r.leader, round: r.round, score: r.score, member_name: r.member_name } });
+      return clone(r);
+    },
+    async updateRun(id, patch) {
+      const r = db.runs.find(x => x.id === id);
+      if (r.user_id !== me && !staff()) deny();
+      checkRun({ ...r, ...patch }, r);
+      if ((patch.user_id && patch.user_id !== r.user_id) || (patch.leader && patch.leader !== r.leader) || (patch.occurred_at && patch.occurred_at !== r.occurred_at)) {
+        { const m = db.seasonMembers.find(x => x.season_id === r.season_id && x.user_id === (patch.user_id || r.user_id)); patch = { ...patch, main_type_at: m?.main_type || null, support_type_at: m?.support_type || null }; }
+        db.runReviews = db.runReviews.filter(x => x.run_id !== r.id);   // the context changed: review again
+      }
+      if (patch.occurred_at && patch.occurred_at !== r.occurred_at) {
+        checkTime(db.seasons.find(x => x.id === r.season_id), patch.occurred_at);
+        patch = { ...patch, occurred_inferred: false };
+      }
+      Object.assign(r, patch, { updated_at: new Date().toISOString() });
+    },
+    async deleteRun(id) {
+      const r = db.runs.find(x => x.id === id);
+      if (r.user_id !== me && !staff()) deny();
+      db.runs = db.runs.filter(x => x.id !== id);
+    },
+
+    assignments: async sid => clone(db.assignments.filter(a => a.season_id === sid)),
+    async saveAssignment(row) {
+      staff() || deny();
+      const team = row.team || [];
+      if (team.length > 3) deny(t('A team has at most 3 sync pairs.'));
+      if (new Set(team).size !== team.length) deny(t('The same sync pair is in the team twice.'));
+      const missing = team.filter(id => !db.memberPairs.some(m => m.user_id === row.user_id && m.pair_id === id));
+      if (missing.length) deny(t('{pairs} is not in this member’s roster.', { pairs: missing.map(id => { const c = db.catalog.find(x => x.id === id); return c ? `${c.trainer} & ${c.pokemon}` : id; }).join(', ') }));
+      const a = db.assignments.find(x => x.season_id === row.season_id && x.leader === row.leader && x.user_id === row.user_id);
+      const next = { team: [], note: '', ...(a || {}), ...row, updated_by: me, updated_at: new Date().toISOString() };
+      if (a) Object.assign(a, next); else db.assignments.push(next);
+    },
+    async removeAssignment(season_id, leader, user_id) {
+      staff() || deny();
+      db.assignments = db.assignments.filter(a => !(a.season_id === season_id && a.leader === leader && a.user_id === user_id));
+    },
+
+    sheet: async () => clone(db.sheet),
+    async saveSheetCells(rows) { for (const r of rows) await this.saveSheetCell(r); },
+    async saveSheetCell(row) {
+      selfOrStaff(row.user_id);
+      if (row.pair_id && !db.memberPairs.some(m => m.user_id === row.user_id && m.pair_id === row.pair_id)) {
+        const c = db.catalog.find(x => x.id === row.pair_id);
+        deny(t('{pairs} is not in this member’s roster.', { pairs: c ? `${c.trainer} & ${c.pokemon}` : row.pair_id }));
+      }
+      const i = db.sheet.findIndex(x => x.user_id === row.user_id && x.type === row.type && x.slot === row.slot);
+      const full = { ...row, updated_by: me, updated_at: new Date().toISOString() };
+      if (i >= 0) db.sheet[i] = full; else db.sheet.push(full);
+    },
+    async clearSheetCell(user_id, type, slot) {
+      selfOrStaff(user_id);
+      db.sheet = db.sheet.filter(x => !(x.user_id === user_id && x.type === type && x.slot === slot));
+    },
+
+    results: async sid => clone(db.results.filter(r => r.season_id === sid)),
+    resources: async () => clone(db.resources).sort((a, b) => a.category.localeCompare(b.category) || a.title.localeCompare(b.title)),
+    async saveResource(row) {
+      staff() || deny();
+      if (!/^https?:\/\//i.test(row.url || '')) deny(t('The link must start with http:// or https://.'));
+      if (!(row.title || '').trim()) deny(t('Give it a title.'));
+      if (db.resources.some(x => x.url === row.url && x.id !== row.id)) deny(t('That link is already in the list.'));
+      const old = db.resources.find(x => x.id === row.id);
+      if (old) Object.assign(old, row, { updated_at: new Date().toISOString() });
+      else db.resources.push({ id: Math.max(0, ...db.resources.map(x => x.id)) + 1, status: 'unchecked', checked_at: null, ...row });
+    },
+    async deleteResource(id) { staff() || deny(); db.resources = db.resources.filter(x => x.id !== id); },
+    strategies: async () => ({
+      strategies: clone(db.strategies),
+      revisions: clone(db.revisions.filter(r => ['published', 'superseded'].includes(r.status) || r.author_id === me || staff())),
+    }),
+    async createStrategy(mode, created_by, rev) {
+      if (!['GvG', 'DC 3v1', 'DC 3v3'].includes(mode)) deny(t('Pick a mode.'));
+      const st = { id: Math.max(0, ...db.strategies.map(x => x.id)) + 1, mode, created_by: me, created_at: new Date().toISOString(), archived: false, published_rev: null };
+      db.strategies.push(st);
+      await this.addRevision(st.id, rev);
+      return clone(st);
+    },
+    async addRevision(strategy_id, rev) {
+      if (db.revisions.some(r => r.strategy_id === strategy_id && ['draft', 'pending', 'changes_requested'].includes(r.status))) deny(t('This strategy already has a revision being written or reviewed.'));
+      if (!(rev.title || '').trim()) deny(t('Give it a title.'));
+      if (rev.video_url && !/^https?:\/\//i.test(rev.video_url)) deny(t('The link must start with http:// or https://.'));
+      const r = { review_note: '', reviewed_by: null, reviewed_at: null, boss: '', weakness: '', season_label: '', conditions: '', team: [], grid_note: '', rotation: '', video_url: '', ...rev,
+        id: Math.max(0, ...db.revisions.map(x => x.id)) + 1, strategy_id, status: rev.status === 'pending' ? 'pending' : 'draft', author_id: me,
+        rev_no: Math.max(0, ...db.revisions.filter(x => x.strategy_id === strategy_id).map(x => x.rev_no)) + 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+      db.revisions.push(r);
+      return clone(r);
+    },
+    // Same transitions as the database trigger
+    async saveRevision(id, patch) {
+      const r = db.revisions.find(x => x.id === id);
+      if (!r || !(r.author_id === me || staff())) deny();
+      const content = ['title', 'boss', 'weakness', 'season_label', 'conditions', 'team', 'grid_note', 'rotation', 'video_url'].filter(k => k in patch && JSON.stringify(patch[k]) !== JSON.stringify(r[k]));
+      if (['published', 'superseded'].includes(r.status)) deny(t('A published revision never changes: edit the strategy to open a new revision.'));
+      if (content.length && !(r.author_id === me && ['draft', 'changes_requested'].includes(r.status))) deny(t('Only the author can edit a draft or a revision that needs changes.'));
+      if (patch.title !== undefined && !patch.title.trim()) deny(t('Give it a title.'));
+      if (patch.status && patch.status !== r.status) {
+        const from = r.status, to = patch.status;
+        if (['draft', 'changes_requested'].includes(from) && to === 'pending') { if (r.author_id !== me) deny(t('Only the author can submit a revision for review.')); }
+        else if (from === 'pending' && to === 'draft') { if (r.author_id !== me) deny(t('Only the author can take a submitted revision back.')); }
+        else if (from === 'pending' && ['published', 'changes_requested'].includes(to)) {
+          staff() || deny(t('Only a mod or the admin can review a strategy.'));
+          if (to === 'changes_requested' && !(patch.review_note || '').trim()) deny(t('Say what needs to change.'));
+          patch = { ...patch, reviewed_by: me, reviewed_at: new Date().toISOString() };
+          if (to === 'published') {
+            db.revisions.filter(x => x.strategy_id === r.strategy_id && x.status === 'published').forEach(x => { x.status = 'superseded'; });
+            db.strategies.find(x => x.id === r.strategy_id).published_rev = r.id;
+          }
+        } else deny(`${from} → ${to}`);
+      }
+      Object.assign(r, patch, { updated_at: new Date().toISOString() });
+      return clone(r);
+    },
+    async deleteRevision(id) {
+      const r = db.revisions.find(x => x.id === id);
+      if (!r || !((r.author_id === me && r.status === 'draft') || staff())) deny();
+      db.revisions = db.revisions.filter(x => x.id !== id);
+      if (!db.revisions.some(x => x.strategy_id === r.strategy_id)) db.strategies = db.strategies.filter(x => x.id !== r.strategy_id);
+    },
+    async archiveStrategy(id, archived) { staff() || deny(); db.strategies.find(x => x.id === id).archived = archived; },
+    runReviews: async () => clone(db.runReviews.filter(x => staff() || db.runs.find(r => r.id === x.run_id)?.user_id === me)),
+    async saveRunReview(row) {
+      staff() || deny();
+      const old = db.runReviews.find(x => x.run_id === row.run_id);
+      const next = { note: '', ...row, reviewed_by: me, reviewed_at: new Date().toISOString() };
+      if (old) Object.assign(old, next); else db.runReviews.push(next);
+    },
+    async deleteRunReview(run_id) { staff() || deny(); db.runReviews = db.runReviews.filter(x => x.run_id !== run_id); },
+    gems: async () => clone(db.gems),
+    async saveGemReward(row) {
+      staff() || deny();
+      if (!(row.label || '').trim()) deny(t('Give it a name.'));
+      if (row.end_date < row.start_date) deny(t('The end is before the start.'));
+      if (row.kind === 'on_date' && row.start_date !== row.end_date) deny(t('A one-day reward needs one date.'));
+      if (row.free_gems != null && row.free_gems < 0) deny(t('Gems cannot be negative.'));
+      if (db.gems.rewards.some(x => x.label === row.label && x.kind === row.kind && x.start_date === row.start_date && x.end_date === row.end_date && x.id !== row.id)) deny(t('That reward is already in the list.'));
+      const old = row.id && db.gems.rewards.find(x => x.id === row.id);
+      if (old) Object.assign(old, row); else db.gems.rewards.push({ id: Math.max(0, ...db.gems.rewards.map(x => x.id)) + 1, event_id: null, certainty: 'confirmed', condition: '', source: '', ...row });
+    },
+    async deleteGemReward(id) { staff() || deny(); db.gems.rewards = db.gems.rewards.filter(x => x.id !== id); },
+    async saveGemEvent(row) {
+      staff() || deny();
+      if (!(row.name || '').trim()) deny(t('Give it a name.'));
+      const old = row.id && db.gems.events.find(x => x.id === row.id);
+      if (old) Object.assign(old, row); else db.gems.events.push({ id: Math.max(0, ...db.gems.events.map(x => x.id)) + 1, source: '', note: '', ...row });
+    },
+    async deleteGemEvent(id) { staff() || deny(); db.gems.events = db.gems.events.filter(x => x.id !== id); db.gems.rewards = db.gems.rewards.filter(x => x.event_id !== id); },
+    async saveGemSettings(patch) { staff() || deny(); Object.assign(db.gems.settings, patch); },
+    gridBuilds: async () => clone(db.gridBuilds.filter(b => b.user_id === me || b.visibility !== 'private')).sort((a, b) => b.updated_at.localeCompare(a.updated_at)),
+    async saveGridBuild(row) {
+      if (!(row.name || '').trim()) deny(t('Give it a name.'));
+      const old = row.id && db.gridBuilds.find(b => b.id === row.id);
+      if (old && old.user_id !== me) deny();
+      const now = new Date().toISOString();
+      if (old) { Object.assign(old, row, { updated_at: now }); return clone(old); }
+      const me_ = db.profiles.find(x => x.id === me);
+      const b = { id: Math.max(0, ...db.gridBuilds.map(x => x.id)) + 1, visibility: 'private', purpose: '', energy_cap: null, move_level: 5, ...row, user_id: me, share_token: crypto.randomUUID(), author_name: me_?.display_name || me_?.username || '', created_at: now, updated_at: now };
+      db.gridBuilds.push(b); return clone(b);
+    },
+    async sharedGrid(token) { const b = db.gridBuilds.find(x => x.share_token === token && x.visibility === 'link'); return b ? { ...clone(b), user_id: null } : null; },
+    async deleteGridBuild(id) { const b = db.gridBuilds.find(x => x.id === id); if (!b || b.user_id !== me) deny(); db.gridBuilds = db.gridBuilds.filter(x => x.id !== id); },
+    facilitators: async sid => clone(db.facilitators.filter(f => f.season_id === sid)),
+    async saveFacilitator(row) {
+      staff() || deny();
+      const team = row.team || [];
+      if (team.length > 3) deny(t('A team has at most 3 sync pairs.'));
+      const missing = team.filter(id => !db.memberPairs.some(m => m.user_id === row.user_id && m.pair_id === id));
+      if (missing.length) deny(t('{pairs} is not in this member’s roster.', { pairs: missing.map(id => { const c = db.catalog.find(x => x.id === id); return c ? `${c.trainer} & ${c.pokemon}` : id; }).join(', ') }));
+      const f = db.facilitators.find(x => x.season_id === row.season_id && x.leader === row.leader && x.user_id === row.user_id);
+      const next = { team: [], does: [], note: '', ...(f || {}), ...row, updated_at: new Date().toISOString() };
+      if (f) Object.assign(f, next); else db.facilitators.push(next);
+    },
+    async removeFacilitator(season_id, leader, user_id) {
+      staff() || deny();
+      db.facilitators = db.facilitators.filter(f => !(f.season_id === season_id && f.leader === leader && f.user_id === user_id));
+    },
+
+    notes: async sid => clone(db.notes.filter(n => n.season_id === sid)),
+    async saveNote(row) {
+      staff() || deny();
+      const n = db.notes.find(x => x.season_id === row.season_id && x.leader === row.leader);
+      if (n) Object.assign(n, row); else db.notes.push({ ...row });
+    },
+
+    activity: async () => (staff() ? clone(db.activity.slice(0, 200)) : []),
+  };
+}
