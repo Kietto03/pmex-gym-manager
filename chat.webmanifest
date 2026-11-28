@@ -1,0 +1,13 @@
+{
+  "name": "Gym Chat",
+  "short_name": "Gym Chat",
+  "description": "The gym's chat: the gym room, direct messages, groups and the Gym Battle channels.",
+  "start_url": "chat.html#/chat",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f3f3f5",
+  "theme_color": "#e8453c",
+  "icons": [
+    { "src": "assets/chat-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
